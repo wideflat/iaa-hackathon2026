@@ -17,7 +17,10 @@ Never commit competition data or credentials (competition rules forbid redistrib
     python scripts/run_cv.py --model lgbm               # LightGBM Tweedie per line
     python scripts/make_submission.py --model lgbm --out submissions/lgbm.csv   # fits 2021-24, writes validated CSV
 
-Results are appended to `experiments/log.jsonl`.
+    python scripts/submit.py submissions/lgbm.csv -m "lgbm v1"            # validate + dry run
+    python scripts/submit.py submissions/lgbm.csv -m "lgbm v1" --confirm   # submit (uses a daily slot)
+
+Results are appended to `experiments/log.jsonl`. Branches: `main` is stable, work happens on `dev`.
 
 ## Layout
 - `src/iaa/target.py` target definition, exposure fix, claim matching

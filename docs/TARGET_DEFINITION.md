@@ -39,3 +39,20 @@ Ultimate = paid + case reserves (= incurred) + IBNR, where IBNR = pure IBNR (not
 - Fold A (2023, ~mature) tests the accident-basis + trend treatment without any ultimate assumption.
 - A few public-leaderboard submissions of one model at different global scale factors reveal the level the answer sits at
   (D2 is maximised near the right level). This is 3 numbers, not a fit to the leaderboard, but it is noisy on heavy-tailed lines.
+
+## 5. Reported-claim triangles (built with `src/iaa/development.py`)
+Accident quarter x report quarter, volume-weighted age-to-age factors, cumulated to ultimate (as on p.119 of the chapter).
+Link ratios are stable across accident quarters (no diagonal / calendar effect visible), so all-year volume-weighted averages are used.
+
+| Line / peril | 3m->6m | 6m->9m | cum. factor to ultimate at 3m / 6m / 12m | implied count uplift AY2023 / AY2024 |
+|---|---|---|---|---|
+| Motor, all perils | 1.193 | 1.016 | 1.246 / 1.044 / 1.019 | +0.6% / +7.9% |
+| **Motor bodily injury** | **2.50** | 1.371 | **4.85 / 1.94 / 1.21** | **+6.1% / +82%** |
+| Buildings | 1.178 | 1.011 | 1.207 / 1.025 / 1.009 | +0.3% / +5.8% |
+| Contents | 1.127 | 1.000 | 1.134 / 1.006 / 1.006 | +0.2% / +3.5% |
+
+Reading: bodily injury is reported very slowly (only ~21% of claims known at 3 months) and is the heavy-cost peril, so it
+drives the motor 2024 shortfall. The 2024 BI factors rest on ~100 claims per quarter and are the least certain number in the project.
+This agrees with the day-lag estimate (motor 2024 +6.2% count, +17.5% cost) to within the quarter-alignment difference.
+
+Not estimable from one snapshot: paid or case-incurred development (IBNER), settlement-driven recovery emergence.

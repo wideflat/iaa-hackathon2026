@@ -9,8 +9,8 @@
   - GBM leaves 4 + out5 (`fs_gbm_l4_out5`): A 0.1339 [0.1323], B 0.1323 [0.1333]
   - NN v1 (`fs_nn_v1`, CANN-style, 1 seed): A 0.1365 [0.1319], B 0.1296 [0.1309] (motor better, buildings/contents worse than GBM)
   - 50/50 blend GBM+NN (OOF): A 0.1388 [0.1356], B 0.1338 [0.1349]; paired vs GBM alone +0.0049 (CI +0.0024..+0.0082) on A, +0.0014 (CI +0.0003..+0.0025) on B
-- Public LB so far: v1 0.12153, v2 0.12455, GLM 0.12133 (organisers' GLM 0.10563, top seen 0.12815). 
-- Submitted 2026-10-18 14:08 UTC (at the user's request): `submissions/blend_gbm_nn_v1.csv` = 0.5 x `fs_gbm_v4_l4_out5.csv` + 0.5 x `fs_nn_v1.csv`. Score PENDING when last checked (`python scripts/check_submissions.py`; it printed an auth error once at 14:10 - retry). Submissions today (UTC): 6 of 10 including the blend.
+- Public LB so far: v1 0.12153, v2 0.12455, GLM 0.12133, blend GBM+NN 0.12587 (organisers' GLM 0.10563, top seen 0.12815). 
+- Submitted 2026-10-18 14:08 UTC (at the user's request): `submissions/blend_gbm_nn_v1.csv` = 0.5 x `fs_gbm_v4_l4_out5.csv` + 0.5 x `fs_nn_v1.csv`. **Public score 0.12587** (read by the user from the Kaggle page; best so far; `check_submissions.py` gave auth errors). Submissions today (UTC): 6 of 10 including the blend.
 - Not submitted: `fs_gbm_v4_l4_out5.csv`, `fs_gbm_v3_leaves4.csv`, `fs_nn_v1.csv` alone.
 
 ### Running / half done

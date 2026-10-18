@@ -10,6 +10,9 @@ expected cost(row) = sum over perils p of  E[claim count_p | row] x E[capped sev
   training claim to the cost level of the year after the last training year (= the year being predicted).
 * Completeness (completeness=True): claims of immature years are under-reported at the valuation date, so the frequency offset of those rows is
   multiplied by the expected reported share of the peril and year (from the annual count triangle); predictions are at completeness 1 (ultimate).
+* Optional (all off by default): recency=rho weights training rows (and claims) by exp(rho x (year - last year)); adv_strength=s adds domain-shift weights
+  (cross-fitted classifier train-vs-target rows, odds^s, clipped; needs fit(train, target=rows to be predicted), features only, no labels);
+  tail_lambda=l makes the excess load risk-dependent: excess_p x (p_large(x) / mean p_large)^l with p_large from a shallow GBM on claims above the 99th percentile (gbm only).
 Claims are matched to rows beforehand (target.matched_claims); repudiated claims are excluded.
 """
 import lightgbm as lgb
@@ -49,7 +52,8 @@ class FreqSev:
                  glm_alpha_freq: float = 1e-3, glm_alpha_sev: float = 1e-2, min_sev_claims: int = 150,
                  trend: bool = True, completeness: bool = True, params_freq: dict | None = None, params_sev: dict | None = None,
                  bands: bool = False, n_bands: int = 6, n_seeds: int = 1, rebalance_level: str = "line", outlier_mult: float | None = None,
-                 nn_params: dict | None = None, threads: int = 4):
+                 nn_params: dict | None = None, threads: int = 4,
+                 recency: float = 0.0, adv_strength: float = 0.0, tail_lambda: float = 0.0, entity_cols=()):
         assert kind in ("glm", "gbm", "nn", "xgb", "cat")
         c = claims_line[claims_line["row_id"].notna() & (claims_line["status"] != "repudiated")]
         self.claims = c[["row_id", "peril", "net_cost"]]
@@ -65,6 +69,10 @@ class FreqSev:
         self.n_seeds = n_seeds   # GBM only: average this many boosters per stage (different bagging seeds)
         self.params_freq, self.params_sev = params_freq or {}, params_sev or {}
         self.threads = threads   # xgb / cat
+        self.recency, self.adv_strength, self.tail_lambda, self.entity_cols = recency, adv_strength, tail_lambda, tuple(entity_cols)
+        self.uses_target = adv_strength > 0
+        self.tail_min_claims, self.tail_min_events = 400, 40   # a peril needs this many claims / large claims to get a tail propensity model
+        assert tail_lambda == 0 or kind == "gbm", "tail model is implemented for the LightGBM kind only"
         self.nn_params = nn_params or {}   # kind='nn': epochs, hidden, dropout, lr, n_seeds... (see models/nn.py)
         self.sev_trend_ = 0.0
         has_dates = {"loss_date", "report_date"} <= set(claims_line.columns)
@@ -118,7 +126,8 @@ class FreqSev:
                                               dtype=np.float32, random_state=SEED).fit(z)
             self.ohe_ = OneHotEncoder(handle_unknown="ignore", min_frequency=1000, sparse_output=True).fit(self._cat(train))
         elif self.kind == "nn":
-            self.enc_ = _nn().Encoder(self.num_, self.cat_).fit(train)
+            self.enc_ = _nn().Encoder(self.num_, self.cat_, entity_cols=self.entity_cols, entity_min_count=self.nn_params.get("entity_min", 2),
+                                      entity_dim=self.nn_params.get("entity_dim", 4)).fit(train)
         else:
             self.levels_ = {c: sorted(train[c].dropna().astype(str).unique()) for c in self.cat_}
 
@@ -144,8 +153,41 @@ class FreqSev:
         return x
 
     # ---- fitting ------------------------------------------------------------------------------
-    def fit(self, train: pd.DataFrame):
+    def _adv_weights(self, train: pd.DataFrame, target: pd.DataFrame) -> np.ndarray:
+        """Domain-shift weights: odds that a training row looks like a row of `target` (features only), cross-fitted so a row is never scored by a model that saw it."""
+        cols = self.cols_
+        both = pd.concat([train[cols], target[cols]], ignore_index=True)
+        for c in self.cat_:
+            both[c] = both[c].astype("category").cat.codes
+        Z = both.to_numpy(dtype="float32")
+        zt, zg = Z[:len(train)], Z[len(train):]
+        rng = np.random.default_rng(SEED)
+        fold = pd.util.hash_array(train["row_id"].astype(str).to_numpy()) % 3
+        w = np.ones(len(train))
+        params = dict(objective="binary", learning_rate=0.1, num_leaves=15, min_data_in_leaf=200, feature_fraction=0.8, lambda_l2=10.0, verbose=-1, seed=SEED, num_threads=0)
+        for f in range(3):
+            tr_i = np.nonzero(fold != f)[0]
+            tr_i = rng.choice(tr_i, min(len(tr_i), 150_000), replace=False)
+            tg_i = rng.choice(len(zg), min(len(zg), 150_000), replace=False)
+            ds = lgb.Dataset(np.vstack([zt[tr_i], zg[tg_i]]), label=np.r_[np.zeros(len(tr_i)), np.ones(len(tg_i))])
+            b = lgb.train(params, ds, num_boost_round=120)
+            pr = np.clip(b.predict(zt[fold == f]), 1e-4, 1 - 1e-4)
+            w[fold == f] = pr / (1 - pr) * (len(tr_i) / len(tg_i))
+        w = np.clip(w, 0.2, 5.0) ** self.adv_strength
+        return w / w.mean()
+
+    def _row_weights(self, train: pd.DataFrame, target: pd.DataFrame | None) -> np.ndarray | None:
+        w = np.ones(len(train))
+        if self.recency:
+            w = w * np.exp(self.recency * (train["year"].to_numpy(dtype=float) - float(train["year"].max())))
+        if self.adv_strength:
+            assert target is not None, "adv_strength needs fit(train, target=rows to be predicted)"
+            w = w * self._adv_weights(train, target)
+        return None if (not self.recency and not self.adv_strength) else w / w.mean()
+
+    def fit(self, train: pd.DataFrame, target: pd.DataFrame | None = None):
         self._fit_features(train)
+        w_row = self._row_weights(train, target)
         X = self._x(train)
         expo = train["exposure_calc"].to_numpy()
         pos = pd.Index(train["row_id"])
@@ -156,6 +198,7 @@ class FreqSev:
         counts = cl.groupby(["row_id", "peril"]).size().unstack(fill_value=0).reindex(pos, fill_value=0)
         # A) caps and excess loads per peril
         self.freq_, self.sev_, self.excess_, self.cap_ = {}, {}, {}, {}
+        self.tail_ = {}
         for p, cp in cl.groupby("peril"):
             cap = float(cp["net_cost"].quantile(self.cap_quantile)) if len(cp) >= self.min_sev_claims else float(cp["net_cost"].max())
             capped = cp["net_cost"].clip(upper=cap)
@@ -171,9 +214,9 @@ class FreqSev:
         self.level_by_peril_ = {}
         kept = [p for p in counts.columns if counts[p].sum() >= 20]
         if self.kind == "nn":   # one multi-head network per stage instead of one model per peril
-            val = (pd.util.hash_array(train["customer_id"].astype(str).to_numpy()) % 20 == 0)
+            val = (pd.util.hash_array(train["row_id" if self.entity_cols else "customer_id"].astype(str).to_numpy()) % 20 == 0)   # entity embeddings need the hold-out customers seen in training
             cm = np.column_stack([self._c_vec(p, train["year"].to_numpy()) if self.completeness else np.ones(len(train)) for p in kept])
-            self.fnet_ = _nn().FreqNet(self.enc_, **self._nn_kw(_nn().FreqNet)).fit(X, counts[kept].to_numpy(dtype=float), expo[:, None] * cm, val)
+            self.fnet_ = _nn().FreqNet(self.enc_, **self._nn_kw(_nn().FreqNet)).fit(X, counts[kept].to_numpy(dtype=float), expo[:, None] * cm, val, w=w_row)
             sev_idx, sev_p, sev_y = [], [], []
         for j, p in enumerate(kept):
             n = counts[p].to_numpy(dtype=float)
@@ -186,8 +229,10 @@ class FreqSev:
                 sev_p.append(np.full(len(idx), j))
                 sev_y.append((cp["cost"] * cp["tf"]).clip(lower=1.0).to_numpy())
             else:
-                self.freq_[p] = self._fit_freq(X, n, expo * cvec)
-                self.sev_[p] = self._fit_sev(X, idx, (cp["cost"] * cp["tf"]).clip(lower=1.0).to_numpy())
+                self.freq_[p] = self._fit_freq(X, n, expo * cvec, w_row)
+                self.sev_[p] = self._fit_sev(X, idx, (cp["cost"] * cp["tf"]).clip(lower=1.0).to_numpy(), None if w_row is None else w_row[idx])
+                if self.tail_lambda:
+                    self._fit_tail(p, X, idx, cp["net_cost"].to_numpy())
             cc = self._c_vec(p, cp["year"].to_numpy()) if self.completeness else 1.0
             lp_cost = cp["net_cost"] if self.outlier_mult is None else cp["net_cost"].clip(upper=self.outlier_mult * self.cap_[p])
             lp = float((lp_cost * cp["tf"] / cc).sum())   # ultimate-equivalent, trended training cost of this peril
@@ -195,7 +240,8 @@ class FreqSev:
             level += lp
         if self.kind == "nn":
             idx = np.concatenate(sev_idx)
-            self.snet_ = _nn().SevNet(self.enc_, **self._nn_kw(_nn().SevNet)).fit(X[idx], np.concatenate(sev_p), np.concatenate(sev_y), len(kept), val[idx])
+            self.snet_ = _nn().SevNet(self.enc_, **self._nn_kw(_nn().SevNet)).fit(X[idx], np.concatenate(sev_p), np.concatenate(sev_y), len(kept), val[idx],
+                                                                                                                w=None if w_row is None else w_row[idx])
             self.kept_ = kept
         self.k_ = 1.0
         self.kp_ = {}
@@ -215,9 +261,9 @@ class FreqSev:
         ok = set(inspect.signature(cls.__init__).parameters) - {"self", "enc"}
         return {k: v for k, v in self.nn_params.items() if k in ok}
 
-    def _fit_freq(self, X, n, expo):
+    def _fit_freq(self, X, n, expo, w=None):
         if self.kind == "glm":
-            m = PoissonRegressor(alpha=self.alpha_f, max_iter=200).fit(X, n / expo, sample_weight=expo)
+            m = PoissonRegressor(alpha=self.alpha_f, max_iter=200).fit(X, n / expo, sample_weight=expo if w is None else expo * w)
             m.base_ = float(n.sum() / expo.sum())
             return m
         if self.kind in ("xgb", "cat"):
@@ -226,14 +272,14 @@ class FreqSev:
         params = dict(objective="poisson", learning_rate=0.05, num_leaves=15, min_data_in_leaf=300, feature_fraction=0.8,
                       bagging_fraction=0.8, bagging_freq=1, lambda_l2=10.0, verbose=-1, seed=SEED, num_threads=0)
         params.update(self.params_freq)
-        ds = lgb.Dataset(X, label=n, init_score=np.log(expo * base), free_raw_data=False)
+        ds = lgb.Dataset(X, label=n, weight=w, init_score=np.log(expo * base), free_raw_data=False)
         boosters = [lgb.train({**params, "seed": SEED + i}, ds, num_boost_round=self.freq_rounds) for i in range(self.n_seeds)]
         return boosters, base
 
-    def _fit_sev(self, X, idx, y):
+    def _fit_sev(self, X, idx, y, w=None):
         Xs = self._sub(X, idx)
         if self.kind == "glm":
-            m = GammaRegressor(alpha=self.alpha_s, max_iter=200).fit(Xs, y)
+            m = GammaRegressor(alpha=self.alpha_s, max_iter=200).fit(Xs, y, sample_weight=w)
             m.mean_ = float(np.mean(y))
             return m
         if self.kind in ("xgb", "cat"):
@@ -241,8 +287,27 @@ class FreqSev:
         params = dict(objective="gamma", learning_rate=0.05, num_leaves=15, min_data_in_leaf=60, feature_fraction=0.8,
                       bagging_fraction=0.8, bagging_freq=1, lambda_l2=10.0, verbose=-1, seed=SEED, num_threads=0)
         params.update(self.params_sev)
-        ds = lgb.Dataset(Xs, label=y, free_raw_data=False)
+        ds = lgb.Dataset(Xs, label=y, weight=w, free_raw_data=False)
         return [lgb.train({**params, "seed": SEED + i}, ds, num_boost_round=self.sev_rounds) for i in range(self.n_seeds)]
+
+    def _fit_tail(self, p, X, idx, cost):
+        """Propensity of a claim to be large (> the peril's 99th percentile of claim cost) given the risk features; used to make the excess load risk-dependent."""
+        if len(cost) < self.tail_min_claims:
+            return
+        thr = float(np.quantile(cost, 0.99))
+        y = (cost > thr).astype(float)
+        if y.sum() < self.tail_min_events:
+            return
+        params = dict(objective="binary", learning_rate=0.05, num_leaves=4, min_data_in_leaf=30, feature_fraction=0.8, bagging_fraction=0.8,
+                      bagging_freq=1, lambda_l2=20.0, verbose=-1, seed=SEED, num_threads=0)
+        b = lgb.train(params, lgb.Dataset(self._sub(X, idx), label=y), num_boost_round=80)
+        self.tail_[p] = (b, float(b.predict(self._sub(X, idx)).mean()))
+
+    def _tail_ratio(self, p, X) -> np.ndarray | float:
+        if self.tail_lambda == 0 or p not in getattr(self, "tail_", {}):
+            return 1.0
+        b, m = self.tail_[p]
+        return (np.clip(b.predict(X), 1e-6, None) / m) ** self.tail_lambda
 
     # ---- prediction ---------------------------------------------------------------------------
     def _nn_cache(self, X, key, fn):
@@ -277,7 +342,7 @@ class FreqSev:
         X = self._x(rows)
         expo = rows["exposure_calc"].to_numpy()
         kp = getattr(self, "kp_", {})
-        return pd.DataFrame({p: kp.get(p, 1.0) * self._freq_rate(p, X) * expo * self._sev(p, X) * (1.0 + self.excess_[p]) for p in self.freq_}, index=rows.index)
+        return pd.DataFrame({p: kp.get(p, 1.0) * self._freq_rate(p, X) * expo * self._sev(p, X) * (1.0 + self.excess_[p] * self._tail_ratio(p, X)) for p in self.freq_}, index=rows.index)
 
     def _predict_raw(self, rows: pd.DataFrame) -> np.ndarray:
         return self.expected_by_peril(rows).sum(axis=1).to_numpy()

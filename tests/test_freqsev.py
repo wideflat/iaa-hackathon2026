@@ -158,3 +158,48 @@ def test_nn_tweedie_balances_total_and_ranks_risk():
     assert (p >= 0).all() and np.isclose(p.sum(), rows.y.sum(), rtol=1e-9)
     hi, lo = rows.assign(x=2.0, g="c", exposure_calc=1.0), rows.assign(x=-2.0, g="a", exposure_calc=1.0)
     assert m.predict(hi).mean() > m.predict(lo).mean()
+
+
+def _with_ids(rows):
+    return rows.assign(customer_id=[f"C{i // 3}" for i in range(len(rows))], address_id=[f"A{i // 5}" for i in range(len(rows))])
+
+
+def _checks(m, rows):
+    p = m.predict(rows)
+    assert (p >= 0).all() and np.isfinite(p).all() and np.isclose(p.sum(), rows.y.sum(), rtol=1e-9)
+    hi, lo = rows.assign(x=2.0, g="c", exposure_calc=1.0), rows.assign(x=-2.0, g="a", exposure_calc=1.0)
+    assert m.predict(hi).mean() > m.predict(lo).mean()
+
+
+def test_tabm_and_entity_embeddings_train_and_rank_risk():
+    pytest.importorskip("torch")
+    rows, claims = _data()
+    rows = _with_ids(rows)
+    m = FreqSev(claims, kind="nn", nn_params={"epochs": 4, "hidden": (16, 8), "threads": 2, "tabm_k": 3, "entity_min": 2}, entity_cols=("customer_id", "address_id")).fit(rows)
+    _checks(m, rows)
+    assert m.fnet_.nets_[0].k == 3 and len(m.enc_.cards_) == len(m.enc_.cat_cols)
+
+
+def test_recency_and_domain_shift_weights_fit_and_rank_risk():
+    rows, claims = _data()
+    rows = rows.assign(year=np.where(np.arange(len(rows)) % 2 == 0, 2021, 2022))
+    target = rows.sample(1000, random_state=0).assign(x=lambda d: d.x + 0.5)
+    m = FreqSev(claims, kind="gbm", freq_rounds=40, sev_rounds=30, recency=0.3, adv_strength=0.5)
+    assert m.uses_target
+    m.fit(rows, target=target)
+    _checks(m, rows)
+    w = m._row_weights(rows, target)
+    assert np.isclose(w.mean(), 1.0) and w[rows.year.to_numpy() == 2022].mean() > w[rows.year.to_numpy() == 2021].mean() * 0.9
+
+
+def test_risk_dependent_tail_load_keeps_total_and_ranking():
+    rows, claims = _data()
+    claims = claims.copy()
+    big = claims.index[claims.peril == "A"][::40]          # a few large claims, more of them for high x rows
+    claims.loc[big, "net_cost"] *= 15
+    rows = rows.assign(y=claims.groupby("row_id").net_cost.sum().reindex(rows.row_id).fillna(0.0).to_numpy())
+    m = FreqSev(claims, kind="gbm", freq_rounds=40, sev_rounds=30, tail_lambda=0.5)
+    m.tail_min_claims, m.tail_min_events = 100, 4
+    m.fit(rows)
+    assert "A" in m.tail_
+    _checks(m, rows)

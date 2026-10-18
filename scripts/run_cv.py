@@ -49,6 +49,11 @@ def main() -> None:
     ap.add_argument("--nn-lr", type=float, default=None)
     ap.add_argument("--nn-wd", type=float, default=None)
     ap.add_argument("--nn-seeds", type=int, default=1, help="fs_nn: average this many nets per stage")
+    ap.add_argument("--recency", type=float, default=0.0, help="fs: row/claim weight exp(rho x (year - last year))")
+    ap.add_argument("--adv-weights", type=float, default=0.0, help="fs: domain-shift weight strength s (odds^s of looking like the rows to predict)")
+    ap.add_argument("--tail-lambda", type=float, default=0.0, help="fs_gbm: risk-dependent excess load exponent")
+    ap.add_argument("--entity", action="store_true", help="fs_nn: customer_id and address_id as learned embeddings")
+    ap.add_argument("--nn-tabm-k", type=int, default=None, help="fs_nn: TabM BatchEnsemble members per MLP")
     ap.add_argument("--threads", type=int, default=0, help="LightGBM threads (0 = all); use 2 to run two experiments in parallel")
     ap.add_argument("--resume", action="store_true", help="save/reuse a checkpoint per (fold, line) under artifacts/ckpt/<name>; change --name when settings change")
     ap.add_argument("--name", default=None)
@@ -83,11 +88,12 @@ def main() -> None:
                 pf["max_depth" if a.model == "fs_xgb" else "depth"] = ps["max_depth" if a.model == "fs_xgb" else "depth"] = a.depth
         nnp = {k: v for k, v in {"epochs": a.nn_epochs, "hidden": tuple(int(x) for x in a.nn_hidden.split(",")) if a.nn_hidden else None,
                                  "dropout": a.nn_dropout, "lr": a.nn_lr, "wd": a.nn_wd, "n_seeds": a.nn_seeds,
-                                 "threads": a.threads or 4}.items() if v is not None}
+                                 "tabm_k": a.nn_tabm_k, "threads": a.threads or 4}.items() if v is not None}
         factory = lambda line: FreqSev(matched[line], kind=a.model[3:], rebalance=not a.no_rebalance, drop_noise=not a.keep_noise,  # noqa: E731
                                        extra_drop=extra, trend=not a.no_trend, completeness=not a.no_completeness,
                                        freq_rounds=a.freq_rounds, sev_rounds=a.sev_rounds, cap_quantile=a.cap_q,
-                                       params_freq=pf, params_sev=ps, nn_params=nnp, threads=a.threads or 4, bands=a.bands, n_seeds=a.seeds, rebalance_level=a.rebalance_level, outlier_mult=a.outlier_mult,
+                                       params_freq=pf, params_sev=ps, nn_params=nnp, threads=a.threads or 4, recency=a.recency, adv_strength=a.adv_weights, tail_lambda=a.tail_lambda,
+                                       entity_cols=("customer_id", "address_id") if a.entity else (), bands=a.bands, n_seeds=a.seeds, rebalance_level=a.rebalance_level, outlier_mult=a.outlier_mult,
                                        **({"glm_alpha_freq": a.alpha_freq} if a.alpha_freq else {}), **({"glm_alpha_sev": a.alpha_sev} if a.alpha_sev else {}))
     elif a.model == "nn_tweedie":
         from iaa.models.nn_tweedie import NNTweedie

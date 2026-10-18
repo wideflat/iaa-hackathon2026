@@ -5,6 +5,9 @@ Architecture (CANN-style, Schelldorfer & Wuthrich): categorical embeddings + sta
 * FreqNet: one network for all perils, one Poisson head per peril, log(exposure x completeness) offset, bias initialised at log(base rate).
 * SevNet: one network for all perils, one Gamma head per peril (log link), trained on trended, capped claim costs.
 Early stopping uses a customer-grouped hold-out of the training rows (never the validation fold).
+Options: tabm_k > 0 turns each MLP into a TabM-style BatchEnsemble (k rank-1-modulated members sharing weights; trained member-wise, averaged
+on the log scale at prediction); entity_cols adds high-cardinality id columns (customer, address) as small learned embeddings = a random-effect
+per entity (rare/unseen entities share index 0); per-row weights (recency / domain shift) enter the losses.
 """
 import numpy as np
 import pandas as pd
@@ -28,8 +31,9 @@ class NNX:
 
 
 class Encoder:
-    def __init__(self, num_cols, cat_cols, min_level_count: int = 200):
-        self.num_cols, self.cat_cols, self.min_level_count = list(num_cols), list(cat_cols), min_level_count
+    def __init__(self, num_cols, cat_cols, min_level_count: int = 200, entity_cols=(), entity_min_count: int = 2, entity_dim: int = 4):
+        self.entity_cols, self.entity_min_count, self.entity_dim = list(entity_cols), entity_min_count, entity_dim
+        self.num_cols, self.cat_cols, self.min_level_count = list(num_cols), list(cat_cols) + self.entity_cols, min_level_count
 
     def fit(self, df: pd.DataFrame):
         num = df[self.num_cols].astype("float32")
@@ -42,8 +46,10 @@ class Encoder:
         self.levels_ = {}
         for c in self.cat_cols:
             vc = df[c].astype(object).where(df[c].notna(), "missing").astype(str).value_counts()
-            self.levels_[c] = {lv: i + 1 for i, lv in enumerate(vc[vc >= self.min_level_count].index)}
+            floor = self.entity_min_count if c in self.entity_cols else self.min_level_count
+            self.levels_[c] = {lv: i + 1 for i, lv in enumerate(vc[vc >= floor].index)}
         self.cards_ = [len(v) + 1 for v in self.levels_.values()]
+        self.emb_dims_ = [self.entity_dim if c in self.entity_cols else min(8, (len(v) + 1) // 2 + 1) for c, v in self.levels_.items()]
         self.n_num_ = len(self.num_cols) + len(self.miss_cols_)
         return self
 
@@ -59,25 +65,45 @@ class Encoder:
         return NNX(z, cat)
 
 
-class _Net(nn.Module):
-    def __init__(self, n_num: int, cards, out_dim: int, hidden=(192, 96), dropout: float = 0.1, emb_max: int = 8):
+class _BELinear(nn.Module):
+    """BatchEnsemble linear layer: k members share W and differ by rank-1 input/output scalings and their own bias (TabM)."""
+
+    def __init__(self, d_in: int, d_out: int, k: int, first: bool):
         super().__init__()
-        self.embs = nn.ModuleList([nn.Embedding(c, min(emb_max, c // 2 + 1)) for c in cards])
-        d_in = n_num + sum(e.embedding_dim for e in self.embs)
+        self.lin = nn.Linear(d_in, d_out, bias=False)
+        self.r = nn.Parameter(torch.randn(k, d_in).sign() if first else torch.ones(k, d_in))   # random-sign input scalings decorrelate the members
+        self.s = nn.Parameter(torch.ones(k, d_out))
+        self.b = nn.Parameter(torch.zeros(k, d_out))
+
+    def forward(self, x):   # (B, k, d_in) -> (B, k, d_out)
+        return self.lin(x * self.r) * self.s + self.b
+
+
+class _Net(nn.Module):
+    """Embeddings + MLP + linear skip. tabm_k > 0: the MLP and head are BatchEnsembles; the output is (B, k, out) instead of (B, out)."""
+
+    def __init__(self, n_num: int, cards, out_dim: int, hidden=(192, 96), dropout: float = 0.1, emb_max: int = 8, emb_dims=None, tabm_k: int = 0):
+        super().__init__()
+        dims = emb_dims if emb_dims is not None else [min(emb_max, c // 2 + 1) for c in cards]
+        self.embs = nn.ModuleList([nn.Embedding(c, d) for c, d in zip(cards, dims)])
+        d_in = n_num + sum(dims)
+        self.k = tabm_k
         layers, d = [], d_in
-        for h in hidden:
-            layers += [nn.Linear(d, h), nn.ReLU(), nn.Dropout(dropout)]
+        for li, h in enumerate(hidden):
+            layers += [_BELinear(d, h, tabm_k, first=(li == 0)) if tabm_k else nn.Linear(d, h), nn.ReLU(), nn.Dropout(dropout)]
             d = h
         self.mlp = nn.Sequential(*layers)
-        self.head = nn.Linear(d, out_dim)
+        self.head = _BELinear(d, out_dim, tabm_k, first=False) if tabm_k else nn.Linear(d, out_dim)
         self.skip = nn.Linear(d_in, out_dim)
-        nn.init.zeros_(self.head.weight)
-        nn.init.zeros_(self.head.bias)
-        nn.init.zeros_(self.skip.weight)
-        nn.init.zeros_(self.skip.bias)
+        for m in (self.head.lin if tabm_k else self.head, self.skip):
+            nn.init.zeros_(m.weight)
+        for b in ((self.head.b,) if tabm_k else (self.head.bias,)) + (self.skip.bias,):
+            nn.init.zeros_(b)
 
     def forward(self, num, cat):
         z = torch.cat([num] + [e(cat[:, i]) for i, e in enumerate(self.embs)], dim=1) if len(self.embs) else num
+        if self.k:
+            return self.head(self.mlp(z[:, None, :].expand(-1, self.k, -1))) + self.skip(z)[:, None, :]
         return self.head(self.mlp(z)) + self.skip(z)
 
 
@@ -118,30 +144,34 @@ def _predict(net, X: NNX, batch: int = 65536) -> np.ndarray:
     out = []
     with torch.no_grad():
         for i in range(0, len(X), batch):
-            out.append(net(torch.from_numpy(X.num[i:i + batch]), torch.from_numpy(X.cat[i:i + batch])).numpy())
+            o = net(torch.from_numpy(X.num[i:i + batch]), torch.from_numpy(X.cat[i:i + batch]))
+            out.append((o.mean(1) if o.dim() == 3 else o).numpy())   # TabM: members are averaged on the log scale
     return np.vstack(out)
 
 
 class FreqNet:
     """Poisson heads for K perils. counts (n, K), offset_expo (n, K) = exposure x completeness."""
 
-    def __init__(self, enc: Encoder, hidden=(192, 96), dropout=0.1, epochs=12, lr=2e-3, batch=2048, wd=1e-4, patience=2, n_seeds=1, threads=4):
+    def __init__(self, enc: Encoder, hidden=(192, 96), dropout=0.1, epochs=12, lr=2e-3, batch=2048, wd=1e-4, patience=2, n_seeds=1, threads=4, tabm_k=0):
         self.enc, self.hidden, self.dropout, self.epochs, self.lr, self.batch, self.wd = enc, hidden, dropout, epochs, lr, batch, wd
-        self.patience, self.n_seeds, self.threads = patience, n_seeds, threads
+        self.patience, self.n_seeds, self.threads, self.tabm_k = patience, n_seeds, threads, tabm_k
 
-    def fit(self, X: NNX, counts: np.ndarray, expo: np.ndarray, val_mask: np.ndarray):
+    def fit(self, X: NNX, counts: np.ndarray, expo: np.ndarray, val_mask: np.ndarray, w: np.ndarray | None = None):
         self.base_ = counts.sum(0) / expo.sum(0)
         b0 = torch.tensor(np.log(self.base_), dtype=torch.float32)
         tensors = [torch.from_numpy(X.num), torch.from_numpy(X.cat), torch.from_numpy(counts.astype("float32")),
-                   torch.from_numpy(np.log(np.maximum(expo, 1e-6)).astype("float32"))]
+                   torch.from_numpy(np.log(np.maximum(expo, 1e-6)).astype("float32")),
+                   torch.from_numpy((np.ones(len(counts)) if w is None else w).astype("float32"))]
 
-        def loss(net, num, cat, n, logoff):
-            eta = net(num, cat) + b0 + logoff
-            return (torch.exp(eta) - n * eta).sum(1).mean()
+        def loss(net, num, cat, n, logoff, ww):
+            out = net(num, cat)
+            eta = (out if out.dim() == 3 else out[:, None, :]) + b0 + logoff[:, None, :]
+            per_row = (torch.exp(eta) - n[:, None, :] * eta).sum(2).mean(1)   # mean over TabM members
+            return (per_row * ww).sum() / ww.sum()
 
         self.nets_ = []
         for s in range(self.n_seeds):
-            net = _Net(self.enc.n_num_, self.enc.cards_, counts.shape[1], self.hidden, self.dropout)
+            net = _Net(self.enc.n_num_, self.enc.cards_, counts.shape[1], self.hidden, self.dropout, emb_dims=self.enc.emb_dims_, tabm_k=self.tabm_k)
             self.nets_.append(_train(net, loss, tensors, val_mask, self.epochs, self.lr, self.batch, self.wd, self.patience, SEED + s, self.threads))
         return self
 
@@ -154,22 +184,26 @@ class FreqNet:
 class SevNet:
     """Gamma heads for K perils on claim-level (trended, capped) cost; rows = claims, peril_idx selects the head."""
 
-    def __init__(self, enc: Encoder, hidden=(128, 64), dropout=0.1, epochs=20, lr=2e-3, batch=1024, wd=1e-3, patience=3, n_seeds=1, threads=4):
+    def __init__(self, enc: Encoder, hidden=(128, 64), dropout=0.1, epochs=20, lr=2e-3, batch=1024, wd=1e-3, patience=3, n_seeds=1, threads=4, tabm_k=0):
         self.enc, self.hidden, self.dropout, self.epochs, self.lr, self.batch, self.wd = enc, hidden, dropout, epochs, lr, batch, wd
-        self.patience, self.n_seeds, self.threads = patience, n_seeds, threads
+        self.patience, self.n_seeds, self.threads, self.tabm_k = patience, n_seeds, threads, tabm_k
 
-    def fit(self, X: NNX, peril_idx: np.ndarray, y: np.ndarray, k: int, val_mask: np.ndarray):
+    def fit(self, X: NNX, peril_idx: np.ndarray, y: np.ndarray, k: int, val_mask: np.ndarray, w: np.ndarray | None = None):
         self.mean_ = np.array([y[peril_idx == j].mean() if (peril_idx == j).any() else y.mean() for j in range(k)])
         b0 = torch.tensor(np.log(self.mean_), dtype=torch.float32)
-        tensors = [torch.from_numpy(X.num), torch.from_numpy(X.cat), torch.from_numpy(peril_idx.astype("int64")), torch.from_numpy(y.astype("float32"))]
+        tensors = [torch.from_numpy(X.num), torch.from_numpy(X.cat), torch.from_numpy(peril_idx.astype("int64")), torch.from_numpy(y.astype("float32")),
+                   torch.from_numpy((np.ones(len(y)) if w is None else w).astype("float32"))]
 
-        def loss(net, num, cat, pi, yy):
-            eta = net(num, cat).gather(1, pi[:, None])[:, 0] + b0[pi]
-            return (yy * torch.exp(-eta) + eta).mean()
+        def loss(net, num, cat, pi, yy, ww):
+            out = net(num, cat)
+            out = out if out.dim() == 3 else out[:, None, :]
+            eta = out.gather(2, pi[:, None, None].expand(-1, out.shape[1], 1))[:, :, 0] + b0[pi][:, None]
+            per_row = (yy[:, None] * torch.exp(-eta) + eta).mean(1)
+            return (per_row * ww).sum() / ww.sum()
 
         self.nets_ = []
         for s in range(self.n_seeds):
-            net = _Net(self.enc.n_num_, self.enc.cards_, k, self.hidden, self.dropout)
+            net = _Net(self.enc.n_num_, self.enc.cards_, k, self.hidden, self.dropout, emb_dims=self.enc.emb_dims_, tabm_k=self.tabm_k)
             self.nets_.append(_train(net, loss, tensors, val_mask, self.epochs, self.lr, self.batch, self.wd, self.patience, SEED + s, self.threads))
         return self
 

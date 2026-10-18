@@ -34,7 +34,8 @@ def run_cv(frames: dict, model_factory, fold_keys=("A", "B"), n_boot: int = 200,
                 continue
             tr_src = (train_frames or frames)[line]
             train, _ = split(tr_src[tr_src["split"] == "train"], fold)
-            model = model_factory(line).fit(train)
+            model = model_factory(line)
+            model = model.fit(train, target=valid) if getattr(model, "uses_target", False) else model.fit(train)   # domain-shift weights see the features of the rows to be predicted
             pred = model.predict_observed(valid) if (not fold.mature and hasattr(model, "predict_observed")) else model.predict(valid)
             part = valid[["row_id", "customer_id", "line", "y", "year"]].assign(pred=pred)
             if ck is not None:

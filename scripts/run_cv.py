@@ -8,14 +8,15 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from iaa import cv, data, features  # noqa: E402
+from iaa import cv, data, features, target  # noqa: E402
+from iaa.models.freqsev import FreqSev  # noqa: E402
 from iaa.config import ARTIFACTS_DIR, LINES  # noqa: E402
 from iaa.models.baselines import LGBMTweedie, MeanRateModel  # noqa: E402
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", choices=["mean_rate", "lgbm"], required=True)
+    ap.add_argument("--model", choices=["mean_rate", "lgbm", "fs_glm", "fs_gbm"], required=True)
     ap.add_argument("--folds", default="A,B")
     ap.add_argument("--keep-noise", action="store_true", help="keep suspected noise columns as features")
     ap.add_argument("--drop", default="", help="comma-separated extra columns to drop")
@@ -39,10 +40,19 @@ def main() -> None:
         for l in LINES:  # keep the all-claims label available for level calibration
             train_frames[l]["y_all"] = train_frames[l]["row_id"].map(frames[l].set_index("row_id")["y"]).fillna(0.0)
     extra = tuple(c for c in a.drop.split(",") if c)
-    factory = ((lambda line: MeanRateModel()) if a.model == "mean_rate" else
-               (lambda line: LGBMTweedie(drop_noise=not a.keep_noise, extra_drop=extra, n_rounds=a.rounds, form=a.form,
-                                       rebalance=not a.no_rebalance,
-                                       level_col="y_all" if (a.closed_only and a.level_all) else "y")))
+    matched = {}
+    if a.model.startswith("fs_"):
+        for l in LINES:  # claims matched to policy rows (all training years), repudiated excluded inside the model
+            tr_rows = frames[l][frames[l]["split"] == "train"]
+            matched[l] = target.matched_claims(tr_rows, claims, l)
+    if a.model.startswith("fs_"):
+        kind = a.model[3:]
+        factory = lambda line: FreqSev(matched[line], kind=kind, rebalance=not a.no_rebalance, drop_noise=not a.keep_noise, extra_drop=extra)  # noqa: E731
+    else:
+        factory = ((lambda line: MeanRateModel()) if a.model == "mean_rate" else
+                   (lambda line: LGBMTweedie(drop_noise=not a.keep_noise, extra_drop=extra, n_rounds=a.rounds, form=a.form,
+                                             rebalance=not a.no_rebalance,
+                                             level_col="y_all" if (a.closed_only and a.level_all) else "y")))
     results, oof = cv.run_cv(frames, factory, fold_keys=a.folds.split(","), train_frames=train_frames)
     name = a.name or f"{a.model}{'_keepnoise' if a.keep_noise else ''}{'_drop-' + '-'.join(extra) if extra else ''}"
     for fold, r in results.items():

@@ -29,7 +29,8 @@ def run_cv(frames: dict, model_factory, fold_keys=("A", "B"), n_boot: int = 200,
             tr_src = (train_frames or frames)[line]
             train, _ = split(tr_src[tr_src["split"] == "train"], fold)
             model = model_factory(line).fit(train)
-            parts.append(valid[["row_id", "customer_id", "line", "y", "year"]].assign(pred=model.predict(valid)))
+            pred = model.predict_observed(valid) if (not fold.mature and hasattr(model, "predict_observed")) else model.predict(valid)
+            parts.append(valid[["row_id", "customer_id", "line", "y", "year"]].assign(pred=pred))
         oof = pd.concat(parts, ignore_index=True)
         oof["fold"] = fold.name
         results[fold.name] = score_report(oof, n_boot=n_boot)

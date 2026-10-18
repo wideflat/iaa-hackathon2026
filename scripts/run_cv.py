@@ -1,17 +1,19 @@
 """Run a model through the fixed validation folds and log the result.
 
-  python scripts/run_cv.py --model mean_rate
-  python scripts/run_cv.py --model lgbm --keep-noise --note "ablation: noise columns kept"
+  python scripts/run_cv.py --model fs_gbm --folds A,B --name fs_trend --note "..."
+  python scripts/run_cv.py --model fs_gbm --folds A --no-trend --threads 2     # ablation, 2 CPU threads (for parallel runs)
+
+Feature frames are cached in artifacts/ (see iaa.cache); the first run builds them.
 """
 import argparse
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from iaa import cv, data, features, target  # noqa: E402
-from iaa.models.freqsev import FreqSev  # noqa: E402
+from iaa import cache, cv, data, features, target  # noqa: E402
 from iaa.config import ARTIFACTS_DIR, LINES  # noqa: E402
 from iaa.models.baselines import LGBMTweedie, MeanRateModel  # noqa: E402
+from iaa.models.freqsev import FreqSev  # noqa: E402
 
 
 def main() -> None:
@@ -20,45 +22,60 @@ def main() -> None:
     ap.add_argument("--folds", default="A,B")
     ap.add_argument("--keep-noise", action="store_true", help="keep suspected noise columns as features")
     ap.add_argument("--drop", default="", help="comma-separated extra columns to drop")
-    ap.add_argument("--rounds", type=int, default=400)
+    ap.add_argument("--rounds", type=int, default=400, help="direct GBM rounds")
     ap.add_argument("--form", choices=["rate", "offset"], default="rate")
     ap.add_argument("--closed-only", action="store_true", help="train on labels built from closed claims only; score on all claims")
     ap.add_argument("--level-all", action="store_true", help="with --closed-only: rebalance predictions to the all-claims training total")
     ap.add_argument("--no-rebalance", action="store_true", help="skip the per-line total rebalancing of predictions")
+    # frequency x severity options
+    ap.add_argument("--no-trend", action="store_true", help="fs: no severity trend projection")
+    ap.add_argument("--no-completeness", action="store_true", help="fs: no completeness offset for immature years")
+    ap.add_argument("--freq-rounds", type=int, default=250)
+    ap.add_argument("--sev-rounds", type=int, default=200)
+    ap.add_argument("--lr", type=float, default=None, help="fs: learning rate for both stages")
+    ap.add_argument("--leaves", type=int, default=None, help="fs: num_leaves for both stages")
+    ap.add_argument("--min-leaf-freq", type=int, default=None)
+    ap.add_argument("--cap-q", type=float, default=0.999, help="fs: severity cap quantile")
+    ap.add_argument("--threads", type=int, default=0, help="LightGBM threads (0 = all); use 2 to run two experiments in parallel")
     ap.add_argument("--name", default=None)
     ap.add_argument("--note", default="")
     a = ap.parse_args()
 
-    claims, customers = data.load_claims(), data.load_customers()
-    addresses, weather = data.load_addresses(), data.load_weather()
-    frames = {l: features.build_line_frame(l, customers=customers, addresses=addresses, weather=weather, claims=claims)
-              for l in LINES}
+    claims = data.load_claims()
+    frames = cache.load_frames()
     train_frames = None
     if a.closed_only:
+        cu, ad, we = data.load_customers(), data.load_addresses(), data.load_weather()
         closed = claims[claims["status"] == "closed"]
-        train_frames = {l: features.build_line_frame(l, customers=customers, addresses=addresses, weather=weather, claims=closed) for l in LINES}
+        train_frames = {l: features.build_line_frame(l, customers=cu, addresses=ad, weather=we, claims=closed) for l in LINES}
         for l in LINES:  # keep the all-claims label available for level calibration
             train_frames[l]["y_all"] = train_frames[l]["row_id"].map(frames[l].set_index("row_id")["y"]).fillna(0.0)
     extra = tuple(c for c in a.drop.split(",") if c)
-    matched = {}
+
     if a.model.startswith("fs_"):
-        for l in LINES:  # claims matched to policy rows (all training years), repudiated excluded inside the model
-            tr_rows = frames[l][frames[l]["split"] == "train"]
-            matched[l] = target.matched_claims(tr_rows, claims, l)
-    if a.model.startswith("fs_"):
-        kind = a.model[3:]
-        factory = lambda line: FreqSev(matched[line], kind=kind, rebalance=not a.no_rebalance, drop_noise=not a.keep_noise, extra_drop=extra)  # noqa: E731
+        matched = {l: target.matched_claims(frames[l][frames[l]["split"] == "train"], claims, l) for l in LINES}
+        pf, ps = {"num_threads": a.threads}, {"num_threads": a.threads}
+        if a.lr:
+            pf["learning_rate"] = ps["learning_rate"] = a.lr
+        if a.leaves:
+            pf["num_leaves"] = ps["num_leaves"] = a.leaves
+        if a.min_leaf_freq:
+            pf["min_data_in_leaf"] = a.min_leaf_freq
+        factory = lambda line: FreqSev(matched[line], kind=a.model[3:], rebalance=not a.no_rebalance, drop_noise=not a.keep_noise,  # noqa: E731
+                                       extra_drop=extra, trend=not a.no_trend, completeness=not a.no_completeness,
+                                       freq_rounds=a.freq_rounds, sev_rounds=a.sev_rounds, cap_quantile=a.cap_q,
+                                       params_freq=pf, params_sev=ps)
+    elif a.model == "mean_rate":
+        factory = lambda line: MeanRateModel()  # noqa: E731
     else:
-        factory = ((lambda line: MeanRateModel()) if a.model == "mean_rate" else
-                   (lambda line: LGBMTweedie(drop_noise=not a.keep_noise, extra_drop=extra, n_rounds=a.rounds, form=a.form,
-                                             rebalance=not a.no_rebalance,
-                                             level_col="y_all" if (a.closed_only and a.level_all) else "y")))
+        factory = lambda line: LGBMTweedie(drop_noise=not a.keep_noise, extra_drop=extra, n_rounds=a.rounds, form=a.form,  # noqa: E731
+                                           rebalance=not a.no_rebalance, level_col="y_all" if (a.closed_only and a.level_all) else "y")
     results, oof = cv.run_cv(frames, factory, fold_keys=a.folds.split(","), train_frames=train_frames)
     name = a.name or f"{a.model}{'_keepnoise' if a.keep_noise else ''}{'_drop-' + '-'.join(extra) if extra else ''}"
     for fold, r in results.items():
         b = r.get("d2_pooled_boot", {})
         print(f"{name} | {fold}: D2={r['d2_pooled']:.4f} (95% CI {b.get('lo', float('nan')):.4f}..{b.get('hi', float('nan')):.4f}) "
-              + " ".join(f"{l}={r[f'd2_{l}']:.4f}/cal{r[f'calibration_{l}']:.2f}" for l in LINES))
+              + " ".join(f"{l}={r[f'd2_{l}']:.4f}/cal{r[f'calibration_{l}']:.2f}" for l in LINES), flush=True)
     ARTIFACTS_DIR.mkdir(exist_ok=True)
     oof.to_parquet(ARTIFACTS_DIR / f"oof_{name}.parquet")
     cv.log_experiment(name, vars(a), results, note=a.note)

@@ -77,7 +77,7 @@ CDF to ultimate at 12 / 24 / 36 months and implied uplift of the as-valued amoun
 |---|---|---|---|---|---|
 | Motor, all perils (net cost) | 1.258 | 1.030 | 1.004 | +25.8% | +3.0% |
 | Motor bodily injury, net cost, 11.9M claim in | 1.710 | 1.070 | 1.009 | +71.0% | +7.0% |
-| Motor bodily injury, cost capped at 250k | 1.812 | 1.070 | 1.009 | see LDF_TABLES.md | |
+| Motor bodily injury, cost capped at 250k | 1.812 | 1.070 | 1.009 | +81.2% | +7.0% |
 | Motor excl. bodily injury | 1.052 | 1.001 | 1.000 | +5.2% | +0.1% |
 | Buildings | 1.091 | 1.002 | 1.000 | +9.1% | +0.2% |
 | Contents | 1.041 | 1.002 | 1.000 | +4.1% | +0.2% |

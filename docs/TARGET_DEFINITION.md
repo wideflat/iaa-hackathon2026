@@ -95,3 +95,14 @@ triangles are built. (2) Sanity check: BI ultimate claim counts implied for AY20
 - **Open vs closed severity** (AY2021-23) shows no consistent size effect (BI open claims are smaller, 18.9k vs 20.5k).
 - **Not testable:** development of case estimates (IBNER), where larger claims typically develop more adversely. One snapshot has no claim history.
 Decision: develop by peril (not by line or size band), on capped cost, with the excess over the cap handled separately; carry IBNER as an explicit sensitivity.
+
+## 10. Closed-claims-only and "as of year-end" views (checked on the data; `scripts/ldf_backtest.py`)
+- **Separating claims by report date is possible** (a claim is known at 31 Dec Y iff report_date <= that date): this is the 12-month column of the triangle.
+  What cannot be reconstructed is the claim's *amount at that time* (only the current amount is stored; no history of case estimates).
+- **Closed-only is not viable as ground truth**: still open at 31 Dec 2024 (share of cost): motor bodily injury 15% (AY2021), 26% (2022), 49% (2023), 80% (2024);
+  buildings 0.7% / 2.6% / 8.2% / 36%. The open claims are the long-running ones, so dropping them biases recent years downward and manufactures a trend.
+  For non-BI motor and contents, closed is near-complete for AY2021-23 so the choice does not matter there.
+- **Back-test of the development step** (12-month reported cost x 12m->ult factor from the other years, vs actual): buildings -1.6..+1.1%, contents -0.5..+0.9%,
+  motor excl. BI -0.3..+0.2%, motor BI (capped) -3.5%, -1.1%, +4.2%. Reporting development is well predicted; case-estimate development is still untested.
+- **Design option (adopted for next step):** train on the 12-month view of every accident year (claims reported by 31 Dec of the accident year): identical
+  maturity for 2021-2024, so 2024 needs no development and fold B becomes valid; use a row-level completeness offset (loss-date-aware, per peril) to convert to ultimate.

@@ -31,7 +31,7 @@ def link_ratios(tri: pd.DataFrame) -> np.ndarray:
     out = []
     for k in range(tri.shape[1] - 1):
         both = tri[k].notna() & tri[k + 1].notna()
-        out.append(tri.loc[both, k + 1].sum() / tri.loc[both, k].sum())
+        out.append(tri.loc[both, k + 1].sum() / tri.loc[both, k].sum() if both.any() else np.nan)
     return np.array(out)
 
 

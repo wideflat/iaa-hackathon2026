@@ -24,6 +24,8 @@ LABEL_ONLY_COLS = ["renewal_decision"]  # training files only
 OUTCOME_LEAK_COLS = ["customer_service_contacts"]
 EXPOSURE_COLS = ["exposure", "exposure_calc"]  # model uses exposure_calc as the offset
 BOOKKEEPING_COLS = ["year", "line", "split"]
+# Derived from the period end dates (part-year rows): tested, no gain (fold A +0.0002 GBM, 0.000 GLM); excluded so the models use no end-of-period information.
+TIMING_COLS = ["period_days", "start_month", "end_month"]
 
 # Fields that look like noise or marketing artefacts. Excluded by default; ablated in experiments.
 NOISE_COLS = [
@@ -127,7 +129,7 @@ def build_line_frame(line: str, data_dir=None, customers=None, addresses=None, w
 
 def feature_columns(df: pd.DataFrame, drop_noise: bool = True, extra_drop=()) -> list:
     """Columns usable as model inputs after removing ids, dates, targets and leakage."""
-    drop = set(ID_COLS + DATE_COLS + TARGET_COLS + LABEL_ONLY_COLS + OUTCOME_LEAK_COLS + EXPOSURE_COLS + BOOKKEEPING_COLS) | set(extra_drop)
+    drop = set(ID_COLS + DATE_COLS + TARGET_COLS + LABEL_ONLY_COLS + OUTCOME_LEAK_COLS + EXPOSURE_COLS + BOOKKEEPING_COLS + TIMING_COLS) | set(extra_drop)
     if drop_noise:
         drop |= set(NOISE_COLS)
     return [c for c in df.columns if c not in drop and not df[c].isna().all()]

@@ -42,3 +42,28 @@ def test_leak_alarm_fires_on_implausibly_good_scores_only():
     metrics.assert_not_too_good(0.13)
     with pytest.raises(AssertionError):
         metrics.assert_not_too_good(0.99, "test")
+
+
+def test_paired_bootstrap_detects_a_real_difference_and_is_tighter_than_unpaired_cis():
+    y, pred = _data(n=20000)
+    better = pred
+    worse = pred * np.random.default_rng(1).lognormal(0, 0.25, len(pred))   # the same model plus noise
+    groups = np.arange(len(y))
+    d = metrics.bootstrap_d2_diff(y, better, worse, groups, n_boot=200)
+    assert d["diff"] > 0 and d["lo"] > 0 and d["p_a_better"] > 0.97
+    unpaired = metrics.bootstrap_d2(y, better, groups, n_boot=200)["se"]
+    assert d["se"] < unpaired                                              # common noise cancels in the paired difference
+    same = metrics.bootstrap_d2_diff(y, better, better, groups, n_boot=50)
+    assert abs(same["diff"]) < 1e-12 and same["se"] < 1e-12
+
+
+def test_robust_score_ignores_a_single_extreme_row_but_the_official_score_does_not():
+    y, pred = _data(n=5000)
+    y_out = y.copy()
+    y_out[0] = 1e7
+    import pandas as pd
+    df = pd.DataFrame({"y": y_out, "pred": pred, "line": "motor", "customer_id": np.arange(len(y))})
+    r = metrics.score_report(df, n_boot=0)
+    clean = pd.DataFrame({"y": np.minimum(y_out, metrics.ROBUST_CAP), "pred": pred, "line": "motor", "customer_id": np.arange(len(y))})
+    assert r["d2_pooled_cap250k"] == pytest.approx(metrics.d2_tweedie(clean["y"], clean["pred"]))
+    assert r["d2_pooled_cap250k"] > r["d2_pooled"] + 0.02 or abs(r["d2_pooled_cap250k"] - r["d2_pooled"]) > 0.01

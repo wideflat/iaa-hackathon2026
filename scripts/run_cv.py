@@ -78,7 +78,7 @@ def main() -> None:
     name = a.name or f"{a.model}{'_keepnoise' if a.keep_noise else ''}{'_drop-' + '-'.join(extra) if extra else ''}"
     for fold, r in results.items():
         b = r.get("d2_pooled_boot", {})
-        print(f"{name} | {fold}: D2={r['d2_pooled']:.4f} (95% CI {b.get('lo', float('nan')):.4f}..{b.get('hi', float('nan')):.4f}) "
+        print(f"{name} | {fold}: D2={r['d2_pooled']:.4f} [cap250k {r['d2_pooled_cap250k']:.4f}] (95% CI {b.get('lo', float('nan')):.4f}..{b.get('hi', float('nan')):.4f}) "
               + " ".join(f"{l}={r[f'd2_{l}']:.4f}/cal{r[f'calibration_{l}']:.2f}" for l in LINES), flush=True)
     ARTIFACTS_DIR.mkdir(exist_ok=True)
     oof.to_parquet(ARTIFACTS_DIR / f"oof_{name}.parquet")

@@ -22,6 +22,10 @@ def main() -> None:
     ap.add_argument("--out", required=True)
     ap.add_argument("--keep-noise", action="store_true")
     ap.add_argument("--rounds", type=int, default=400)
+    ap.add_argument("--leaves", type=int, default=None, help="fs: num_leaves for both stages")
+    ap.add_argument("--freq-rounds", type=int, default=250)
+    ap.add_argument("--sev-rounds", type=int, default=200)
+    ap.add_argument("--seeds", type=int, default=1)
     a = ap.parse_args()
 
     claims = data.load_claims()
@@ -31,7 +35,9 @@ def main() -> None:
         df = frames[line]
         tr = df[df["split"] == "train"]
         if a.model.startswith("fs_"):
-            model = FreqSev(target.matched_claims(tr, claims, line), kind=a.model[3:], drop_noise=not a.keep_noise)
+            p = {"num_leaves": a.leaves} if a.leaves else {}
+            model = FreqSev(target.matched_claims(tr, claims, line), kind=a.model[3:], drop_noise=not a.keep_noise, freq_rounds=a.freq_rounds,
+                            sev_rounds=a.sev_rounds, params_freq=p, params_sev=p, n_seeds=a.seeds)
         else:
             model = MeanRateModel() if a.model == "mean_rate" else LGBMTweedie(drop_noise=not a.keep_noise, n_rounds=a.rounds)
         model.fit(tr)

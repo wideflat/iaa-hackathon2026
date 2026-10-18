@@ -25,7 +25,7 @@ class LGBMTweedie:
     name = "lgbm_tweedie"
 
     def __init__(self, drop_noise: bool = True, extra_drop=(), params: dict | None = None, n_rounds: int = 400,
-                 form: str = "rate", rebalance: bool = True):
+                 form: str = "rate", rebalance: bool = True, level_col: str = "y"):
         """form='rate': label y/exposure weighted by exposure. form='offset': label y with log(exposure) as init score.
 
         rebalance: after fitting, scale predictions so they sum to the training actuals. Tweedie power 1.5 with a log
@@ -34,6 +34,7 @@ class LGBMTweedie:
         """
         assert form in ("rate", "offset")
         self.drop_noise, self.extra_drop, self.n_rounds, self.form, self.rebalance = drop_noise, tuple(extra_drop), n_rounds, form, rebalance
+        self.level_col = level_col
         self.params = {
             "objective": "tweedie", "tweedie_variance_power": TWEEDIE_POWER, "learning_rate": 0.03,
             "num_leaves": 31, "min_data_in_leaf": 400, "feature_fraction": 0.8, "bagging_fraction": 0.8,
@@ -68,7 +69,7 @@ class LGBMTweedie:
         self.booster_ = lgb.train(self.params, ds, num_boost_round=self.n_rounds)
         self.k_ = 1.0
         if self.rebalance:
-            self.k_ = float(train["y"].sum() / self._predict_raw(train).sum())
+            self.k_ = float(train[self.level_col].sum() / self._predict_raw(train).sum())
         return self
 
     def predict(self, rows: pd.DataFrame) -> np.ndarray:

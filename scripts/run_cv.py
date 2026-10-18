@@ -21,6 +21,8 @@ def main() -> None:
     ap.add_argument("--drop", default="", help="comma-separated extra columns to drop")
     ap.add_argument("--rounds", type=int, default=400)
     ap.add_argument("--form", choices=["rate", "offset"], default="rate")
+    ap.add_argument("--closed-only", action="store_true", help="train on labels built from closed claims only; score on all claims")
+    ap.add_argument("--level-all", action="store_true", help="with --closed-only: rebalance predictions to the all-claims training total")
     ap.add_argument("--no-rebalance", action="store_true", help="skip the per-line total rebalancing of predictions")
     ap.add_argument("--name", default=None)
     ap.add_argument("--note", default="")
@@ -30,11 +32,18 @@ def main() -> None:
     addresses, weather = data.load_addresses(), data.load_weather()
     frames = {l: features.build_line_frame(l, customers=customers, addresses=addresses, weather=weather, claims=claims)
               for l in LINES}
+    train_frames = None
+    if a.closed_only:
+        closed = claims[claims["status"] == "closed"]
+        train_frames = {l: features.build_line_frame(l, customers=customers, addresses=addresses, weather=weather, claims=closed) for l in LINES}
+        for l in LINES:  # keep the all-claims label available for level calibration
+            train_frames[l]["y_all"] = train_frames[l]["row_id"].map(frames[l].set_index("row_id")["y"]).fillna(0.0)
     extra = tuple(c for c in a.drop.split(",") if c)
     factory = ((lambda line: MeanRateModel()) if a.model == "mean_rate" else
                (lambda line: LGBMTweedie(drop_noise=not a.keep_noise, extra_drop=extra, n_rounds=a.rounds, form=a.form,
-                                       rebalance=not a.no_rebalance)))
-    results, oof = cv.run_cv(frames, factory, fold_keys=a.folds.split(","))
+                                       rebalance=not a.no_rebalance,
+                                       level_col="y_all" if (a.closed_only and a.level_all) else "y")))
+    results, oof = cv.run_cv(frames, factory, fold_keys=a.folds.split(","), train_frames=train_frames)
     name = a.name or f"{a.model}{'_keepnoise' if a.keep_noise else ''}{'_drop-' + '-'.join(extra) if extra else ''}"
     for fold, r in results.items():
         b = r.get("d2_pooled_boot", {})

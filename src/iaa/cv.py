@@ -12,9 +12,11 @@ from .validation import FOLDS, split
 EXPERIMENT_LOG = REPO_ROOT / "experiments" / "log.jsonl"
 
 
-def run_cv(frames: dict, model_factory, fold_keys=("A", "B"), n_boot: int = 200):
+def run_cv(frames: dict, model_factory, fold_keys=("A", "B"), n_boot: int = 200, train_frames: dict | None = None):
     """frames: {line: frame from features.build_line_frame}. model_factory(line) -> model.
 
+    train_frames: optional frames used for the TRAINING rows (e.g. closed-claims-only labels); validation rows and their
+    truth always come from `frames` (all claims), because that is what the competition scores.
     Returns (results, oof) where oof holds out-of-fold predictions for every validation row.
     """
     results, oof_parts = {}, []
@@ -23,7 +25,9 @@ def run_cv(frames: dict, model_factory, fold_keys=("A", "B"), n_boot: int = 200)
         parts = []
         for line in LINES:
             rows = frames[line][frames[line]["split"] == "train"]
-            train, valid = split(rows, fold)
+            _, valid = split(rows, fold)
+            tr_src = (train_frames or frames)[line]
+            train, _ = split(tr_src[tr_src["split"] == "train"], fold)
             model = model_factory(line).fit(train)
             parts.append(valid[["row_id", "customer_id", "line", "y", "year"]].assign(pred=model.predict(valid)))
         oof = pd.concat(parts, ignore_index=True)

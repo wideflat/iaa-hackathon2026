@@ -18,7 +18,7 @@ from iaa.submission import write_submission  # noqa: E402
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", choices=["mean_rate", "lgbm", "fs_gbm", "fs_glm"], required=True)
+    ap.add_argument("--model", choices=["mean_rate", "lgbm", "fs_gbm", "fs_glm", "fs_nn"], required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--keep-noise", action="store_true")
     ap.add_argument("--rounds", type=int, default=400)
@@ -39,7 +39,7 @@ def main() -> None:
         if a.model.startswith("fs_"):
             p = {"num_leaves": a.leaves} if a.leaves else {}
             model = FreqSev(target.matched_claims(tr, claims, line), kind=a.model[3:], drop_noise=not a.keep_noise, freq_rounds=a.freq_rounds,
-                            sev_rounds=a.sev_rounds, params_freq=p, params_sev=p, n_seeds=a.seeds,
+                            sev_rounds=a.sev_rounds, params_freq=p, params_sev=p, n_seeds=a.seeds, nn_params={"n_seeds": a.seeds, "threads": 4},
                             rebalance_level=a.rebalance_level, outlier_mult=a.outlier_mult)
         else:
             model = MeanRateModel() if a.model == "mean_rate" else LGBMTweedie(drop_noise=not a.keep_noise, n_rounds=a.rounds)

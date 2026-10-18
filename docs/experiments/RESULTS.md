@@ -171,3 +171,10 @@ Weights on TabM per line chosen from the per-line single-model ordering (TabM be
 | 0.6 / 0.5 / 0.4 | +0.0011 (+0.0003..+0.0023) | +0.0002 (+0.0001..+0.0004) |
 | 0.7 / 0.5 / 0.3 | +0.0019 (+0.0005..+0.0042) | +0.0004 (+0.0002..+0.0006) |
 Small but positive on both folds in every variant, with intervals excluding zero. File: `submissions/blend_gbm_tabm4_perline_v3.csv` (made with `scripts/blend_submissions.py`, which reproduces the submitted equal-weight blend exactly). Not submitted yet; one submission left today.
+
+## 18. TabM variants (18:30 EDT)
+| Run | Fold A D2 [cap250k] | Fold B D2 [cap250k] | Read |
+|---|---|---|---|
+| `fs_nn_tabm4` (k=4, hidden 192,96, dropout 0.1) | 0.1413 [0.1331] | 0.1328 [0.1338] | reference |
+| `fs_nn_tabm4_wide` (k=4, hidden 384,192, dropout 0.2) | 0.1381 [0.1326] | 0.1318 [0.1330] | worse on both folds and metrics: wider is not better |
+Helper runs `fs_nn_tabm8` (k=8) and `fs_nn_tabm4_s3` (3 seeds) are pending.

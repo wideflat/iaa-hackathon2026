@@ -15,7 +15,8 @@
 
 ### Running / half done
 - Helper session `session_01W8BsyyYBjof6NBX6rAiaWP` (started 14:48 UTC, own container): runs `fs_xgb_d3` then `fs_cat_d4` on folds A,B; it pushes compact OOF predictions (row_id, fold, pred) to branch `helper/oof-boosters` and messages me. When they arrive: `git fetch origin helper/oof-boosters`, read the parquet files into artifacts/ as `oof_<name>.parquet` by merging y/customer_id from `oof_fs_gbm_l4_out5.parquet`, then `scripts/blend_oof.py` against GBM/NN. It must not submit or push to dev.
-- Local: `fs_nn_s3` (3-seed NN, folds A,B) relaunched 14:44 UTC after a sandbox restart killed it; output `$SCRATCH/nns3.txt`, expect ~50 min.
+- Local queue (scratchpad queue1.sh then queue2.sh, started 15:12 UTC): `nn_tweedie_v1` (direct Tweedie net, folds A,B) -> `fs_nn_wide` (hidden 384,192, dropout 0.2) -> `fs_nn_s3` (3 seeds). The sandbox restarted three times (14:40, 14:55, 15:09) and each time killed the running job; check `pgrep -af run_cv` and `uptime` first, relaunch what is missing (an OOF file in artifacts/ means a run finished).
+- (older note) `fs_nn_s3` (3-seed NN, folds A,B) relaunched 14:44 UTC after a sandbox restart killed it; output `$SCRATCH/nns3.txt`, expect ~50 min.
 - (restart command for the NN run if the container restarts again: `python scripts/run_cv.py --model fs_nn --folds A,B --threads 4 --outlier-mult 5 --nn-seeds 3 --name fs_nn_s3`; background jobs do not survive a sandbox restart.)
 - torch was installed from PyPI (`pip install torch`; the PyTorch index is blocked by the proxy). Re-install after a new container.
 

@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from iaa import data, features, target  # noqa: E402
+from iaa import cache, data, features, target  # noqa: E402
 from iaa.models.freqsev import FreqSev  # noqa: E402
 from iaa.config import LINES  # noqa: E402
 from iaa.models.baselines import LGBMTweedie, MeanRateModel  # noqa: E402
@@ -24,11 +24,11 @@ def main() -> None:
     ap.add_argument("--rounds", type=int, default=400)
     a = ap.parse_args()
 
-    claims, customers = data.load_claims(), data.load_customers()
-    addresses, weather = data.load_addresses(), data.load_weather()
+    claims = data.load_claims()
+    frames = cache.load_frames()
     parts = []
     for line in LINES:
-        df = features.build_line_frame(line, customers=customers, addresses=addresses, weather=weather, claims=claims)
+        df = frames[line]
         tr = df[df["split"] == "train"]
         if a.model.startswith("fs_"):
             model = FreqSev(target.matched_claims(tr, claims, line), kind=a.model[3:], drop_noise=not a.keep_noise)

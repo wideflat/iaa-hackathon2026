@@ -20,6 +20,9 @@
 - (restart command for the NN run if the container restarts again: `python scripts/run_cv.py --model fs_nn --folds A,B --threads 4 --outlier-mult 5 --nn-seeds 3 --name fs_nn_s3`; background jobs do not survive a sandbox restart.)
 - torch was installed from PyPI (`pip install torch`; the PyTorch index is blocked by the proxy). Re-install after a new container.
 
+**Time zone: report EDT (user's instruction 2026-10-18 12:20 EDT); timestamps above this line are UTC.**
+**Restarts: the sandbox restarts at user turns and kills background jobs; use `scripts/queue_runs.sh` (resumable, checkpoints per fold and line) and relaunch it when `pgrep -af run_cv` is empty. Currently queued: fs_nn_wide, then fs_nn_s3.**
+
 ### Results since the blend (RESULTS section 10, D24)
 XGBoost / CatBoost / direct Tweedie NN / GLM do not improve GBM + NN on both folds (rejected). Helper session finished (idle; helper/oof-boosters branch holds its predictions; can be archived). The sandbox restarts whenever my working directory changes (16:05 again): relaunch `scratchpad/queue3.sh` (fs_nn_wide then fs_nn_s3) if `pgrep -af run_cv` is empty and no OOF files `oof_fs_nn_wide`/`oof_fs_nn_s3` exist.
 

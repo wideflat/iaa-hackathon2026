@@ -6,6 +6,7 @@ Predict the expected ultimate claim cost per 2025 policy row (motor / buildings 
 Read `docs/workflow/HANDOFF.md` ("START HERE": current state, open decisions, next steps). After a compaction a hook prints a pointer, and `artifacts/session_snapshot.md` holds facts saved just before it (git state, running jobs, last experiments). The hooks are in `.claude/settings.json` -> `scripts/hooks/`.
 
 ## Standing rules (from the project lead)
+- Report times in EDT (America/New_York), not UTC. Docs written before 2026-10-18 12:00 EDT use UTC and say so.
 - Work on branch `dev`; `main` is stable. Commit with explicit paths; push to `origin dev`. No pull request unless asked.
 - Do not post to the competition forum, and do not probe the leaderboard (D21). Submissions: 10 per day; final choice by local validation plus public score (D20).
 - Keep the validation setup fixed (folds A: train 2021-22 -> 2023; B: train 2021-23 -> 2024). Judge changes by paired bootstrap on the same rows, on both folds, never by the public score alone.
@@ -20,3 +21,6 @@ At every milestone (a result, a decision, a submission, a bug caught) do the mat
 - narrative / bug caught by a check -> `docs/workflow/DEVELOPMENT_LOG.md`; AI errors caught -> `docs/workflow/AI_USAGE.md`
 - submission made -> row in RESULTS.md with the public score once `scripts/check_submissions.py` shows it
 The skill `record-progress` runs this sweep (hooks cannot call skills or the model, so run it yourself before long waits and before stopping).
+
+## Long runs and sandbox restarts
+The container has restarted at the start of several user turns (about every 15-40 minutes), killing background jobs. Start long work with `nohup bash scripts/queue_runs.sh > artifacts/queue.log 2>&1 &`: it is resumable (`run_cv.py --resume` keeps a checkpoint per fold and line; finished runs are skipped). At the start of a turn check `uptime` and `pgrep -af run_cv`, and relaunch the queue if it is empty.

@@ -50,6 +50,7 @@ def main() -> None:
     ap.add_argument("--nn-wd", type=float, default=None)
     ap.add_argument("--nn-seeds", type=int, default=1, help="fs_nn: average this many nets per stage")
     ap.add_argument("--threads", type=int, default=0, help="LightGBM threads (0 = all); use 2 to run two experiments in parallel")
+    ap.add_argument("--resume", action="store_true", help="save/reuse a checkpoint per (fold, line) under artifacts/ckpt/<name>; change --name when settings change")
     ap.add_argument("--name", default=None)
     ap.add_argument("--note", default="")
     a = ap.parse_args()
@@ -99,7 +100,8 @@ def main() -> None:
     else:
         factory = lambda line: LGBMTweedie(drop_noise=not a.keep_noise, extra_drop=extra, n_rounds=a.rounds, form=a.form,  # noqa: E731
                                            rebalance=not a.no_rebalance, level_col="y_all" if (a.closed_only and a.level_all) else "y")
-    results, oof = cv.run_cv(frames, factory, fold_keys=a.folds.split(","), train_frames=train_frames)
+    results, oof = cv.run_cv(frames, factory, fold_keys=a.folds.split(","), train_frames=train_frames,
+                                ckpt_name=(a.name if a.resume else None))
     name = a.name or f"{a.model}{'_keepnoise' if a.keep_noise else ''}{'_drop-' + '-'.join(extra) if extra else ''}"
     for fold, r in results.items():
         b = r.get("d2_pooled_boot", {})

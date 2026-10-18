@@ -12,11 +12,13 @@ from .validation import FOLDS, split
 EXPERIMENT_LOG = REPO_ROOT / "experiments" / "log.jsonl"
 
 
-def run_cv(frames: dict, model_factory, fold_keys=("A", "B"), n_boot: int = 200, train_frames: dict | None = None):
+def run_cv(frames: dict, model_factory, fold_keys=("A", "B"), n_boot: int = 200, train_frames: dict | None = None, ckpt_name: str | None = None):
     """frames: {line: frame from features.build_line_frame}. model_factory(line) -> model.
 
     train_frames: optional frames used for the TRAINING rows (e.g. closed-claims-only labels); validation rows and their
     truth always come from `frames` (all claims), because that is what the competition scores.
+    ckpt_name: if given, each finished (fold, line) is saved to artifacts/ckpt/<ckpt_name>/ and reused on a re-run, so a run killed by a sandbox
+    restart resumes where it stopped (the settings are part of the name: change the name when the model or its parameters change).
     Returns (results, oof) where oof holds out-of-fold predictions for every validation row.
     """
     results, oof_parts = {}, []
@@ -26,11 +28,19 @@ def run_cv(frames: dict, model_factory, fold_keys=("A", "B"), n_boot: int = 200,
         for line in LINES:
             rows = frames[line][frames[line]["split"] == "train"]
             _, valid = split(rows, fold)
+            ck = ARTIFACTS_DIR / "ckpt" / ckpt_name / f"{key}_{line}.parquet" if ckpt_name else None
+            if ck is not None and ck.exists():
+                parts.append(pd.read_parquet(ck))
+                continue
             tr_src = (train_frames or frames)[line]
             train, _ = split(tr_src[tr_src["split"] == "train"], fold)
             model = model_factory(line).fit(train)
             pred = model.predict_observed(valid) if (not fold.mature and hasattr(model, "predict_observed")) else model.predict(valid)
-            parts.append(valid[["row_id", "customer_id", "line", "y", "year"]].assign(pred=pred))
+            part = valid[["row_id", "customer_id", "line", "y", "year"]].assign(pred=pred)
+            if ck is not None:
+                ck.parent.mkdir(parents=True, exist_ok=True)
+                part.to_parquet(ck)
+            parts.append(part)
         oof = pd.concat(parts, ignore_index=True)
         oof["fold"] = fold.name
         results[fold.name] = score_report(oof, n_boot=n_boot)

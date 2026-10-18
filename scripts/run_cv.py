@@ -20,6 +20,8 @@ def main() -> None:
     ap.add_argument("--keep-noise", action="store_true", help="keep suspected noise columns as features")
     ap.add_argument("--drop", default="", help="comma-separated extra columns to drop")
     ap.add_argument("--rounds", type=int, default=400)
+    ap.add_argument("--form", choices=["rate", "offset"], default="rate")
+    ap.add_argument("--no-rebalance", action="store_true", help="skip the per-line total rebalancing of predictions")
     ap.add_argument("--name", default=None)
     ap.add_argument("--note", default="")
     a = ap.parse_args()
@@ -30,7 +32,8 @@ def main() -> None:
               for l in LINES}
     extra = tuple(c for c in a.drop.split(",") if c)
     factory = ((lambda line: MeanRateModel()) if a.model == "mean_rate" else
-               (lambda line: LGBMTweedie(drop_noise=not a.keep_noise, extra_drop=extra, n_rounds=a.rounds)))
+               (lambda line: LGBMTweedie(drop_noise=not a.keep_noise, extra_drop=extra, n_rounds=a.rounds, form=a.form,
+                                       rebalance=not a.no_rebalance)))
     results, oof = cv.run_cv(frames, factory, fold_keys=a.folds.split(","))
     name = a.name or f"{a.model}{'_keepnoise' if a.keep_noise else ''}{'_drop-' + '-'.join(extra) if extra else ''}"
     for fold, r in results.items():

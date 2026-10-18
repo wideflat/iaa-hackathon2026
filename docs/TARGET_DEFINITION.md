@@ -56,3 +56,14 @@ drives the motor 2024 shortfall. The 2024 BI factors rest on ~100 claims per qua
 This agrees with the day-lag estimate (motor 2024 +6.2% count, +17.5% cost) to within the quarter-alignment difference.
 
 Not estimable from one snapshot: paid or case-incurred development (IBNER), settlement-driven recovery emergence.
+
+## 6. Resolved: the GBM under-calibration was not trend
+Earlier (and in the first draft of the research report) the 0.64-0.75 predicted/actual on fold A was attributed to cost trend. Diagnosis:
+- The same GBM is already 0.72 (buildings) / 0.81 (motor) calibrated **on its own training data**; out of time it is only 3-4 points worse.
+- Dropping hist, weather, premium or all drifting features, or switching to an offset formulation, did not change it.
+- The deviance-optimal scalar on the training data is ~1.007: the model is deviance-optimal in-sample. A Tweedie power-1.5 log-link GBM simply does not preserve totals on heavy-tailed data.
+- Rebalancing predictions per line to the training total (`LGBMTweedie(rebalance=True)`) lifts fold A from D2 0.0975 to 0.1225 (oracle scalar chosen on the validation year: 0.1242), fold B 0.1200 -> 0.1253.
+So trend remains untested rather than established; the first trend estimate should be made on the rebalanced model.
+
+## 7. Draft question for the organizers (competition forum)
+"The target is described as the ultimate cost of claims with a loss date in the row's period. (1) At what valuation date and maturity are the 2025 labels measured: all claims eventually reported and settled, or an incurred snapshot at a later date such as 31 Dec 2025? (2) Are open claims at their final cost, and do recoveries on open claims count at their eventual amount? (3) Is the 2025 label built by the same process that produced the 2021-2024 claims (including claims not yet reported at the 2024-12-31 snapshot)?"

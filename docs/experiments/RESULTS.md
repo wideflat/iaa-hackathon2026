@@ -148,3 +148,5 @@ Rejected (D27): none is positive on both folds on both metrics. The train and 20
 | GBM + TabM minus GBM + NN 3 seeds | +0.0008 (-0.0002..+0.0020) | +0.0007 (+0.0001..+0.0015) | TabM better in the blend on both folds |
 | GBM + TabM + NN 3 seeds minus R | +0.0033 (-0.0004..+0.0094) | +0.0009 (+0.0003..+0.0017) | no better than GBM + TabM on fold B |
 Blend GBM + TabM: A 0.1414 [0.1360], B 0.1351 [0.1361]. Candidate for the next submission (D28).
+
+Submitted 2026-10-18 about 18:05 EDT (user approved): `blend_gbm_tabm4_v2.csv` = 0.5 `fs_gbm_v4_l4_out5` + 0.5 `fs_nn_tabm4`. Public score: to be filled in from the Kaggle submissions page (the submissions API returned authentication errors this afternoon).

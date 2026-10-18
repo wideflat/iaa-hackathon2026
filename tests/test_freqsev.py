@@ -146,3 +146,15 @@ def test_alternative_boosters_balance_total_rank_risk_and_are_nonnegative(kind):
     assert (p >= 0).all() and np.isclose(p.sum(), rows.y.sum(), rtol=1e-9)
     hi, lo = rows.assign(x=2.0, g="c", exposure_calc=1.0), rows.assign(x=-2.0, g="a", exposure_calc=1.0)
     assert m.predict(hi).mean() > m.predict(lo).mean()
+
+
+def test_nn_tweedie_balances_total_and_ranks_risk():
+    pytest.importorskip("torch")
+    from iaa.models.nn_tweedie import NNTweedie
+    rows, _ = _data()
+    rows["customer_id"] = [f"C{i // 3}" for i in range(len(rows))]
+    m = NNTweedie(epochs=4, hidden=(16, 8), threads=2).fit(rows)
+    p = m.predict(rows)
+    assert (p >= 0).all() and np.isclose(p.sum(), rows.y.sum(), rtol=1e-9)
+    hi, lo = rows.assign(x=2.0, g="c", exposure_calc=1.0), rows.assign(x=-2.0, g="a", exposure_calc=1.0)
+    assert m.predict(hi).mean() > m.predict(lo).mean()

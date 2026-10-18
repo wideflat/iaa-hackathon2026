@@ -18,7 +18,7 @@ from iaa.models.freqsev import FreqSev  # noqa: E402
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", choices=["mean_rate", "lgbm", "fs_glm", "fs_gbm", "fs_nn", "fs_xgb", "fs_cat"], required=True)
+    ap.add_argument("--model", choices=["mean_rate", "lgbm", "fs_glm", "fs_gbm", "fs_nn", "fs_xgb", "fs_cat", "nn_tweedie"], required=True)
     ap.add_argument("--folds", default="A,B")
     ap.add_argument("--keep-noise", action="store_true", help="keep suspected noise columns as features")
     ap.add_argument("--drop", default="", help="comma-separated extra columns to drop")
@@ -88,6 +88,12 @@ def main() -> None:
                                        freq_rounds=a.freq_rounds, sev_rounds=a.sev_rounds, cap_quantile=a.cap_q,
                                        params_freq=pf, params_sev=ps, nn_params=nnp, threads=a.threads or 4, bands=a.bands, n_seeds=a.seeds, rebalance_level=a.rebalance_level, outlier_mult=a.outlier_mult,
                                        **({"glm_alpha_freq": a.alpha_freq} if a.alpha_freq else {}), **({"glm_alpha_sev": a.alpha_sev} if a.alpha_sev else {}))
+    elif a.model == "nn_tweedie":
+        from iaa.models.nn_tweedie import NNTweedie
+        kw = {k: v for k, v in {"epochs": a.nn_epochs, "hidden": tuple(int(x) for x in a.nn_hidden.split(",")) if a.nn_hidden else None,
+                                "dropout": a.nn_dropout, "lr": a.nn_lr, "wd": a.nn_wd}.items() if v is not None}
+        factory = lambda line: NNTweedie(drop_noise=not a.keep_noise, extra_drop=extra, n_seeds=a.nn_seeds, threads=a.threads or 4,  # noqa: E731
+                                         rebalance=not a.no_rebalance, **kw)
     elif a.model == "mean_rate":
         factory = lambda line: MeanRateModel()  # noqa: E731
     else:

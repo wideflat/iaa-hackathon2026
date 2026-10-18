@@ -1,7 +1,7 @@
 # Roadmap to the Part 1 deadline (2026-10-23 16:00 UTC) and beyond
 
 ## Status at 2026-10-18 05:30 UTC
-Best submission: `fs_gbm_v2_trend_comp` public 0.12455 (rank 5; top 0.12815). Model family at its ceiling on local validation (see `experiments/OVERNIGHT_2026-10-18.md`): hyperparameters, features, GLM, seeds and calibration all within noise. Remaining upside is mostly level/trend choices that only the leaderboard can check, plus noise. Done: items 1 (level, via trend + completeness), 2 (GLM), 4 (tuning) below. Next: per-peril trend (shrunk to line), optional single-line level probes, and the judging deliverables.
+Best submission: `fs_gbm_v2_trend_comp` public 0.12455 (rank 5; top 0.12815). Model family at its ceiling on local validation (see `experiments/OVERNIGHT_2026-10-18.md`): hyperparameters, features, GLM, seeds and calibration all within noise. Remaining upside is mostly level/trend choices that only the leaderboard can check, plus noise. Done: items 1 (level, via trend + completeness), 2 (GLM), 4 (tuning) below. Next: tail and large-claim audit, per-peril trend and completeness checks (validation only; **no leaderboard probing**, decision D21), and the judging deliverables.
 
 ## Modelling (in priority order)
 1. **Level calibration.** Probes suggest the hidden answer is ~16% above our predictions overall. Implement the model-based causes first: frequency completeness adjustment for 2024 exposure by peril (motor bodily injury mainly) and an explicit cost-trend step; then per-line level probes (1-2 submissions per line) only to confirm.

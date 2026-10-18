@@ -25,7 +25,10 @@ Each decision: what, why (evidence), status. "Reviewed by" is the human who conf
 | D18 | Use helper sessions in separate containers for independent screens; they never commit, push or submit | CPU/RAM limits of one container (4 cores, 15 GB); lead asked for parallel work | Adopted | Project lead |
 | D19 | Submission limit: 10 per UTC day | Rules text said 5, platform 10; the host confirmed 10 and updated the rules (2026-10-18). Until the answer we stayed at 5 | Resolved | Project lead (asked the host) |
 
+| D20 | **Final Submission rule:** choose using local validation and the public leaderboard together. Candidates must be fully validated (tests passing, no leak alarm). Among candidates not significantly worse than the best on local validation (paired bootstrap on the same rows, raw and capped-at-250k scores, folds A and B with B at half weight), pick the one with the highest public score; if the public scores are within about 0.001, pick the simplest model. Written before looking at the final candidates. | Public score is a noisy 33% subset; local validation alone cannot resolve small differences; both views together hedge | Adopted | Project lead |
+| D21 | **No more leaderboard probing** (no scaled or otherwise artificial submissions). Submissions are only for real, validated candidates. | Project lead's instruction on 2026-10-18; the level question is mostly settled (three probes, then model-based trend and completeness) | Adopted | Project lead |
+| D22 | Run a tail and large-claim audit (cap choice, excess load, the open 11.9M claim) | Research report: tail handling is one of the few levers likely to exceed noise; one claim distorted fold A and enters the bodily-injury excess load | In progress | Project lead |
+
 ## Open decisions
-- Which single submission to select as Final (rule: default is best public score; we prefer best CV with a sane level).
-- Whether to apply a global or per-line level uplift (probe optimum near x1.16 globally).
+- Names of the team's independent reviewer and approver for the governance log (placeholders in `workflow/AI_USAGE.md`): to be filled in by the project lead.
 - Whether open claims' case estimates are trusted as final (IBNER not measurable).

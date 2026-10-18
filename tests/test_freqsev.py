@@ -41,3 +41,11 @@ def test_peril_decomposition_adds_up_and_excess_load_is_nonnegative():
     by = m.expected_by_peril(rows)
     assert set(by.columns) == {"A", "B"} and np.allclose(by.sum(axis=1), m.predict(rows))
     assert all(v >= 0 for v in m.excess_.values())
+
+
+@pytest.mark.parametrize("kind", ["glm", "gbm"])
+def test_zero_net_cost_claims_do_not_break_the_gamma_fit(kind):
+    rows, claims = _data()
+    claims.loc[claims.index[:5], "net_cost"] = 0.0  # e.g. a claim whose recoveries equal its incurred amount
+    m = FreqSev(claims, kind=kind, freq_rounds=30, sev_rounds=30).fit(rows)
+    assert np.isfinite(m.predict(rows)).all()

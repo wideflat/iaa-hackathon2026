@@ -85,6 +85,7 @@ class FreqSev:
             cap = float(cp["net_cost"].quantile(self.cap_quantile)) if len(cp) >= self.min_sev_claims else float(cp["net_cost"].max())
             capped = cp["net_cost"].clip(upper=cap)
             self.cap_[p], self.excess_[p] = cap, float((cp["net_cost"] - capped).sum() / capped.sum())
+            capped = capped.clip(lower=1.0)  # Gamma needs y > 0: claims fully recovered (net cost 0) are floored at 1 CU
             idx = pos.get_indexer(cp["row_id"])
             self.sev_[p] = self._fit_sev(X, idx, capped.to_numpy())
         self.k_ = 1.0

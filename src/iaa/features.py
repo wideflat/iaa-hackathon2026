@@ -53,6 +53,48 @@ def add_claim_history(rows: pd.DataFrame, claims_line: pd.DataFrame) -> pd.DataF
     return rows.merge(pd.concat(pieces), on="row_id", how="left")
 
 
+def add_network_history(rows: pd.DataFrame, all_claims: pd.DataFrame, rows_all_lines: pd.DataFrame) -> pd.DataFrame:
+    """Prior claims of the same customer in each line, and at the same address, as known at the end of the previous year.
+
+    `rows_all_lines` holds (policy_id, customer_id, address_id, period_start, period_end) of every policy row of every line, to attach a customer
+    and the address-at-loss-date to each claim. Features use claims lost and reported by 31 Dec of year-1 only, like add_claim_history.
+    """
+    pol = rows_all_lines[["policy_id", "customer_id", "address_id", "period_start", "period_end"]]
+    c = all_claims[all_claims["status"] != "repudiated"][["claim_id", "policy_id", "line", "loss_date", "report_date"]]
+    c = c.merge(pol, on="policy_id", how="left")
+    c = c[(c["loss_date"] >= c["period_start"]) & (c["loss_date"] <= c["period_end"])].drop_duplicates("claim_id")
+    pieces = []
+    for year in sorted(rows["year"].unique()):
+        cutoff = pd.Timestamp(year - 1, 12, 31)
+        known = c[(c["loss_date"] <= cutoff) & (c["report_date"] <= cutoff)]
+        by_cust = known.groupby(["customer_id", "line"]).size().unstack(fill_value=0).add_prefix("cust_n_")
+        by_cust["cust_n_all"] = by_cust.sum(axis=1)
+        by_addr = known.groupby("address_id").size().rename("addr_n_claims")
+        by_addr_ly = known[known["loss_date"].dt.year == year - 1].groupby("address_id").size().rename("addr_n_last_year")
+        r = rows.loc[rows["year"] == year, ["row_id", "customer_id", "address_id"]]
+        r = r.merge(by_cust, left_on="customer_id", right_index=True, how="left").merge(by_addr, left_on="address_id", right_index=True, how="left") \
+             .merge(by_addr_ly, left_on="address_id", right_index=True, how="left")
+        pieces.append(r.drop(columns=["customer_id", "address_id"]))
+    feat = pd.concat(pieces)
+    for col in ("cust_n_motor", "cust_n_buildings", "cust_n_contents", "cust_n_all", "addr_n_claims", "addr_n_last_year"):
+        if col not in feat:
+            feat[col] = 0
+    cols = ["cust_n_motor", "cust_n_buildings", "cust_n_contents", "cust_n_all", "addr_n_claims", "addr_n_last_year"]
+    feat[cols] = feat[cols].fillna(0)
+    return rows.merge(feat[["row_id"] + cols], on="row_id", how="left")
+
+
+WEATHER_LAG_COLS = ["hail_days", "wind_exposure_index", "freezing_days", "dry_summer_index", "wildfire_index", "rainfall_mm"]
+
+
+def add_weather_lag(df: pd.DataFrame, weather: pd.DataFrame) -> pd.DataFrame:
+    """Previous year's weather at the address (NaN when not available, e.g. 2021 rows)."""
+    w = weather[["address_id", "year"] + WEATHER_LAG_COLS].copy()
+    w["year"] = w["year"] + 1
+    w = w.rename(columns={c: c + "_lag1" for c in WEATHER_LAG_COLS})
+    return df.merge(w, on=["address_id", "year"], how="left")
+
+
 def build_line_frame(line: str, data_dir=None, customers=None, addresses=None, weather=None, claims=None) -> pd.DataFrame:
     """Train + test rows of one line in one frame, with target (train only) and all joins."""
     claims = data.load_claims(data_dir) if claims is None else claims
@@ -72,6 +114,10 @@ def build_line_frame(line: str, data_dir=None, customers=None, addresses=None, w
     df = df.merge(weather, on=["address_id", "year"], how="left")
     df["customer_age"] = (df["period_start"] - df["date_of_birth"]).dt.days / 365.25
     df = add_claim_history(df, claims[claims["line"] == line])
+    df = add_weather_lag(df, weather)
+    all_rows = pd.concat([pd.concat([data.load_policies(l, data_dir), data.load_test(l, data_dir)])[["policy_id", "customer_id", "address_id", "period_start", "period_end"]]
+                          for l in LINES], ignore_index=True)
+    df = add_network_history(df, claims, all_rows)
     return df
 
 

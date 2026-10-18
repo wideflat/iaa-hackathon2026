@@ -30,6 +30,9 @@ def main() -> None:
     # frequency x severity options
     ap.add_argument("--no-trend", action="store_true", help="fs: no severity trend projection")
     ap.add_argument("--no-completeness", action="store_true", help="fs: no completeness offset for immature years")
+    ap.add_argument("--alpha-freq", type=float, default=None, help="fs_glm: L2 penalty of the frequency GLM")
+    ap.add_argument("--alpha-sev", type=float, default=None, help="fs_glm: L2 penalty of the severity GLM")
+    ap.add_argument("--splines", action="store_true", help="fs_glm: add spline terms for continuous inputs")
     ap.add_argument("--freq-rounds", type=int, default=250)
     ap.add_argument("--sev-rounds", type=int, default=200)
     ap.add_argument("--lr", type=float, default=None, help="fs: learning rate for both stages")
@@ -64,7 +67,8 @@ def main() -> None:
         factory = lambda line: FreqSev(matched[line], kind=a.model[3:], rebalance=not a.no_rebalance, drop_noise=not a.keep_noise,  # noqa: E731
                                        extra_drop=extra, trend=not a.no_trend, completeness=not a.no_completeness,
                                        freq_rounds=a.freq_rounds, sev_rounds=a.sev_rounds, cap_quantile=a.cap_q,
-                                       params_freq=pf, params_sev=ps)
+                                       params_freq=pf, params_sev=ps, splines=a.splines,
+                                       **({"glm_alpha_freq": a.alpha_freq} if a.alpha_freq else {}), **({"glm_alpha_sev": a.alpha_sev} if a.alpha_sev else {}))
     elif a.model == "mean_rate":
         factory = lambda line: MeanRateModel()  # noqa: E731
     else:

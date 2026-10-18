@@ -18,7 +18,7 @@ import pandas as pd
 from scipy import sparse
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import GammaRegressor, PoissonRegressor
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder, SplineTransformer, StandardScaler
 
 from .. import development as dev
 from ..config import SEED, VALUATION_DATE
@@ -37,7 +37,8 @@ class FreqSev:
     def __init__(self, claims_line: pd.DataFrame, kind: str = "gbm", cap_quantile: float = 0.999, rebalance: bool = True,
                  drop_noise: bool = True, extra_drop=(), freq_rounds: int = 250, sev_rounds: int = 200,
                  glm_alpha_freq: float = 1e-3, glm_alpha_sev: float = 1e-2, min_sev_claims: int = 150,
-                 trend: bool = True, completeness: bool = True, params_freq: dict | None = None, params_sev: dict | None = None):
+                 trend: bool = True, completeness: bool = True, params_freq: dict | None = None, params_sev: dict | None = None,
+                 splines: bool = False, spline_knots: int = 4):
         assert kind in ("glm", "gbm")
         c = claims_line[claims_line["row_id"].notna() & (claims_line["status"] != "repudiated")]
         self.claims = c[["row_id", "peril", "net_cost"]]
@@ -46,6 +47,7 @@ class FreqSev:
         self.freq_rounds, self.sev_rounds = freq_rounds, sev_rounds
         self.alpha_f, self.alpha_s, self.min_sev_claims = glm_alpha_freq, glm_alpha_sev, min_sev_claims
         self.trend, self.completeness = trend, completeness
+        self.splines, self.spline_knots = splines, spline_knots
         self.params_freq, self.params_sev = params_freq or {}, params_sev or {}
         self.sev_trend_ = 0.0
         has_dates = {"loss_date", "report_date"} <= set(claims_line.columns)
@@ -91,6 +93,11 @@ class FreqSev:
             num = num.clip(self.lo_, self.hi_, axis=1)
             self.imp_ = SimpleImputer(strategy="median", add_indicator=True).fit(num)
             self.scaler_ = StandardScaler().fit(self.imp_.transform(num))
+            self.spl_idx_ = []
+            if self.splines:   # smooth non-linear terms for continuous inputs (more than 10 distinct values)
+                self.spl_idx_ = [i for i, c in enumerate(self.num_) if num[c].nunique() > 10]
+                z = np.clip(self.scaler_.transform(self.imp_.transform(num)), -6.0, 6.0)[:, self.spl_idx_]
+                self.spl_ = SplineTransformer(n_knots=self.spline_knots, degree=3, knots="quantile", extrapolation="constant").fit(z[:200000])
             self.ohe_ = OneHotEncoder(handle_unknown="ignore", min_frequency=1000, sparse_output=True).fit(self._cat(train))
         else:
             self.levels_ = {c: sorted(train[c].dropna().astype(str).unique()) for c in self.cat_}
@@ -102,7 +109,10 @@ class FreqSev:
         if self.kind == "glm":
             num = df[self.num_].astype(float).clip(self.lo_, self.hi_, axis=1)
             num = np.clip(self.scaler_.transform(self.imp_.transform(num)), -6.0, 6.0)
-            return sparse.hstack([sparse.csr_matrix(num), self.ohe_.transform(self._cat(df))]).tocsr()
+            blocks = [sparse.csr_matrix(num), self.ohe_.transform(self._cat(df))]
+            if self.spl_idx_:
+                blocks.append(sparse.csr_matrix(self.spl_.transform(num[:, self.spl_idx_]).astype(np.float32)))
+            return sparse.hstack(blocks).tocsr()
         x = df[self.cols_].copy()
         for c, lv in self.levels_.items():
             x[c] = pd.Categorical(x[c].astype(object).where(x[c].notna(), None).map(lambda v: None if v is None else str(v)), categories=lv)

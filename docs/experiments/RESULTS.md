@@ -152,3 +152,13 @@ Blend GBM + TabM: A 0.1414 [0.1360], B 0.1351 [0.1361]. Candidate for the next s
 Submitted 2026-10-18 about 18:05 EDT (user approved): `blend_gbm_tabm4_v2.csv` = 0.5 `fs_gbm_v4_l4_out5` + 0.5 `fs_nn_tabm4`. Public score: to be filled in from the Kaggle submissions page (the submissions API returned authentication errors this afternoon).
 
 Component checks submitted 2026-10-18 about 18:15 EDT at the user's request (public scores to be filled in from the Kaggle page): `fs_nn_tabm4.csv` (TabM alone; CV A 0.1413 / B 0.1328) and `fs_gbm_v4_l4_out5.csv` (GBM alone; CV A 0.1339 / B 0.1323). Purpose: see whether the public ordering GBM < blend, TabM vs blend matches the local one. They are real models, not level probes, and are not used to tune weights (D20/D21).
+
+## 16. Public scores of the 2026-10-18 evening submissions (read 18:20 EDT from the Kaggle REST list; times in the list are UTC)
+| Submission | Public | Local CV (A / B, D2) |
+|---|---|---|
+| Blend GBM v4 + TabM (equal weights) | **0.12679** | 0.1414 / 0.1351 |
+| Blend GBM v4 + NN v1 (equal weights) | 0.12587 | 0.1388 / 0.1338 |
+| GBM v4 alone (leaves 4, outlier 5) | 0.12548 | 0.1339 / 0.1323 |
+| TabM alone | 0.12346 | 0.1413 / 0.1328 |
+| (earlier) v2 GBM 0.12455, v1 GBM 0.12153, GLM 0.12133 | | |
+Reading: the public order of the two blends matches the local order (+0.0009 public, +0.0027 / +0.0013 local); the blend beats both of its components (GBM +0.0013, TabM +0.0033), which is the diversity effect we want. TabM alone is worse than the GBM publicly although it was better on fold A and similar on fold B: fold A single-model scores overstate the NN, and fold B (the one that looks like 2025: immature last year) is the better guide, where the NN is about equal to the GBM. Do not choose a NN-heavy blend from fold A alone. No weights were tuned on these public scores (D20/D21); they are the first public evidence that supports the equal-weight GBM + TabM blend as the current best (0.12679). The top public score seen earlier was 0.12815.

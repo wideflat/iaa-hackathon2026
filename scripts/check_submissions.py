@@ -1,24 +1,25 @@
-"""List this team's submissions with status and public score (read-only). Exit code 0 when none are pending."""
+"""List this team's submissions with status and public score (read-only). Exit code 0 when none are pending.
+
+Uses the public REST endpoint through the sandbox proxy (which injects the Kaggle credential). The SDK's list call returned 'Authentication required'
+for hours on 2026-10-18 while submitting through the SDK worked; the REST call does not have that problem.
+"""
 import sys
 from pathlib import Path
+
+import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from iaa.config import COMPETITION  # noqa: E402
 
 
 def main() -> int:
-    from kaggle.api.kaggle_api_extended import KaggleApi
-    from kagglesdk.competitions.types.competition_api_service import ApiListSubmissionsRequest
-
-    with KaggleApi.build_kaggle_client_with_params(args=[], api_token="placeholder-proxy-injects-real-header") as k:
-        r = ApiListSubmissionsRequest()
-        r.competition_name = COMPETITION
-        subs = k.competitions.competition_api_client.list_submissions(r).submissions
+    r = requests.get(f"https://www.kaggle.com/api/v1/competitions/submissions/list/{COMPETITION}", params={"pageSize": 50}, timeout=60)
+    r.raise_for_status()
     pending = 0
-    for s in subs:
-        status = str(s.status).split(".")[-1]
-        pending += status == "PENDING"
-        print(f"{s.date} | {status:9s} | public score {s.public_score or '-':>8} | {(s.description or '')[:90]}")
+    for s in r.json():
+        status = str(s.get("status"))
+        pending += status.lower() == "pending"
+        print(f"{s['date'][:16]} | {status:9s} | public score {s.get('publicScoreNullable') or '-':>8} | {(s.get('description') or '')[:90]}")
     return 1 if pending else 0
 
 

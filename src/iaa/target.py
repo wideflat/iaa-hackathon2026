@@ -4,7 +4,7 @@ Target definition (from the competition Description/Submissions pages):
   ultimate cost of all claims with a loss date in the row's period,
   net of policy excess and net of recoveries, excluding declined claims.
 
-Decisions, each verified against the data (see docs/DATA_QUALITY.md):
+Decisions, each verified against the data (see docs/data/DATA_QUALITY.md):
   * `paid_to_date` is already net of excess, so net cost = incurred_to_date - recoveries.
   * Recoveries only appear on closed motor own_damage/theft claims (about 80% of incurred).
   * Repudiated claims carry zero amounts and are excluded.

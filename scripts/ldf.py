@@ -1,6 +1,6 @@
 """Build annual loss (count and dollar) triangles, link ratios, LDFs and developed ultimates by line.
 
-  python scripts/ldf.py            # prints tables and writes docs/LDF_TABLES.md
+  python scripts/ldf.py            # prints tables and writes docs/data/LDF_TABLES.md
 """
 import sys
 from pathlib import Path
@@ -60,7 +60,7 @@ def main() -> None:
             summary.append(dict(group=name, basis=label.split(" (")[0], **{f"AY{y} uplift %": round(100 * (ult[y] / asval[y] - 1), 1) for y in YEARS}, **{f"CDF{a}": round(v, 3) for a, v in cdf.items()}, tail=round(tail, 4)))
     s = pd.DataFrame(summary)
     out.insert(4, "## Summary\n\n" + md(s, "{:,.3f}", index=False) + "\n")
-    (REPO_ROOT / "docs" / "LDF_TABLES.md").write_text("\n".join(out))
+    (REPO_ROOT / "docs" / "data" / "LDF_TABLES.md").write_text("\n".join(out))
     pd.set_option("display.width", 250); pd.set_option("display.max_columns", 30)
     print(s.to_string(index=False))
 

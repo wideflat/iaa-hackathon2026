@@ -68,7 +68,7 @@ So trend remains untested rather than established; the first trend estimate shou
 ## 7. Draft question for the organizers (competition forum)
 "The target is described as the ultimate cost of claims with a loss date in the row's period. (1) At what valuation date and maturity are the 2025 labels measured: all claims eventually reported and settled, or an incurred snapshot at a later date such as 31 Dec 2025? (2) Are open claims at their final cost, and do recoveries on open claims count at their eventual amount? (3) Is the 2025 label built by the same process that produced the 2021-2024 claims (including claims not yet reported at the 2024-12-31 snapshot)?"
 
-## 8. Annual accident-year triangles and LDFs (`scripts/ldf.py` -> `docs/LDF_TABLES.md`)
+## 8. Annual accident-year triangles and LDFs (`scripts/ldf.py` -> `docs/data/LDF_TABLES.md`)
 Textbook layout: accident year x age 12/24/36/48 months, cumulative reported claims at their current net cost (as-if triangle: reporting
 emergence only, no IBNER), volume-weighted link ratios over AY2021-24 (AY2021 is fully observed to 48m so it is kept), exponential-decay tail.
 CDF to ultimate at 12 / 24 / 36 months and implied uplift of the as-valued amount:

@@ -1,0 +1,26 @@
+# Experiment log (generated from experiments/log.jsonl by scripts/render_experiments.py)
+
+Pooled Tweedie D2 (power 1.5) with 95% customer-clustered bootstrap CI where available; in brackets the per-line D2 (mo = motor, bu = buildings, co = contents). Fold A = train 2021-22, validate 2023; fold B = train 2021-23, validate 2024 (immature). Rehearsal rows are keyed by variant. Entries are appended chronologically; the INVALID entry is kept on purpose as evidence.
+
+| # | Time (UTC) | Name | Results | Public LB | Note |
+|---|---|---|---|---|---|
+| 1 | 2026-10-17 20:02 | `mean_rate` | **A_valid2023** 0.0869 (0.076-0.098) [mo0.044 bu0.042 co0.024]<br>**B_valid2024** 0.0708 (0.060-0.079) [mo0.024 bu0.042 co0.031] | - |  |
+| 2 | 2026-10-17 20:04 | `lgbm_INVALID_leak` | **A_valid2023** 0.5552 (0.506-0.600) [mo0.559 bu0.510 co0.501]<br>**B_valid2024** 0.6546 (0.645-0.663) [mo0.630 bu0.654 co0.637] | - | INVALID: customer_service_contacts is outcome-generated in training (see docs/DATA_QUALITY.md). Kept as evidence of why train-vs-test screening is required. Do not compare against. |
+| 3 | 2026-10-17 20:09 | `lgbm_v1_noleak` | **A_valid2023** 0.0975 (0.077-0.113) [mo0.038 bu0.071 co0.048]<br>**B_valid2024** 0.1200 (0.110-0.131) [mo0.072 bu0.099 co0.076] | - | contacts excluded (outcome leak); noise cols dropped; as-valued target |
+| 4 | 2026-10-17 23:54 | `diag_nohist` | **A_valid2023** 0.1072 (0.088-0.120) [mo0.043 bu0.086 co0.063] | - | calibration diagnosis: drop nohist |
+| 5 | 2026-10-17 23:55 | `diag_noweather` | **A_valid2023** 0.1114 (0.100-0.122) [mo0.051 bu0.086 co0.066] | - | calibration diagnosis: drop noweather |
+| 6 | 2026-10-17 23:56 | `diag_noprem` | **A_valid2023** 0.1023 (0.078-0.119) [mo0.035 bu0.082 co0.061] | - | calibration diagnosis: drop noprem |
+| 7 | 2026-10-17 23:57 | `diag_static_only` | **A_valid2023** 0.1022 (0.080-0.117) [mo0.036 bu0.079 co0.065] | - | calibration diagnosis: drop static_only |
+| 8 | 2026-10-17 23:59 | `diag_offset_form` | **A_valid2023** 0.1009 (0.072-0.119) [mo0.033 bu0.082 co0.058] | - | calibration diagnosis: offset form (init_score=log(exposure*base_rate)) |
+| 9 | 2026-10-18 00:14 | `lgbm_v2_rebalanced` | **A_valid2023** 0.1225 (0.109-0.133) [mo0.056 bu0.105 co0.081]<br>**B_valid2024** 0.1253 (0.116-0.135) [mo0.069 bu0.111 co0.089] | - | v1 + per-line rebalancing of predictions to training total (Tweedie 1.5 log-link GBM under-predicts totals in-sample by 20-30%) |
+| 10 | 2026-10-18 01:16 | `rehearsal_snapshot2022` | **constant rate (as-known)** 0.0847 (0.076-0.093) [mo0.040 bu0.041 co0.024]<br>**GBM, no maturity feature** 0.9929 (0.989-0.995) [mo0.988 bu0.997 co0.996]<br>**GBM + maturity_days** 0.9725 (0.972-0.973) [mo0.950 bu0.994 co0.984] | - | train 2021-22 as known at snapshot, predict 2023 at mature maturity, truth = 2023 at 2024-12-31 |
+| 11 | 2026-10-18 01:18 | `rehearsal_snapshot2022` | **constant rate (as-known)** 0.0847 (0.076-0.093) [mo0.040 bu0.041 co0.024]<br>**GBM, no maturity feature** 0.1089 (0.081-0.129) [mo0.030 bu0.101 co0.079]<br>**GBM + maturity_days** 0.1210 (0.109-0.132) [mo0.053 bu0.104 co0.084] | - | train 2021-22 as known at snapshot, predict 2023 at mature maturity, truth = 2023 at 2024-12-31 |
+| 12 | 2026-10-18 01:21 | `rehearsal_snapshot2022_closed_only` | **constant rate (as-known)** 0.0830 (0.075-0.090) [mo0.037 bu0.040 co0.024]<br>**GBM, no maturity feature** 0.1084 (0.082-0.127) [mo0.029 bu0.100 co0.079]<br>**GBM + maturity_days** 0.1171 (0.100-0.130) [mo0.044 bu0.104 co0.084] | - | train 2021-22 as known at snapshot, predict 2023 at mature maturity, truth = 2023 at 2024-12-31 |
+| 13 | 2026-10-18 01:33 | `lgbm_closed_only` | **A_valid2023** 0.1090 (0.072-0.132) [mo0.029 bu0.102 co0.081]<br>**B_valid2024** 0.1276 (0.118-0.138) [mo0.074 bu0.111 co0.090] | - | labels from closed claims only; calibrated to closed total; scored on all claims |
+| 14 | 2026-10-18 01:36 | `lgbm_closed_only_level_all` | **A_valid2023** 0.1118 (0.079-0.133) [mo0.035 bu0.102 co0.081]<br>**B_valid2024** 0.1258 (0.117-0.136) [mo0.070 bu0.112 co0.090] | - | labels from closed claims only; --level-all; scored on all claims |
+| 15 | 2026-10-18 02:01 | `fs_gbm_foldA` | **A_valid2023** 0.1329 (0.126-0.139) [mo0.073 bu0.108 co0.089] | - | frequency x capped severity x excess load, per peril, LightGBM |
+| 16 | 2026-10-18 02:37 | `fs_gbm_foldB_v2` | **B_valid2024** 0.1290 (0.120-0.138) [mo0.074 bu0.114 co0.092] | - | frequency x capped severity x excess load per peril |
+| 17 | 2026-10-18 02:45 | `fs_glm_foldAB_v2` | **A_valid2023** 0.0630 (0.041-0.087) [mo0.096 bu-0.138 co0.087]<br>**B_valid2024** 0.0120 (-0.013-0.032) [mo0.045 bu-0.178 co0.085] | - | frequency x capped severity x excess load per peril |
+| 18 | 2026-10-18 02:58 | `fs_gbm_v1_submission` | - | 0.12153 | First submission. CV fold A 0.1329, fold B 0.1290; public leaderboard 0.12153 (rank ~6; top 0.12815). 2024 counts not completeness-adjusted. |
+| 19 | 2026-10-18 03:04 | `level_probe_x0.90` | - | 0.11554 | Same predictions as fs_gbm_v1 scaled x0.90 (all lines). Level probe, not a new model. |
+| 20 | 2026-10-18 03:04 | `level_probe_x1.10` | - | 0.12429 | Same predictions as fs_gbm_v1 scaled x1.10 (all lines). Quadratic fit in ln(scale) through x0.90/1.00/1.10 puts the optimum near x1.16 (about 0.1247). |

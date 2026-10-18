@@ -1,0 +1,24 @@
+# Decision record
+
+Each decision: what, why (evidence), status. "Reviewed by" is the human who confirmed the direction.
+
+| ID | Decision | Evidence / reason | Status | Reviewed by |
+|---|---|---|---|---|
+| D1 | Target = accident-period net cost: sum of `incurred - recoveries` over non-repudiated claims whose `loss_date` falls in the row's period | Task text and glossary; paid is already net of excess; recoveries only on closed motor claims | Adopted | Project lead |
+| D2 | Validate with fixed forward-in-time folds (A: 2021-22 -> 2023; B: 2021-23 -> 2024), no grouping by policy | Test is a future year; 85% of test policies also appear in training | Adopted | Project lead |
+| D3 | Exclude `customer_service_contacts` | Outcome-generated in training (corr 0.55), baseline-only in 2025; CV 0.55 -> 0.10 without it | Adopted; guard test + D2 alarm | Assistant, confirmed by lead |
+| D4 | Recompute exposure from period dates | Supplied column corrupted on ~2-3% of training rows; test clean | Adopted | Assistant |
+| D5 | Do not use `renewal_decision`; filter no rows by it | Not in test; rows later declined carry 24-52% of cost (98% have claims) | Adopted | Project lead |
+| D6 | Rebalance each line's predictions to the training total | Tweedie 1.5 log-link GBM under-predicts totals in-sample by 20-30%; +0.017 D2 on fold A | Adopted | Assistant |
+| D7 | Keep all claims (open and closed) as labels | Closed-only: fold A 0.109-0.112 vs 0.1225; bodily-injury claims stay open for years (15-80% of cost) so closed-only biases recent years. The lead preferred closed-only in principle; validation did not support it | Adopted on validation; closed-only kept as an option (`--closed-only`) | Project lead (informed) |
+| D8 | Do not build the target from link ratios; handle immaturity only as a completeness adjustment on 2024 frequency by peril | Task is pricing; severity independent of report lag; maturity-feature and closed-only tests gave no clear gain; development is secondary | Adopted; adjustment not yet implemented | Project lead |
+| D9 | Primary model family = frequency x severity per peril (GBM), with GLM benchmark and direct Tweedie as comparison | Fold A 0.1329 vs 0.1225; standard actuarial structure | Adopted | Project lead |
+| D10 | Cap severity at the 99.9th percentile per peril and load the excess back | One 11.9M claim vs typical 10-20k; stable development factors under capping | Adopted | Assistant |
+| D11 | Submit only via the guarded script (`--confirm`), one validated file at a time; use level probes sparingly | Submissions are limited (5/day) and public | Adopted | Project lead |
+| D12 | Work on `dev`; `main` holds stable states; default branch to be set to `main` by the owner | Repo workflow request | Adopted | Project lead |
+| D13 | Treat the leaderboard as a level check only; choose models on local validation | Public score is a 33% noisy subset; CV and public ordering agree so far | Adopted | Project lead (principle set on day 1) |
+
+## Open decisions
+- Which single submission to select as Final (rule: default is best public score; we prefer best CV with a sane level).
+- Whether to apply a global or per-line level uplift (probe optimum near x1.16 globally).
+- Whether open claims' case estimates are trusted as final (IBNER not measurable).

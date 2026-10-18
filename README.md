@@ -27,8 +27,7 @@ Results are appended to `experiments/log.jsonl`. Branches: `main` is stable, wor
 - `src/iaa/validation.py`, `metrics.py`, `cv.py` fixed time-based folds, official metric, harness
 - `src/iaa/features.py` leak-safe features and column policy; `drift.py` train-vs-test screens
 - `src/iaa/models/` models; `submission.py` validated submission writer
-- `docs/` DATA_QUALITY, VALIDATION, AI_USAGE; `tests/` guardrail tests
+- `docs/` organised by topic: start at `docs/README.md` (competition, data, methodology, experiments, research, workflow); `tests/` guardrail tests
 
 ## Status
-See `experiments/log.jsonl`. Open items: develop 2024 claims to ultimate, large-loss treatment, calibration
-(GBM predicts ~65-75% of actual on fold A), frequency x severity models, GLM benchmark.
+Best model: per-peril frequency x capped severity GBM (CV fold A 0.1329, fold B 0.1290; public leaderboard 0.12153). Results: `docs/experiments/RESULTS.md`; plan: `docs/workflow/ROADMAP.md`.

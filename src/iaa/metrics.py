@@ -10,6 +10,14 @@ import pandas as pd
 from .config import SEED, TWEEDIE_POWER
 
 PRED_FLOOR = 1e-6
+# The public leaderboard leaders sit near 0.13. A pooled D2 above this on honest validation means a leak, not skill.
+LEAK_ALARM_D2 = 0.35
+
+
+def assert_not_too_good(d2: float, context: str = "") -> None:
+    """Fail loudly on an implausibly high score (e.g. a target or outcome-generated column leaked into the features)."""
+    if d2 > LEAK_ALARM_D2:
+        raise AssertionError(f"D2={d2:.3f} exceeds {LEAK_ALARM_D2} {context}: suspected target leakage, do not trust this result")
 
 
 def _dev_terms(p: float):

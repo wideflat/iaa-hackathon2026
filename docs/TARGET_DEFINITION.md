@@ -106,3 +106,19 @@ Decision: develop by peril (not by line or size band), on capped cost, with the 
   motor excl. BI -0.3..+0.2%, motor BI (capped) -3.5%, -1.1%, +4.2%. Reporting development is well predicted; case-estimate development is still untested.
 - **Design option (adopted for next step):** train on the 12-month view of every accident year (claims reported by 31 Dec of the accident year): identical
   maturity for 2021-2024, so 2024 needs no development and fold B becomes valid; use a row-level completeness offset (loss-date-aware, per peril) to convert to ultimate.
+
+## 11. Rehearsal: maturity as a feature, and closed-only labels (`scripts/rehearsal.py`)
+Pretend today is 2022-12-31: train on 2021-22 using only claims reported by then (current amounts), predict 2023 without any 2023 claims (as for 2025),
+score against 2023 as valued at 2024-12-31 (24 months old; motor bodily injury still ~7% from ultimate). Maturity feature = days from row end to the snapshot;
+the test rows are predicted at the maximum training maturity ("mature view"). Pooled D2 (customer-clustered 95% CI):
+
+| Variant | All claims | Closed claims only |
+|---|---|---|
+| Constant rate | 0.085 | 0.083 |
+| GBM, no maturity feature | 0.109 (0.081-0.129) | 0.108 |
+| GBM + maturity_days | **0.121** (0.110-0.132) | 0.117 |
+
+Maturity feature: +0.012 pooled, +0.023 on motor, calibration motor 0.80 -> 0.86; gain is inside the noise band but consistent in sign and concentrated in motor
+(the bodily-injury effect). Closed-only labels are slightly worse (motor 0.044 vs 0.053), as the open-share analysis predicts.
+Caveat: a first version of this script put `y_true` among the features (D2 0.99). Fixed; `y_true` is now excluded, a test guards it, and
+`metrics.assert_not_too_good` stops any run with pooled D2 above 0.35.

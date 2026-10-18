@@ -36,3 +36,9 @@ def test_cluster_bootstrap_is_wider_than_row_bootstrap_when_rows_are_correlated(
     pred = np.repeat(pred[:1000], 6)
     groups = np.repeat(np.arange(1000), 6)
     assert metrics.bootstrap_d2(y, pred, groups, 200)["se"] > metrics.bootstrap_d2(y, pred, np.arange(6000), 200)["se"]
+
+
+def test_leak_alarm_fires_on_implausibly_good_scores_only():
+    metrics.assert_not_too_good(0.13)
+    with pytest.raises(AssertionError):
+        metrics.assert_not_too_good(0.99, "test")

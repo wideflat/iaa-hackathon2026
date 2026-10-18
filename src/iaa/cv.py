@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from .config import ARTIFACTS_DIR, LINES, REPO_ROOT
-from .metrics import score_report
+from .metrics import assert_not_too_good, score_report
 from .validation import FOLDS, split
 
 EXPERIMENT_LOG = REPO_ROOT / "experiments" / "log.jsonl"
@@ -29,6 +29,7 @@ def run_cv(frames: dict, model_factory, fold_keys=("A", "B"), n_boot: int = 200)
         oof = pd.concat(parts, ignore_index=True)
         oof["fold"] = fold.name
         results[fold.name] = score_report(oof, n_boot=n_boot)
+        assert_not_too_good(results[fold.name]["d2_pooled"], f"in fold {fold.name}")
         oof_parts.append(oof)
     return results, pd.concat(oof_parts, ignore_index=True)
 

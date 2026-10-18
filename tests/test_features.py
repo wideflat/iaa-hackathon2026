@@ -30,3 +30,8 @@ def test_feature_columns_exclude_leakage_and_ids():
 def test_outcome_generated_column_is_never_a_feature_even_when_noise_is_kept():
     df = pd.DataFrame({"customer_service_contacts": [3], "driver_age": [30]})
     assert "customer_service_contacts" not in features.feature_columns(df, drop_noise=False)
+
+
+def test_every_target_like_column_is_excluded_from_features():
+    df = pd.DataFrame({"y": [1.0], "y_true": [1.0], "n_claims": [1], "pred": [1.0], "driver_age": [30]})
+    assert features.feature_columns(df) == ["driver_age"]

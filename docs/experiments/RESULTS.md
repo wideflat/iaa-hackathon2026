@@ -184,3 +184,6 @@ Level check of the GBM + TabM blend (actual / predicted, fold A, fold B): motor 
 
 ## 19. TabM with 3 seeds (helper 3, finished 18:42 EDT; 30 min for both folds)
 `fs_nn_tabm4_s3`: A 0.1429 [0.1347], B 0.1328 [0.1340] (1 seed: 0.1413 [0.1331] / 0.1328 [0.1338]). In the blend with the GBM: equal weights A +0.0005 (+0.0001..+0.0010), B -0.0001 (-0.0007..+0.0004) vs the 1-seed blend; per-line weights A +0.0003, B -0.0002 (both CIs include 0). Seed averaging does not change the blend; the single-seed TabM already fitted on 2021-24 is as good, so no 3-seed refit is made.
+
+## 20. Per-line-weight blend submitted (19:56 EDT)
+`blend_gbm_tabm4_perline_v3.csv` (TabM weight 0.7 motor / 0.4 buildings / 0.3 contents): public **0.12718**, vs 0.12679 for the equal-weight blend (+0.0004; the local gain was +0.0021 on fold A and +0.0004 on fold B). New best public score; the top public score seen earlier was 0.12815. This is the current final-submission candidate under D20 (local validation positive on both folds and the public score supports it).

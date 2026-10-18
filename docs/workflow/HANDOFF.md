@@ -23,6 +23,8 @@
 **Time zone: report EDT (user's instruction 2026-10-18 12:20 EDT); timestamps above this line are UTC.**
 **Restarts: the sandbox restarts at user turns and kills background jobs; use `scripts/queue_runs.sh` (resumable, checkpoints per fold and line) and relaunch it when `pgrep -af run_cv` is empty. Currently queued: fs_nn_wide, then fs_nn_s3.**
 
+### 19:56 EDT: NEW BEST public 0.12718 = per-line-weight blend GBM v4 + TabM (blend_gbm_tabm4_perline_v3.csv, TabM weight 0.7 motor / 0.4 buildings / 0.3 contents). Submissions: 10 used on the 2026-10-18 UTC day (the 10th at 23:55 UTC); the daily limit probably resets at 00:00 UTC = 20:00 EDT. Helper 1's TabM k=8 run is still pending (not expected to matter).
+
 ### 18:20 EDT: PUBLIC SCORES - blend GBM+TabM 0.12679 (best), blend GBM+NN v1 0.12587, GBM v4 0.12548, TabM alone 0.12346. `scripts/check_submissions.py` now uses the REST endpoint (works). See RESULTS section 16.
 
 ### 18:15 EDT: at the user's request two component checks were also submitted: `fs_nn_tabm4.csv` (TabM alone) and `fs_gbm_v4_l4_out5.csv` (GBM v4 alone). 9 of 10 submissions used today (UTC day of 2026-10-18; check the reset time); 1 left, held for the next real candidate. Public scores to be read from the Kaggle page. These are real models fitted on 2021-24, not scaled probes; D21 (no probing) is not affected.

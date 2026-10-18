@@ -104,3 +104,23 @@ def test_seed_averaging_keeps_the_model_working_and_changes_predictions_slightly
     p1, p3 = one.predict(rows), three.predict(rows)
     assert len(three.freq_["A"][0]) == 3 and np.isfinite(p3).all() and (p3 >= 0).all()
     assert abs(p3.sum() / p1.sum() - 1) < 0.1 and np.corrcoef(p1, p3)[0, 1] > 0.9
+
+
+def test_per_peril_rebalancing_matches_each_perils_training_total():
+    rows, claims = _data()
+    m = FreqSev(claims, kind="glm", cap_quantile=0.99, trend=False, completeness=False, rebalance_level="peril").fit(rows)
+    by = m.expected_by_peril(rows)
+    for p in by.columns:
+        assert np.isclose(by[p].sum(), m.level_by_peril_[p], rtol=1e-9)
+    assert np.isclose(m.predict(rows).sum(), sum(m.level_by_peril_.values()), rtol=1e-9)
+
+
+def test_outlier_winsorisation_removes_a_single_giant_claim_from_the_excess_load_and_level():
+    rows, claims = _data()
+    claims = claims.copy()
+    first = claims.index[claims.peril == "A"][0]
+    claims.loc[first, "net_cost"] = 5_000_000.0           # one absurd claim
+    plain = FreqSev(claims, kind="glm", cap_quantile=0.99, trend=False, completeness=False, rebalance_level="peril").fit(rows)
+    robust = FreqSev(claims, kind="glm", cap_quantile=0.99, trend=False, completeness=False, rebalance_level="peril", outlier_mult=5.0).fit(rows)
+    assert robust.excess_["A"] < 0.2 * plain.excess_["A"]
+    assert robust.predict(rows).sum() < 0.5 * plain.predict(rows).sum()   # level no longer carries the giant claim

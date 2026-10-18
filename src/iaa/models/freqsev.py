@@ -38,7 +38,7 @@ class FreqSev:
                  drop_noise: bool = True, extra_drop=(), freq_rounds: int = 250, sev_rounds: int = 200,
                  glm_alpha_freq: float = 1e-3, glm_alpha_sev: float = 1e-2, min_sev_claims: int = 150,
                  trend: bool = True, completeness: bool = True, params_freq: dict | None = None, params_sev: dict | None = None,
-                 bands: bool = False, n_bands: int = 6, n_seeds: int = 1):
+                 bands: bool = False, n_bands: int = 6, n_seeds: int = 1, rebalance_level: str = "line", outlier_mult: float | None = None):
         assert kind in ("glm", "gbm")
         c = claims_line[claims_line["row_id"].notna() & (claims_line["status"] != "repudiated")]
         self.claims = c[["row_id", "peril", "net_cost"]]
@@ -48,6 +48,9 @@ class FreqSev:
         self.alpha_f, self.alpha_s, self.min_sev_claims = glm_alpha_freq, glm_alpha_sev, min_sev_claims
         self.trend, self.completeness = trend, completeness
         self.bands, self.n_bands = bands, n_bands
+        self.outlier_mult = outlier_mult   # winsorise any single claim above outlier_mult x its peril's cap in the excess load and level targets (not in the severity fit)
+        assert rebalance_level in ("line", "peril")
+        self.rebalance_level = rebalance_level   # 'peril': rescale each peril to its own trended training total (fixes the Gamma/Poisson total bias per peril)
         self.n_seeds = n_seeds   # GBM only: average this many boosters per stage (different bagging seeds)
         self.params_freq, self.params_sev = params_freq or {}, params_sev or {}
         self.sev_trend_ = 0.0
@@ -139,7 +142,8 @@ class FreqSev:
         for p, cp in cl.groupby("peril"):
             cap = float(cp["net_cost"].quantile(self.cap_quantile)) if len(cp) >= self.min_sev_claims else float(cp["net_cost"].max())
             capped = cp["net_cost"].clip(upper=cap)
-            self.cap_[p], self.excess_[p] = cap, float((cp["net_cost"] - capped).sum() / capped.sum())
+            xs_cost = cp["net_cost"] if self.outlier_mult is None else cp["net_cost"].clip(upper=self.outlier_mult * cap)
+            self.cap_[p], self.excess_[p] = cap, float((xs_cost - capped).sum() / capped.sum())
         cl["cost"] = cl["net_cost"].clip(upper=cl["peril"].map(self.cap_))
         # B) severity trend: projects every claim to the cost level of year `ref`
         self.sev_trend_ = self._estimate_trend(cl) if self.trend else 0.0
@@ -147,6 +151,7 @@ class FreqSev:
         cl["tf"] = np.exp(self.sev_trend_ * (ref - cl["year"]))
         # C) models per peril
         level = 0.0
+        self.level_by_peril_ = {}
         for p in counts.columns:
             n = counts[p].to_numpy(dtype=float)
             if n.sum() < 20:
@@ -157,10 +162,18 @@ class FreqSev:
             idx = pos.get_indexer(cp["row_id"])
             self.sev_[p] = self._fit_sev(X, idx, (cp["cost"] * cp["tf"]).clip(lower=1.0).to_numpy())
             cc = self._c_vec(p, cp["year"].to_numpy()) if self.completeness else 1.0
-            level += float((cp["net_cost"] * cp["tf"] / cc).sum())   # ultimate-equivalent, trended training cost of this peril
+            lp_cost = cp["net_cost"] if self.outlier_mult is None else cp["net_cost"].clip(upper=self.outlier_mult * self.cap_[p])
+            lp = float((lp_cost * cp["tf"] / cc).sum())   # ultimate-equivalent, trended training cost of this peril
+            self.level_by_peril_[p] = lp
+            level += lp
         self.k_ = 1.0
+        self.kp_ = {}
         if self.rebalance:
-            self.k_ = float(level / self._predict_raw(train).sum())
+            if self.rebalance_level == "peril":
+                by = self.expected_by_peril(train)
+                self.kp_ = {p: float(self.level_by_peril_[p] / by[p].sum()) for p in by.columns}
+            else:
+                self.k_ = float(level / self._predict_raw(train).sum())
         return self
 
     def _sub(self, X, idx):
@@ -208,7 +221,8 @@ class FreqSev:
     def expected_by_peril(self, rows: pd.DataFrame) -> pd.DataFrame:
         X = self._x(rows)
         expo = rows["exposure_calc"].to_numpy()
-        return pd.DataFrame({p: self._freq_rate(p, X) * expo * self._sev(p, X) * (1.0 + self.excess_[p]) for p in self.freq_}, index=rows.index)
+        kp = getattr(self, "kp_", {})
+        return pd.DataFrame({p: kp.get(p, 1.0) * self._freq_rate(p, X) * expo * self._sev(p, X) * (1.0 + self.excess_[p]) for p in self.freq_}, index=rows.index)
 
     def _predict_raw(self, rows: pd.DataFrame) -> np.ndarray:
         return self.expected_by_peril(rows).sum(axis=1).to_numpy()

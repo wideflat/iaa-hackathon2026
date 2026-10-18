@@ -31,6 +31,7 @@ Each decision: what, why (evidence), status. "Reviewed by" is the human who conf
 | D23 | Add a CANN-style neural-net frequency x severity model and blend it 50/50 with the GBM (candidate, first submitted blend) | Folds: NN v1 A 0.1365 / B 0.1296; blend A 0.1388 / B 0.1338 vs GBM 0.1339 / 0.1323; paired CI excludes 0 on both folds (+0.0049, +0.0014). Public: blend 0.12587 vs v2 0.12455 | Adopted as current best candidate; weights, seeds and further algorithms (XGBoost, CatBoost) under test | Project lead |
 | D24 | Do not add XGBoost, CatBoost, the direct Tweedie NN or the GLM to the GBM + NN blend | Paired bootstrap vs the reference blend: none positive on both folds (RESULTS section 10) | Rejected; next: NN variants (wide, 3 seeds) | Project lead |
 | D25 | Reject the risk-dependent tail (excess) load | No change at lambda 0.5 or 1.0 on both folds (RESULTS section 12): the excess loads are 0.1-0.9% of cost, so scaling them by risk cannot matter | Rejected; code kept behind `tail_lambda` (default off) | Project lead |
+| D26 | Reject customer/address entity embeddings in the NN | Single-model scores below the no-entity net on both folds and metrics (RESULTS section 13) | Rejected; code kept behind `--entity` | Project lead |
 
 ## Open decisions
 - Names of the team's independent reviewer and approver for the governance log (placeholders in `workflow/AI_USAGE.md`): to be filled in by the project lead.

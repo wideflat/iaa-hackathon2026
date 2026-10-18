@@ -139,3 +139,12 @@ LightGBM leaves 4 + outlier 5; reference A 0.1339 [cap250k 0.1323], B 0.1323 [0.
 | `fs_gbm_adv05` (domain-shift weights, strength 0.5) | 0.1339 [0.1323] | 0.1322 [0.1332] | weights near uniform; no change |
 | `fs_gbm_adv10` (strength 1.0) | 0.1345 [0.1318] | 0.1320 [0.1331] | no change |
 Rejected (D27): none is positive on both folds on both metrics. The train and 2025-type rows are hard to tell apart (classifier weights near uniform), so there is little covariate shift for the weights to correct; recency does not help because the severity trend and completeness handling already model the drift. Predictions were not saved (helper stopped after the logs).
+
+## 15. TabM-style NN (k=4 BatchEnsemble members, 1 net per stage; 17:55 EDT)
+| Run | Fold A D2 [cap250k] | Fold B D2 [cap250k] | Read |
+|---|---|---|---|
+| `fs_nn_tabm4` | 0.1413 [0.1331] | 0.1328 [0.1338] | best single model: above the 3-seed net (0.1406 [0.1330] / 0.1313 [0.1326]) on both folds and metrics, at similar cost |
+| GBM + TabM (equal weights) minus R (GBM + NN v1) | +0.0027 (-0.0003..+0.0074) | +0.0013 (+0.0007..+0.0020) | cap250k: 0.1360 vs 0.1356 (A), 0.1361 vs 0.1349 (B) |
+| GBM + TabM minus GBM + NN 3 seeds | +0.0008 (-0.0002..+0.0020) | +0.0007 (+0.0001..+0.0015) | TabM better in the blend on both folds |
+| GBM + TabM + NN 3 seeds minus R | +0.0033 (-0.0004..+0.0094) | +0.0009 (+0.0003..+0.0017) | no better than GBM + TabM on fold B |
+Blend GBM + TabM: A 0.1414 [0.1360], B 0.1351 [0.1361]. Candidate for the next submission (D28).

@@ -33,6 +33,7 @@ Each decision: what, why (evidence), status. "Reviewed by" is the human who conf
 | D25 | Reject the risk-dependent tail (excess) load | No change at lambda 0.5 or 1.0 on both folds (RESULTS section 12): the excess loads are 0.1-0.9% of cost, so scaling them by risk cannot matter | Rejected; code kept behind `tail_lambda` (default off) | Project lead |
 | D26 | Reject customer/address entity embeddings in the NN | Single-model scores below the no-entity net on both folds and metrics (RESULTS section 13) | Rejected; code kept behind `--entity` | Project lead |
 | D27 | Reject recency weighting and domain-shift weighting | RESULTS section 14: no run positive on both folds and both metrics; adversarial weights near uniform | Rejected; code kept behind `--recency` / `--adv-weights` (default off) | Project lead |
+| D28 | Adopt GBM + TabM-style NN (equal weights) as the next candidate | RESULTS section 15: above the submitted GBM + NN v1 blend on both folds and both metrics; B interval excludes 0 | Final TabM fit on 2021-24 running; submit after checks | Project lead |
 
 ## Open decisions
 - Names of the team's independent reviewer and approver for the governance log (placeholders in `workflow/AI_USAGE.md`): to be filled in by the project lead.

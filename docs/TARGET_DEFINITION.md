@@ -67,3 +67,22 @@ So trend remains untested rather than established; the first trend estimate shou
 
 ## 7. Draft question for the organizers (competition forum)
 "The target is described as the ultimate cost of claims with a loss date in the row's period. (1) At what valuation date and maturity are the 2025 labels measured: all claims eventually reported and settled, or an incurred snapshot at a later date such as 31 Dec 2025? (2) Are open claims at their final cost, and do recoveries on open claims count at their eventual amount? (3) Is the 2025 label built by the same process that produced the 2021-2024 claims (including claims not yet reported at the 2024-12-31 snapshot)?"
+
+## 8. Annual accident-year triangles and LDFs (`scripts/ldf.py` -> `docs/LDF_TABLES.md`)
+Textbook layout: accident year x age 12/24/36/48 months, cumulative reported claims at their current net cost (as-if triangle: reporting
+emergence only, no IBNER), volume-weighted link ratios over AY2021-24 (AY2021 is fully observed to 48m so it is kept), exponential-decay tail.
+CDF to ultimate at 12 / 24 / 36 months and implied uplift of the as-valued amount:
+
+| Group | CDF 12m | CDF 24m | CDF 36m | AY2024 | AY2023 |
+|---|---|---|---|---|---|
+| Motor, all perils (net cost) | 1.258 | 1.030 | 1.004 | +25.8% | +3.0% |
+| Motor bodily injury, net cost, 11.9M claim in | 1.710 | 1.070 | 1.009 | +71.0% | +7.0% |
+| Motor bodily injury, cost capped at 250k | 1.812 | 1.070 | 1.009 | see LDF_TABLES.md | |
+| Motor excl. bodily injury | 1.052 | 1.001 | 1.000 | +5.2% | +0.1% |
+| Buildings | 1.091 | 1.002 | 1.000 | +9.1% | +0.2% |
+| Contents | 1.041 | 1.002 | 1.000 | +4.1% | +0.2% |
+
+Findings: (1) the single open 11.9M bodily-injury claim (paid 0.74M, case estimate 11.2M; next largest 1.1M) lowers the AY2023 12-24 link to 1.414
+(others 1.77, 1.67) and the BI 12m CDF from 1.81 to 1.71; capping at 100k / 250k / 500k gives a stable 1.82 / 1.81 / 1.80. Large losses are capped before
+triangles are built. (2) Sanity check: BI ultimate claim counts implied for AY2024 (1,178 x 1.79 = about 2,110) match AY2021-23 (about 2,150-2,200).
+(3) Only 3 / 2 / 1 accident years inform the 12-24 / 24-36 / 36-48 links, so the 24-36 and later factors are thin; the tail beyond 48m is an extrapolation.

@@ -18,6 +18,13 @@ Each decision: what, why (evidence), status. "Reviewed by" is the human who conf
 | D12 | Work on `dev`; `main` holds stable states; default branch to be set to `main` by the owner | Repo workflow request | Adopted | Project lead |
 | D13 | Treat the leaderboard as a level check only; choose models on local validation | Public score is a 33% noisy subset; CV and public ordering agree so far | Adopted | Project lead (principle set on day 1) |
 
+| D14 | Adopt severity trend (one pooled log-linear trend per line, projected to the predicted year) and a frequency completeness offset for immature accident years | Probes showed hidden level ~x1.16 above v1; severity trend is +5-8%/yr in most perils, frequency has none; v2 reached 0.12455 (+0.0030) as predicted; completeness fixes fold B motor calibration 1.33 -> 1.08 | Adopted | Project lead (plan approved) |
+| D15 | GBM, not GLM, is the main model | Paired + robust comparison and the leaderboard (section 6 of RESULTS) | Adopted | Assistant, shared with lead |
+| D16 | Evaluate with paired bootstrap and a robust (capped) companion score | One outlier claim misled raw fold A | Adopted | Assistant |
+| D17 | Exclude period-length / start-month / end-month features | No gain (+0.0002 / 0.000); avoids end-of-period information | Adopted | Assistant |
+| D18 | Use helper sessions in separate containers for independent screens; they never commit, push or submit | CPU/RAM limits of one container (4 cores, 15 GB); lead asked for parallel work | Adopted | Project lead |
+| D19 | Stay at the written 5 submissions per UTC day | Rules text 5 vs platform 10; lead is checking with the host | Adopted (pending host answer) | Project lead |
+
 ## Open decisions
 - Which single submission to select as Final (rule: default is best public score; we prefer best CV with a sane level).
 - Whether to apply a global or per-line level uplift (probe optimum near x1.16 globally).

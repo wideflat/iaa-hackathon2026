@@ -25,5 +25,12 @@ Written for reproducibility and review: what was done, what was found, what was 
 - **First submission** `fs_gbm_v1` (trained on 2021-24): public **0.12153**, rank 6. Two level probes (x0.90, x1.10) scored 0.11554 and 0.12429; fitted optimum near x1.16.
 - Documentation reorganised into `docs/` folders (this index: `docs/README.md`).
 
+## Day 2 continued: improving the single model (2026-10-18, UTC 03:00-05:00)
+- Measured per-peril frequency and severity trend by accident year: severity +5-8%/yr in most perils, frequency no consistent trend; implemented a pooled per-line severity trend and a completeness offset; v2 scored 0.12455 (+0.0030).
+- Parallel work: two to three local experiments plus three helper sessions in separate containers (hyperparameters, feature ablations, GLM regularisation). Helpers reported by message and made no changes.
+- New features (cross-line customer history, address history, lagged weather, row timing): no gain. GLM stabilised (winsorised inputs, stronger penalties, bounded predictions) and scored 0.1411 on fold A, but 0.1278 on fold B and 0.12133 on the leaderboard.
+- Built a paired bootstrap comparison and an outlier-robust score; they showed the GLM's fold A edge came from one claim. Decision: GBM stays.
+- Incidents (all caught before they could affect a submission): cache race when two runs rebuilt the frame cache at once (corrupt parquet read); three out-of-memory kills (dense spline terms; two GBM runs in parallel; GLM runs in parallel); `pkill -f` matching its own shell. Mitigations: banding instead of splines, float32 frames, run heavy jobs one at a time.
+
 ## Where things stand
 See `ROADMAP.md`. Open items: fix the GLM, frequency completeness adjustment for 2024, per-line level calibration, blend, hyperparameter tuning on the folds, final-submission selection, video/report, Part 2 readiness.

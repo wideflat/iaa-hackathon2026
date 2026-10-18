@@ -3,15 +3,22 @@
 All scores are pooled Tweedie D2 (power 1.5). Fold A = train 2021-22, validate 2023 (mature, trusted). Fold B = train 2021-23, validate 2024 (immature actuals, half weight). 95% CIs are customer-clustered bootstraps; differences smaller than about 0.01 are inside the noise.
 
 ## 1. Model comparison on the local folds
+Fold B for models with a completeness offset is scored in *observed space* (prediction scaled by the expected reported share), so it is comparable with the immature actuals; older rows scored raw are marked (raw). "cap" = outlier-robust score with row cost capped at 250k.
 | Model | Fold A | Fold B | Public LB | Comment |
 |---|---|---|---|---|
-| Constant cost rate per line x exposure | 0.087 | 0.071 | - | floor; line level and exposure carry most of the early signal |
-| Direct Tweedie GBM, before rebalancing | 0.098 (0.077-0.113) | 0.120 | - | calibration 0.64-0.75 |
-| Direct Tweedie GBM + per-line rebalancing | 0.1225 (0.109-0.133) | 0.1253 | - | calibration 0.92-0.96 on A |
-| Same, closed-claims-only labels | 0.109 | 0.128 | - | worse on A (motor 0.029 vs 0.056) |
-| Same, closed-only + level rescaled to all claims | 0.112 | 0.126 | - | |
-| **Frequency x severity GBM (per peril)** | **0.1329** (0.126-0.139) | **0.1290** (0.120-0.138) | **0.12153** | current best; motor 0.074 vs 0.056 for the direct model |
-| Frequency x severity GLM (first version) | 0.063 | 0.012 | - | broken: buildings D2 < 0, motor calibration 344 on B |
+| Constant cost rate per line x exposure | 0.087 | 0.071 (raw) | - | floor; line level and exposure carry most of the early signal |
+| Direct Tweedie GBM, before rebalancing | 0.098 | 0.120 (raw) | - | calibration 0.64-0.75 |
+| Direct Tweedie GBM + per-line rebalancing | 0.1225 | 0.1253 (raw) | - | |
+| Same, closed-claims-only labels (+ level to all claims) | 0.109 (0.112) | 0.128 (0.126) | - | worse on A |
+| Frequency x severity GBM v1 (per peril) | 0.1329 | 0.1290 (raw) | **0.12153** | first submission |
+| + severity trend only | 0.1318 | 0.1265 (raw) | - | motor calibration on B 1.33 |
+| **+ severity trend + completeness offset (v2)** | 0.1320 (cap 0.1315) | 0.1320 (cap 0.1330) | **0.12455** | current best submission; paired vs v1 on A: -0.0009 (-0.0015..-0.0003), tiny |
+| v2 + cross-line customer / address history / lagged weather | 0.1326 | - | - | paired +0.0006 (ns): no gain |
+| v2 + row timing features (period_days, start/end month) | 0.1328 | - | - | no gain; excluded by default |
+| v2 with num_leaves 4 (350/300 rounds) | **0.1339** (cap 0.1323) | 0.1322 (cap 0.1331) | - | paired vs v2: +0.0011 (P=0.95) on A, +0.0001 on B; simplest, weakly best |
+| Frequency x severity GLM (stabilised, alpha 1e-3/1e-2) | 0.1411 (cap 0.1316) | 0.1278 (cap 0.1292) | 0.12133 | GLM edge on A was one claim (see section 6) |
+| GLM + quantile bands | 0.1390 | - | - | no gain |
+| First GLM version (unstabilised) | 0.063 | 0.012 | - | broken: buildings D2 < 0 |
 | *Invalid: direct GBM with `customer_service_contacts`* | *0.555* | *0.655* | - | *leak; kept as evidence* |
 
 ## 2. One-year-earlier rehearsal (`scripts/rehearsal.py`)
@@ -26,19 +33,35 @@ Pretend today is 2022-12-31: train on 2021-22 with only claims known then, predi
 ## 3. Calibration diagnosis (fold A, direct Tweedie GBM, 300 rounds)
 Dropping history features, weather, premium or all time-drifting features left calibration at 0.67-0.78 and D2 at 0.102-0.111; an offset formulation gave 0.101 (calibration 0.69-0.77). The GBM is already 0.72-0.81 calibrated on its own training data and its deviance-optimal in-sample scalar is ~1.007: the shortfall is a property of Tweedie-1.5 with a log link, not trend or drift. Rescaling to the training total (+0.017) recovers nearly all of the oracle gain (oracle scalar chosen on the validation year: 0.1242).
 
-## 4. Public leaderboard and level probes
-| Submission (2026-10-18) | Public score | Note |
-|---|---|---|
-| `fs_gbm_v1` | **0.12153** | frequency x severity GBM trained on 2021-24 |
-| same predictions x 0.90 | 0.11554 | all lines scaled |
-| same predictions x 1.10 | 0.12429 | all lines scaled |
+## 4. Public leaderboard, level probes and submissions (2026-10-18)
+| # | Submission | Public score | Note |
+|---|---|---|---|
+| 1 | `fs_gbm_v1` | 0.12153 | frequency x severity GBM trained on 2021-24 |
+| 2 | v1 x 0.90 (all lines) | 0.11554 | level probe |
+| 3 | v1 x 1.10 (all lines) | 0.12429 | level probe |
+| 4 | `fs_gbm_v2_trend_comp` | **0.12455** | v1 + severity trend + completeness: +0.0030 vs v1, as the x1.16 probe predicted (about 0.1247); rank 5 |
+| 5 | `fs_glm_v1` | 0.12133 | GLM; its level (mean 376 vs 359) accounts for at most ~0.001 of the 0.0032 gap |
 
-Quadratic fit in ln(scale) through the three scores: optimum near **x1.16** (predicted public score about 0.1247, +0.003). The hidden answer therefore sits above our predictions, consistent with training on immature 2024 claims (motor bodily injury), cost trend, and "ultimate" including claims not yet reported. A single global scalar mixes the lines; per-line probes or a model-based fix (frequency completeness adjustment, trend) are the next steps. We do not tune the model to the leaderboard: only level, with few parameters.
-
-Leaderboard snapshot (public, 2026-10-18 ~03:00 UTC, about 33% of test rows): 1. 0.12815, 2. 0.12753, 3. 0.12697, 4. 0.12532, 5. 0.12425, **6. us 0.12153**, 7. 0.11733, 8. 0.11416, 9. 0.11332. Reference files: organisers' basic GLM 0.10563; average-cost baseline = sample submission 0.07169.
+Quadratic fit in ln(scale) through probes 1-3: optimum near x1.16. v2 reached the same level through model-based changes (motor +23%, buildings +19%, contents +11% vs v1) rather than hand scaling. Five submissions were used on 2026-10-18 (UTC): the rules text says 5 per day, the platform setting is 10 (queried: `numAllowedNow` 6 after 4), so we stopped at the written limit.
+Leaderboard snapshot at ~03:00 UTC (about 33% of test rows): 0.12815, 0.12753, 0.12697, 0.12532, 0.12425, then v1 0.12153 (later v2 0.12455: 5th). Reference files: organisers' basic GLM 0.10563; average-cost baseline 0.07169.
 
 ## 5. Other measured facts that shaped the work
 - Constant rate already scores 0.087 locally, so most of D2 comes from line level; gains beyond are small in absolute terms (leaders are at 0.128).
 - Peril drives reporting development (12-month factor to ultimate: motor bodily injury 1.81, subsidence 1.46, other perils 1.02-1.08); severity is independent of report lag within a peril. Back-test of the 12-month-to-ultimate step: errors within +-1.6% for buildings/contents/non-BI motor and -3.5% to +4.2% for bodily injury.
 - Still open at 2024-12-31 (share of cost): motor bodily injury 15% / 26% / 49% / 80% for accident years 2021-2024; buildings 0.7% / 2.6% / 8.2% / 36%.
 - Recoveries: only 28% of closed motor own-damage/theft claims carry one (avg 77% of incurred), so unbooked recoveries overstate 2024 motor net cost by about 1.5%.
+
+## 6. Model choice: GLM vs GBM, and why raw fold A misled us
+- Raw fold A favoured the GLM (0.1411 vs 0.1320), driven by motor (+0.018). Paired bootstrap on the same rows: +0.0071 overall (CI -0.0015..+0.0207).
+- Fold A's validation year contains one open 11.9M motor bodily-injury claim. Capping row cost at 250k: GLM 0.1316 vs GBM 0.1315, difference +0.0001; the motor edge shrinks from +0.0184 to +0.0037.
+- Fold B (2024): GBM better, -0.0042 raw and -0.0038 capped (both significant); buildings and contents favour the GBM on both folds.
+- The leaderboard (2025) agrees: GBM 0.12455 vs GLM 0.12133. Decision: GBM is the main model.
+
+## 7. Overnight screens (helper sessions and local runs, 2026-10-18)
+| Study | Result (fold A, base 0.1320) | Read |
+|---|---|---|
+| GBM hyperparameters (helper 1) | fastlr 0.1328, slowlr 0.1320, leaves7 0.1336, leaves31 0.1309, minleaf100 0.1324, minleaf800 0.1325, cap99 0.1328, cap9999 0.1310 | plateau (all within CI ~0.014); smaller trees marginally better; leaves 4 confirmed (above) |
+| Feature ablations (helper 2) | keep suspected-noise columns 0.1096 (-0.022); drop premium/discount 0.1311; drop claim history 0.1319; drop weather 0.1312; drop customer 0.1328; drop service/channel 0.1318 | only the noise-column exclusion matters |
+| GLM regularisation (helper 3, base 0.1399) | alpha-freq 3e-4 0.1421, 3e-3 0.1373, 1e-2 0.1322; alpha-sev 3e-3 0.1392, 3e-2 0.1408, 1e-1 0.1417 | plateau |
+| New features / timing | GBM 0.1326 / 0.1328; GLM 0.1399 / 0.1399 | no gain |
+Helpers 1-3 ran in their own containers (no commits, no submissions); each GLM run needs ~5.5 GB RAM and two GBM runs together exceed the 15 GB of this container (three OOM kills were handled by re-running).

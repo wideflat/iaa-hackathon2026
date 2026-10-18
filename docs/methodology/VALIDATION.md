@@ -15,3 +15,8 @@
 7. **Trust CV over the public leaderboard while they agree** (the public score is a 33% slice of a noisy target).
    If they diverge, investigate how the test differs from the validation before changing anything.
 8. **Log every experiment** (`experiments/log.jsonl`): config, CV scores, public score, what changed.
+
+9. **Compare models with a paired bootstrap, not two unpaired CIs.** Unpaired 95% CIs are about +-0.014 wide on fold A and cannot resolve the differences we care about (0.001-0.01); the paired difference on the same rows (`scripts/compare_oof.py`, `metrics.bootstrap_d2_diff`) is about 10x tighter because the same rare large claims hit both models.
+10. **Also report the outlier-robust score** (row cost capped at 250k, `d2_pooled_cap250k`). One 11.9M claim in fold A swung the GLM-vs-GBM comparison by +0.007 (raw) vs +0.0001 (capped). Decisions use the paired difference on both versions, and weigh the future-year evidence (fold B, leaderboard) at least as much as fold A.
+11. **Scoring immature folds in observed space.** Models with a completeness offset expose `predict_observed` (prediction x expected reported share); fold B is scored that way, which cut motor calibration from 1.33 to 1.08.
+12. **Leak alarm**: any run with pooled D2 above 0.35 aborts (`metrics.assert_not_too_good`).

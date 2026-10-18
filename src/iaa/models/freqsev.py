@@ -25,6 +25,11 @@ from ..config import SEED, VALUATION_DATE
 from ..features import feature_columns
 
 
+def _nn():   # torch is only needed for kind='nn'
+    from . import nn
+    return nn
+
+
 def _split_cols(df: pd.DataFrame, cols):
     cat = [c for c in cols if not (pd.api.types.is_numeric_dtype(df[c]) or pd.api.types.is_bool_dtype(df[c]))]
     num = [c for c in cols if c not in cat]
@@ -38,8 +43,9 @@ class FreqSev:
                  drop_noise: bool = True, extra_drop=(), freq_rounds: int = 250, sev_rounds: int = 200,
                  glm_alpha_freq: float = 1e-3, glm_alpha_sev: float = 1e-2, min_sev_claims: int = 150,
                  trend: bool = True, completeness: bool = True, params_freq: dict | None = None, params_sev: dict | None = None,
-                 bands: bool = False, n_bands: int = 6, n_seeds: int = 1, rebalance_level: str = "line", outlier_mult: float | None = None):
-        assert kind in ("glm", "gbm")
+                 bands: bool = False, n_bands: int = 6, n_seeds: int = 1, rebalance_level: str = "line", outlier_mult: float | None = None,
+                 nn_params: dict | None = None):
+        assert kind in ("glm", "gbm", "nn")
         c = claims_line[claims_line["row_id"].notna() & (claims_line["status"] != "repudiated")]
         self.claims = c[["row_id", "peril", "net_cost"]]
         self.kind, self.cap_quantile, self.rebalance = kind, cap_quantile, rebalance
@@ -53,6 +59,7 @@ class FreqSev:
         self.rebalance_level = rebalance_level   # 'peril': rescale each peril to its own trended training total (fixes the Gamma/Poisson total bias per peril)
         self.n_seeds = n_seeds   # GBM only: average this many boosters per stage (different bagging seeds)
         self.params_freq, self.params_sev = params_freq or {}, params_sev or {}
+        self.nn_params = nn_params or {}   # kind='nn': epochs, hidden, dropout, lr, n_seeds... (see models/nn.py)
         self.sev_trend_ = 0.0
         has_dates = {"loss_date", "report_date"} <= set(claims_line.columns)
         self.c_by_year = self._completeness_table(claims_line) if (completeness and has_dates) else {}
@@ -104,6 +111,8 @@ class FreqSev:
                 self.band_ = KBinsDiscretizer(n_bins=self.n_bands, encode="onehot", strategy="quantile", subsample=200000,
                                               dtype=np.float32, random_state=SEED).fit(z)
             self.ohe_ = OneHotEncoder(handle_unknown="ignore", min_frequency=1000, sparse_output=True).fit(self._cat(train))
+        elif self.kind == "nn":
+            self.enc_ = _nn().Encoder(self.num_, self.cat_).fit(train)
         else:
             self.levels_ = {c: sorted(train[c].dropna().astype(str).unique()) for c in self.cat_}
 
@@ -111,6 +120,8 @@ class FreqSev:
         return df[self.cat_].astype(object).where(df[self.cat_].notna(), "missing").astype(str)
 
     def _x(self, df: pd.DataFrame):
+        if self.kind == "nn":
+            return self.enc_.transform(df)
         if self.kind == "glm":
             num = df[self.num_].astype(float).clip(self.lo_, self.hi_, axis=1)
             num = np.clip(self.scaler_.transform(self.imp_.transform(num)), -6.0, 6.0)
@@ -152,20 +163,34 @@ class FreqSev:
         # C) models per peril
         level = 0.0
         self.level_by_peril_ = {}
-        for p in counts.columns:
+        kept = [p for p in counts.columns if counts[p].sum() >= 20]
+        if self.kind == "nn":   # one multi-head network per stage instead of one model per peril
+            val = (pd.util.hash_array(train["customer_id"].astype(str).to_numpy()) % 20 == 0)
+            cm = np.column_stack([self._c_vec(p, train["year"].to_numpy()) if self.completeness else np.ones(len(train)) for p in kept])
+            self.fnet_ = _nn().FreqNet(self.enc_, **self._nn_kw(_nn().FreqNet)).fit(X, counts[kept].to_numpy(dtype=float), expo[:, None] * cm, val)
+            sev_idx, sev_p, sev_y = [], [], []
+        for j, p in enumerate(kept):
             n = counts[p].to_numpy(dtype=float)
-            if n.sum() < 20:
-                continue
             cvec = self._c_vec(p, train["year"].to_numpy()) if self.completeness else np.ones(len(train))
-            self.freq_[p] = self._fit_freq(X, n, expo * cvec)
             cp = cl[cl["peril"] == p]
             idx = pos.get_indexer(cp["row_id"])
-            self.sev_[p] = self._fit_sev(X, idx, (cp["cost"] * cp["tf"]).clip(lower=1.0).to_numpy())
+            if self.kind == "nn":
+                self.freq_[p] = self.sev_[p] = j
+                sev_idx.append(idx)
+                sev_p.append(np.full(len(idx), j))
+                sev_y.append((cp["cost"] * cp["tf"]).clip(lower=1.0).to_numpy())
+            else:
+                self.freq_[p] = self._fit_freq(X, n, expo * cvec)
+                self.sev_[p] = self._fit_sev(X, idx, (cp["cost"] * cp["tf"]).clip(lower=1.0).to_numpy())
             cc = self._c_vec(p, cp["year"].to_numpy()) if self.completeness else 1.0
             lp_cost = cp["net_cost"] if self.outlier_mult is None else cp["net_cost"].clip(upper=self.outlier_mult * self.cap_[p])
             lp = float((lp_cost * cp["tf"] / cc).sum())   # ultimate-equivalent, trended training cost of this peril
             self.level_by_peril_[p] = lp
             level += lp
+        if self.kind == "nn":
+            idx = np.concatenate(sev_idx)
+            self.snet_ = _nn().SevNet(self.enc_, **self._nn_kw(_nn().SevNet)).fit(X[idx], np.concatenate(sev_p), np.concatenate(sev_y), len(kept), val[idx])
+            self.kept_ = kept
         self.k_ = 1.0
         self.kp_ = {}
         if self.rebalance:
@@ -177,7 +202,12 @@ class FreqSev:
         return self
 
     def _sub(self, X, idx):
-        return X[idx] if self.kind == "glm" else X.iloc[idx]
+        return X.iloc[idx] if self.kind == "gbm" else X[idx]
+
+    def _nn_kw(self, cls):
+        import inspect
+        ok = set(inspect.signature(cls.__init__).parameters) - {"self", "enc"}
+        return {k: v for k, v in self.nn_params.items() if k in ok}
 
     def _fit_freq(self, X, n, expo):
         if self.kind == "glm":
@@ -205,7 +235,16 @@ class FreqSev:
         return [lgb.train({**params, "seed": SEED + i}, ds, num_boost_round=self.sev_rounds) for i in range(self.n_seeds)]
 
     # ---- prediction ---------------------------------------------------------------------------
+    def _nn_cache(self, X, key, fn):
+        if not hasattr(X, "cache"):
+            X.cache = {}
+        if key not in X.cache:
+            X.cache[key] = fn(X)
+        return X.cache[key]
+
     def _freq_rate(self, p, X):
+        if self.kind == "nn":
+            return self._nn_cache(X, "f", self.fnet_.rate)[:, self.freq_[p]]
         if self.kind == "glm":
             m = self.freq_[p]
             return np.clip(m.predict(X), 0.0, 20.0 * m.base_)   # bounded: a GLM can explode on extrapolation
@@ -213,6 +252,8 @@ class FreqSev:
         return np.mean([np.exp(b.predict(X, raw_score=True)) for b in boosters], axis=0) * base
 
     def _sev(self, p, X):
+        if self.kind == "nn":
+            return self._nn_cache(X, "s", self.snet_.mean)[:, self.sev_[p]]
         m = self.sev_[p]
         if self.kind == "glm":
             return np.clip(m.predict(X), 0.1 * m.mean_, 10.0 * m.mean_)

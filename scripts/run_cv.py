@@ -18,7 +18,7 @@ from iaa.models.freqsev import FreqSev  # noqa: E402
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", choices=["mean_rate", "lgbm", "fs_glm", "fs_gbm"], required=True)
+    ap.add_argument("--model", choices=["mean_rate", "lgbm", "fs_glm", "fs_gbm", "fs_nn"], required=True)
     ap.add_argument("--folds", default="A,B")
     ap.add_argument("--keep-noise", action="store_true", help="keep suspected noise columns as features")
     ap.add_argument("--drop", default="", help="comma-separated extra columns to drop")
@@ -42,6 +42,12 @@ def main() -> None:
     ap.add_argument("--leaves", type=int, default=None, help="fs: num_leaves for both stages")
     ap.add_argument("--min-leaf-freq", type=int, default=None)
     ap.add_argument("--cap-q", type=float, default=0.999, help="fs: severity cap quantile")
+    ap.add_argument("--nn-epochs", type=int, default=None, help="fs_nn: max epochs of the frequency net")
+    ap.add_argument("--nn-hidden", default=None, help="fs_nn: hidden layer widths, e.g. 192,96")
+    ap.add_argument("--nn-dropout", type=float, default=None)
+    ap.add_argument("--nn-lr", type=float, default=None)
+    ap.add_argument("--nn-wd", type=float, default=None)
+    ap.add_argument("--nn-seeds", type=int, default=1, help="fs_nn: average this many nets per stage")
     ap.add_argument("--threads", type=int, default=0, help="LightGBM threads (0 = all); use 2 to run two experiments in parallel")
     ap.add_argument("--name", default=None)
     ap.add_argument("--note", default="")
@@ -67,10 +73,13 @@ def main() -> None:
             pf["num_leaves"] = ps["num_leaves"] = a.leaves
         if a.min_leaf_freq:
             pf["min_data_in_leaf"] = a.min_leaf_freq
+        nnp = {k: v for k, v in {"epochs": a.nn_epochs, "hidden": tuple(int(x) for x in a.nn_hidden.split(",")) if a.nn_hidden else None,
+                                 "dropout": a.nn_dropout, "lr": a.nn_lr, "wd": a.nn_wd, "n_seeds": a.nn_seeds,
+                                 "threads": a.threads or 4}.items() if v is not None}
         factory = lambda line: FreqSev(matched[line], kind=a.model[3:], rebalance=not a.no_rebalance, drop_noise=not a.keep_noise,  # noqa: E731
                                        extra_drop=extra, trend=not a.no_trend, completeness=not a.no_completeness,
                                        freq_rounds=a.freq_rounds, sev_rounds=a.sev_rounds, cap_quantile=a.cap_q,
-                                       params_freq=pf, params_sev=ps, bands=a.bands, n_seeds=a.seeds, rebalance_level=a.rebalance_level, outlier_mult=a.outlier_mult,
+                                       params_freq=pf, params_sev=ps, nn_params=nnp, bands=a.bands, n_seeds=a.seeds, rebalance_level=a.rebalance_level, outlier_mult=a.outlier_mult,
                                        **({"glm_alpha_freq": a.alpha_freq} if a.alpha_freq else {}), **({"glm_alpha_sev": a.alpha_sev} if a.alpha_sev else {}))
     elif a.model == "mean_rate":
         factory = lambda line: MeanRateModel()  # noqa: E731

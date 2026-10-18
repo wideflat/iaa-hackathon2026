@@ -124,3 +124,14 @@ def test_outlier_winsorisation_removes_a_single_giant_claim_from_the_excess_load
     robust = FreqSev(claims, kind="glm", cap_quantile=0.99, trend=False, completeness=False, rebalance_level="peril", outlier_mult=5.0).fit(rows)
     assert robust.excess_["A"] < 0.2 * plain.excess_["A"]
     assert robust.predict(rows).sum() < 0.5 * plain.predict(rows).sum()   # level no longer carries the giant claim
+
+
+def test_nn_freqsev_balances_total_ranks_risk_and_is_nonnegative():
+    pytest.importorskip("torch")
+    rows, claims = _data()
+    rows["customer_id"] = [f"C{i // 3}" for i in range(len(rows))]
+    m = FreqSev(claims, kind="nn", nn_params={"epochs": 4, "hidden": (16, 8), "threads": 2}).fit(rows)
+    p = m.predict(rows)
+    assert (p >= 0).all() and np.isclose(p.sum(), rows.y.sum(), rtol=1e-9)
+    hi, lo = rows.assign(x=2.0, g="c", exposure_calc=1.0), rows.assign(x=-2.0, g="a", exposure_calc=1.0)
+    assert m.predict(hi).mean() > m.predict(lo).mean()

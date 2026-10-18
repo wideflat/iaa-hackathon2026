@@ -113,6 +113,10 @@ def build_line_frame(line: str, data_dir=None, customers=None, addresses=None, w
     df = df.merge(customers, on="customer_id", how="left").merge(addresses, on="address_id", how="left")
     df = df.merge(weather, on=["address_id", "year"], how="left")
     df["customer_age"] = (df["period_start"] - df["date_of_birth"]).dt.days / 365.25
+    # row timing: part-year rows have a higher claim rate per exposure year; the test file provides the period dates
+    df["period_days"] = (df["period_end"] - df["period_start"]).dt.days + 1
+    df["start_month"] = df["period_start"].dt.month
+    df["end_month"] = df["period_end"].dt.month
     df = add_claim_history(df, claims[claims["line"] == line])
     df = add_weather_lag(df, weather)
     all_rows = pd.concat([pd.concat([data.load_policies(l, data_dir), data.load_test(l, data_dir)])[["policy_id", "customer_id", "address_id", "period_start", "period_end"]]

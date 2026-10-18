@@ -102,3 +102,13 @@ Reference blend R = equal-weight GBM (`fs_gbm_l4_out5`) + NN (`fs_nn_v1`): fold 
 | R + all three | -0.0009 (-0.0046..+0.0015) | -0.0006 (-0.0012..-0.0000) | reject |
 
 Rule (set before looking, as in DECISIONS D23): a model joins the blend only if the paired difference is positive on both folds. None does. The direct net is structurally disadvantaged on fold B because its immature-year training rows are not completeness-adjusted; the GLM (tuned, fold A 0.1411) helped on fold A but not fold B (3-way 0.1331 vs 0.1338), so it is not adopted either.
+
+## 11. Wider, higher-dropout NN (2026-10-18, 13:15 EDT)
+`fs_nn_wide`: hidden 384,192, dropout 0.2, 1 seed. Single: fold A 0.1387 [cap250k 0.1310], fold B 0.1305 [0.1320] (NN v1: 0.1365 [0.1319] / 0.1296 [0.1309]; GBM: 0.1339 [0.1323] / 0.1323 [0.1333]). Motor stronger (A 0.0900 / B 0.0840), buildings A weaker (0.1043).
+
+| Blend (equal weights) | A: minus R (95% CI) | B: minus R (95% CI) | Read |
+|---|---|---|---|
+| GBM + NN wide (replace NN v1) | +0.0013 (-0.0012..+0.0051) | +0.0004 (-0.0003..+0.0009) | positive on both folds, not significant; cap250k scores about equal (A 0.1351 vs 0.1356, B 0.1354 vs 0.1349) |
+| GBM + NN v1 + NN wide | +0.0015 (-0.0008..+0.0050) | -0.0000 (-0.0007..+0.0004) | no gain |
+
+R = GBM + NN v1 (A 0.1388 [0.1356], B 0.1338 [0.1349]). The wide net is within noise of NN v1 in the blend: not worth a new submission by itself. The 3-seed NN (variance reduction, running) is the next test; a decision on a final NN configuration waits for it.

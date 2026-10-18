@@ -178,3 +178,6 @@ Small but positive on both folds in every variant, with intervals excluding zero
 | `fs_nn_tabm4` (k=4, hidden 192,96, dropout 0.1) | 0.1413 [0.1331] | 0.1328 [0.1338] | reference |
 | `fs_nn_tabm4_wide` (k=4, hidden 384,192, dropout 0.2) | 0.1381 [0.1326] | 0.1318 [0.1330] | worse on both folds and metrics: wider is not better |
 Helper runs `fs_nn_tabm8` (k=8) and `fs_nn_tabm4_s3` (3 seeds) are pending.
+
+Update 18:40 EDT. `fs_nn_tabm4_small` (hidden 128,64): A 0.1424 [0.1340], B 0.1308 [0.1322]: mixed vs the default (A up, B down); adding it to GBM + TabM: A +0.0013 (-0.0001..+0.0037), B -0.0006 (-0.0012..-0.0002): rejected. The default TabM configuration (k=4, 192,96, dropout 0.1) stays.
+Level check of the GBM + TabM blend (actual / predicted, fold A, fold B): motor 0.944 / 0.949, buildings 0.999 / 1.017, contents 1.072 / 0.991, overall 0.971 / 0.978. Motor is over-predicted by about 5% on both folds; correcting it with a scalar fitted on the other fold gains only +0.0001..+0.0002 D2, so no level correction is made (D2 is insensitive to a 5% level error in one line, and the 2025 level is not known from these folds).

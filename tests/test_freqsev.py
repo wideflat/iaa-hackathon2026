@@ -80,7 +80,7 @@ def test_completeness_offset_raises_ultimate_frequency_for_immature_years_and_ob
     assert np.allclose(obs, 0.5 * ult) and ult.sum() > 1.6 * rows.y.sum()
 
 
-def test_glm_with_splines_fits_and_captures_a_non_linear_effect():
+def test_glm_with_bands_fits_and_captures_a_non_linear_effect():
     rng = np.random.default_rng(5)
     n = 8000
     x = rng.uniform(-3, 3, n)
@@ -91,7 +91,7 @@ def test_glm_with_splines_fits_and_captures_a_non_linear_effect():
                             "loss_date": pd.Timestamp("2022-06-01"), "report_date": pd.Timestamp("2022-06-02")} for i in np.nonzero(k)[0] for _ in range(k[i])])
     rows["y"] = claims.groupby("row_id").net_cost.sum().reindex(rows.row_id).fillna(0.0).to_numpy()
     plain = FreqSev(claims, kind="glm", trend=False, completeness=False, rebalance=False).fit(rows)
-    spl = FreqSev(claims, kind="glm", trend=False, completeness=False, rebalance=False, splines=True).fit(rows)
+    bnd = FreqSev(claims, kind="glm", trend=False, completeness=False, rebalance=False, bands=True).fit(rows)
     edge, mid = rows.assign(x=2.8), rows.assign(x=0.0)
     ratio = lambda m: m.predict(edge).mean() / m.predict(mid).mean()  # noqa: E731
-    assert ratio(spl) > 2.5 and ratio(plain) < 2.0                    # a linear GLM cannot see the U shape
+    assert ratio(bnd) > 2.5 and ratio(plain) < 2.0                    # a linear GLM cannot see the U shape

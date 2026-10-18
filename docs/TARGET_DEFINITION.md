@@ -86,3 +86,12 @@ Findings: (1) the single open 11.9M bodily-injury claim (paid 0.74M, case estima
 (others 1.77, 1.67) and the BI 12m CDF from 1.81 to 1.71; capping at 100k / 250k / 500k gives a stable 1.82 / 1.81 / 1.80. Large losses are capped before
 triangles are built. (2) Sanity check: BI ultimate claim counts implied for AY2024 (1,178 x 1.79 = about 2,110) match AY2021-23 (about 2,150-2,200).
 (3) Only 3 / 2 / 1 accident years inform the 12-24 / 24-36 / 36-48 links, so the 24-36 and later factors are thin; the tail beyond 48m is an extrapolation.
+
+## 9. Does development depend on claim size? (checked on the data)
+- **Peril, not size, drives reporting development.** CDF to ultimate at 12m (cost capped at 250k): motor bodily injury 1.81, buildings subsidence 1.46,
+  everything else between 1.02 and 1.08 (median report lag 112 and 81 days for BI and subsidence, 4-14 days for the rest).
+- **Within a peril, reporting lag is independent of claim size.** Spearman(lag, cost) is within +-0.03 for all 15 line/perils in mature accident years;
+  mean cost is similar across lag buckets; dollar and count 12m factors agree to within 1.4% (BI 1.013 is the largest gap).
+- **Open vs closed severity** (AY2021-23) shows no consistent size effect (BI open claims are smaller, 18.9k vs 20.5k).
+- **Not testable:** development of case estimates (IBNER), where larger claims typically develop more adversely. One snapshot has no claim history.
+Decision: develop by peril (not by line or size band), on capped cost, with the excess over the cap handled separately; carry IBNER as an explicit sensitivity.

@@ -129,3 +129,13 @@ Tail model: fitted for 4 of 5 motor perils on fold A training (theft skipped, to
 | `fs_nn_entity` (1 seed) | 0.1338 [0.1299] | 0.1281 [0.1290] | worse than the same NN without entities (0.1365 [0.1319] / 0.1296 [0.1309]) |
 | `fs_nn_entity_d3` (dropout 0.3) | 0.1367 [0.1304] | 0.1292 [0.1304] | no gain either |
 No paired bootstrap run: both single-model scores are below the no-entity net on both folds and both metrics, so the idea is rejected (D26). Reading: the history features already carry the customer signal; unseen-customer and rare-customer rows get no benefit, and the extra parameters overfit.
+
+## 14. Recency and domain-shift weights on the GBM (helper 1, 17:45 EDT)
+LightGBM leaves 4 + outlier 5; reference A 0.1339 [cap250k 0.1323], B 0.1323 [0.1333].
+| Run | Fold A D2 [cap250k] | Fold B D2 [cap250k] | Read |
+|---|---|---|---|
+| `fs_gbm_rec03` (recency rho 0.3) | 0.1344 [0.1318] | 0.1322 [0.1332] | within noise |
+| `fs_gbm_rec07` (rho 0.7) | 0.1354 [0.1310] | 0.1312 [0.1323] | A up, B down, capped scores down on both |
+| `fs_gbm_adv05` (domain-shift weights, strength 0.5) | 0.1339 [0.1323] | 0.1322 [0.1332] | weights near uniform; no change |
+| `fs_gbm_adv10` (strength 1.0) | 0.1345 [0.1318] | 0.1320 [0.1331] | no change |
+Rejected (D27): none is positive on both folds on both metrics. The train and 2025-type rows are hard to tell apart (classifier weights near uniform), so there is little covariate shift for the weights to correct; recency does not help because the severity trend and completeness handling already model the drift. Predictions were not saved (helper stopped after the logs).

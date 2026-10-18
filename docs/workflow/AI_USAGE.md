@@ -10,4 +10,9 @@ Record each significant AI contribution and how a human or a test verified it.
 | Leakage detection | First model scored D2 0.55 vs public leaderboard ~0.12; AI traced it to `customer_service_contacts` through feature importance, outcome correlation and train-vs-test distribution comparison. | Re-ran CV without it: D2 0.10, consistent with the leaderboard. Added `drift.py` and a guard test so it cannot recur silently. |
 | Metric / bootstrap | Implemented D2 and an exact cluster bootstrap. | Compared to `sklearn.metrics.d2_tweedie_score` to 1e-9 (`tests/test_metrics.py`). |
 
+| Parallel experiments | Delegated three screening grids (23 runs) to helper sessions in separate containers; ran paired analyses locally | Helper baselines reproduced our own runs exactly (0.1320 GBM, 0.1399 GLM); helpers forbidden from committing or submitting; every number re-logged in `experiments/log.jsonl` |
+| Evaluation method | Built a paired bootstrap and an outlier-robust score after noticing that fold-A differences were not resolvable | Unit tests (identical predictions give zero difference; real difference detected; paired SE smaller than unpaired); the GLM-vs-GBM conclusion cross-checked on fold B and the leaderboard |
+| Claim checking | Research subagents' conclusions (e.g. recovery bias) were re-tested on the data | Corrected the recovery estimate from "several-fold" to ~1.5% after measuring recoveries per claim |
+| Incident handling | Logged and fixed: `y_true`/`y_all` leakage into features, Gamma failure on zero-cost claims, cache race, OOM kills | Guard tests, a D2 > 0.35 alarm, and process rules (run heavy jobs one at a time) |
+
 Human review checkpoints: (add here: who reviewed which decision and when).

@@ -36,3 +36,7 @@ Pooled Tweedie D2 (power 1.5) with 95% customer-clustered bootstrap CI where ava
 | 30 | 2026-10-18 04:14 | `helper_gbm_hp_grid_foldA` | - | - | fastlr 0.1328, slowlr 0.1320, leaves7 0.1336, leaves31 0.1309, minleaf100 0.1324, minleaf800 0.1325, cap99 0.1328, cap9999 0.1310: all within CI (~0.014); GBM on a plateau. |
 | 31 | 2026-10-18 04:14 | `helper_feature_ablation_foldA` | - | - | keep-noise 0.1096 (-0.022); noprem 0.1311; nohist 0.1319; noweather 0.1312; nocustomer 0.1328; noservice 0.1318. Only the noise-column exclusion matters. |
 | 32 | 2026-10-18 04:14 | `helper_glm_alpha_grid_foldA` | - | - | af3e4 0.1421, af3e3 0.1373, af1e2 0.1322, as3e3 0.1392, as3e2 0.1408, as1e1 0.1417: within CI; GLM on a plateau. Each GLM run needs ~5.5 GB RAM. |
+| 33 | 2026-10-18 04:17 | `fs_glm_timing` | **A_valid2023** 0.1399 (0.127-0.153) [mo0.090 bu0.107 co0.088] | - | GLM + period_days/start_month/end_month features (baseline 0.1399) |
+| 34 | 2026-10-18 04:19 | `fs_gbm_timing` | **A_valid2023** 0.1328 (0.126-0.139) [mo0.072 bu0.109 co0.092] | - | GBM + period_days/start_month/end_month features (baseline 0.1326) |
+| 35 | 2026-10-18 04:46 | `fs_gbm_l4` | **A_valid2023** 0.1339 (0.127-0.139) [mo0.072 bu0.111 co0.095]<br>**B_valid2024** 0.1322 (0.123-0.141) [mo0.081 bu0.115 co0.092] | - | fs_gbm, num_leaves 4, more rounds |
+| 36 | 2026-10-18 04:53 | `fs_gbm_l4_s3` | **A_valid2023** 0.1338 (0.127-0.140) [mo0.071 bu0.111 co0.095] | - | fs_gbm leaves 4, 3 bagging seeds averaged |

@@ -10,6 +10,7 @@ import pandas as pd
 from . import data, features
 from .config import ARTIFACTS_DIR, LINES, REPO_ROOT
 
+_KEEP_FLOAT64 = {"y", "y_all", "y_true", "exposure", "exposure_calc"}
 _SOURCES = ("src/iaa/data.py", "src/iaa/target.py", "src/iaa/features.py")
 
 
@@ -31,5 +32,9 @@ def load_frames(force: bool = False) -> dict:
             df = features.build_line_frame(l, customers=cu, addresses=ad, weather=we, claims=claims)
             df.to_parquet(ARTIFACTS_DIR / f"frames_{key}_{l}.parquet")
     for l in LINES:
-        out[l] = pd.read_parquet(ARTIFACTS_DIR / f"frames_{key}_{l}.parquet")
+        df = pd.read_parquet(ARTIFACTS_DIR / f"frames_{key}_{l}.parquet")
+        for c in df.select_dtypes("float64").columns:      # halve the memory of feature columns; keep targets and exposure exact
+            if c not in _KEEP_FLOAT64:
+                df[c] = df[c].astype("float32")
+        out[l] = df
     return out

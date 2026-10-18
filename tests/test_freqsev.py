@@ -95,3 +95,12 @@ def test_glm_with_bands_fits_and_captures_a_non_linear_effect():
     edge, mid = rows.assign(x=2.8), rows.assign(x=0.0)
     ratio = lambda m: m.predict(edge).mean() / m.predict(mid).mean()  # noqa: E731
     assert ratio(bnd) > 2.5 and ratio(plain) < 2.0                    # a linear GLM cannot see the U shape
+
+
+def test_seed_averaging_keeps_the_model_working_and_changes_predictions_slightly():
+    rows, claims = _data()
+    one = FreqSev(claims, kind="gbm", freq_rounds=40, sev_rounds=30, rebalance=False).fit(rows)
+    three = FreqSev(claims, kind="gbm", freq_rounds=40, sev_rounds=30, rebalance=False, n_seeds=3).fit(rows)
+    p1, p3 = one.predict(rows), three.predict(rows)
+    assert len(three.freq_["A"][0]) == 3 and np.isfinite(p3).all() and (p3 >= 0).all()
+    assert abs(p3.sum() / p1.sum() - 1) < 0.1 and np.corrcoef(p1, p3)[0, 1] > 0.9

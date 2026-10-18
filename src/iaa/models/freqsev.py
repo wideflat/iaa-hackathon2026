@@ -38,7 +38,7 @@ class FreqSev:
                  drop_noise: bool = True, extra_drop=(), freq_rounds: int = 250, sev_rounds: int = 200,
                  glm_alpha_freq: float = 1e-3, glm_alpha_sev: float = 1e-2, min_sev_claims: int = 150,
                  trend: bool = True, completeness: bool = True, params_freq: dict | None = None, params_sev: dict | None = None,
-                 bands: bool = False, n_bands: int = 6):
+                 bands: bool = False, n_bands: int = 6, n_seeds: int = 1):
         assert kind in ("glm", "gbm")
         c = claims_line[claims_line["row_id"].notna() & (claims_line["status"] != "repudiated")]
         self.claims = c[["row_id", "peril", "net_cost"]]
@@ -48,6 +48,7 @@ class FreqSev:
         self.alpha_f, self.alpha_s, self.min_sev_claims = glm_alpha_freq, glm_alpha_sev, min_sev_claims
         self.trend, self.completeness = trend, completeness
         self.bands, self.n_bands = bands, n_bands
+        self.n_seeds = n_seeds   # GBM only: average this many boosters per stage (different bagging seeds)
         self.params_freq, self.params_sev = params_freq or {}, params_sev or {}
         self.sev_trend_ = 0.0
         has_dates = {"loss_date", "report_date"} <= set(claims_line.columns)
@@ -174,8 +175,9 @@ class FreqSev:
         params = dict(objective="poisson", learning_rate=0.05, num_leaves=15, min_data_in_leaf=300, feature_fraction=0.8,
                       bagging_fraction=0.8, bagging_freq=1, lambda_l2=10.0, verbose=-1, seed=SEED, num_threads=0)
         params.update(self.params_freq)
-        b = lgb.train(params, lgb.Dataset(X, label=n, init_score=np.log(expo * base)), num_boost_round=self.freq_rounds)
-        return b, base
+        ds = lgb.Dataset(X, label=n, init_score=np.log(expo * base), free_raw_data=False)
+        boosters = [lgb.train({**params, "seed": SEED + i}, ds, num_boost_round=self.freq_rounds) for i in range(self.n_seeds)]
+        return boosters, base
 
     def _fit_sev(self, X, idx, y):
         Xs = self._sub(X, idx)
@@ -186,21 +188,22 @@ class FreqSev:
         params = dict(objective="gamma", learning_rate=0.05, num_leaves=15, min_data_in_leaf=60, feature_fraction=0.8,
                       bagging_fraction=0.8, bagging_freq=1, lambda_l2=10.0, verbose=-1, seed=SEED, num_threads=0)
         params.update(self.params_sev)
-        return lgb.train(params, lgb.Dataset(Xs, label=y), num_boost_round=self.sev_rounds)
+        ds = lgb.Dataset(Xs, label=y, free_raw_data=False)
+        return [lgb.train({**params, "seed": SEED + i}, ds, num_boost_round=self.sev_rounds) for i in range(self.n_seeds)]
 
     # ---- prediction ---------------------------------------------------------------------------
     def _freq_rate(self, p, X):
         if self.kind == "glm":
             m = self.freq_[p]
             return np.clip(m.predict(X), 0.0, 20.0 * m.base_)   # bounded: a GLM can explode on extrapolation
-        b, base = self.freq_[p]
-        return np.exp(b.predict(X, raw_score=True)) * base
+        boosters, base = self.freq_[p]
+        return np.mean([np.exp(b.predict(X, raw_score=True)) for b in boosters], axis=0) * base
 
     def _sev(self, p, X):
         m = self.sev_[p]
         if self.kind == "glm":
             return np.clip(m.predict(X), 0.1 * m.mean_, 10.0 * m.mean_)
-        return m.predict(X)
+        return np.mean([b.predict(X) for b in m], axis=0)
 
     def expected_by_peril(self, rows: pd.DataFrame) -> pd.DataFrame:
         X = self._x(rows)

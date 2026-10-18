@@ -181,3 +181,6 @@ Helper runs `fs_nn_tabm8` (k=8) and `fs_nn_tabm4_s3` (3 seeds) are pending.
 
 Update 18:40 EDT. `fs_nn_tabm4_small` (hidden 128,64): A 0.1424 [0.1340], B 0.1308 [0.1322]: mixed vs the default (A up, B down); adding it to GBM + TabM: A +0.0013 (-0.0001..+0.0037), B -0.0006 (-0.0012..-0.0002): rejected. The default TabM configuration (k=4, 192,96, dropout 0.1) stays.
 Level check of the GBM + TabM blend (actual / predicted, fold A, fold B): motor 0.944 / 0.949, buildings 0.999 / 1.017, contents 1.072 / 0.991, overall 0.971 / 0.978. Motor is over-predicted by about 5% on both folds; correcting it with a scalar fitted on the other fold gains only +0.0001..+0.0002 D2, so no level correction is made (D2 is insensitive to a 5% level error in one line, and the 2025 level is not known from these folds).
+
+## 19. TabM with 3 seeds (helper 3, finished 18:42 EDT; 30 min for both folds)
+`fs_nn_tabm4_s3`: A 0.1429 [0.1347], B 0.1328 [0.1340] (1 seed: 0.1413 [0.1331] / 0.1328 [0.1338]). In the blend with the GBM: equal weights A +0.0005 (+0.0001..+0.0010), B -0.0001 (-0.0007..+0.0004) vs the 1-seed blend; per-line weights A +0.0003, B -0.0002 (both CIs include 0). Seed averaging does not change the blend; the single-seed TabM already fitted on 2021-24 is as good, so no 3-seed refit is made.

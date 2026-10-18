@@ -150,3 +150,5 @@ Rejected (D27): none is positive on both folds on both metrics. The train and 20
 Blend GBM + TabM: A 0.1414 [0.1360], B 0.1351 [0.1361]. Candidate for the next submission (D28).
 
 Submitted 2026-10-18 about 18:05 EDT (user approved): `blend_gbm_tabm4_v2.csv` = 0.5 `fs_gbm_v4_l4_out5` + 0.5 `fs_nn_tabm4`. Public score: to be filled in from the Kaggle submissions page (the submissions API returned authentication errors this afternoon).
+
+Component checks submitted 2026-10-18 about 18:15 EDT at the user's request (public scores to be filled in from the Kaggle page): `fs_nn_tabm4.csv` (TabM alone; CV A 0.1413 / B 0.1328) and `fs_gbm_v4_l4_out5.csv` (GBM alone; CV A 0.1339 / B 0.1323). Purpose: see whether the public ordering GBM < blend, TabM vs blend matches the local one. They are real models, not level probes, and are not used to tune weights (D20/D21).

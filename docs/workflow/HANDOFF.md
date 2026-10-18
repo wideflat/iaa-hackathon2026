@@ -23,6 +23,8 @@
 **Time zone: report EDT (user's instruction 2026-10-18 12:20 EDT); timestamps above this line are UTC.**
 **Restarts: the sandbox restarts at user turns and kills background jobs; use `scripts/queue_runs.sh` (resumable, checkpoints per fold and line) and relaunch it when `pgrep -af run_cv` is empty. Currently queued: fs_nn_wide, then fs_nn_s3.**
 
+### 18:15 EDT: at the user's request two component checks were also submitted: `fs_nn_tabm4.csv` (TabM alone) and `fs_gbm_v4_l4_out5.csv` (GBM v4 alone). 9 of 10 submissions used today (UTC day of 2026-10-18; check the reset time); 1 left, held for the next real candidate. Public scores to be read from the Kaggle page. These are real models fitted on 2021-24, not scaled probes; D21 (no probing) is not affected.
+
 ### 18:00 EDT status
 IMPORTANT: background jobs only progress while a turn is active (the sandbox sleeps between turns: 2.4 h passed between turns with nothing running); keep a turn open with waiting loops for long jobs. Results of the parallel ideas: tail load, entity embeddings, recency, domain-shift: all rejected (D25-D27). TabM NN (k=4): best single model; GBM + TabM beats submitted blend on both folds (D28). SUBMITTED at the user's go-ahead (about 18:05 EDT; 7 of 10 today); public score pending / read it from the Kaggle page. File: `submissions/blend_gbm_tabm4_v2.csv` = 0.5 x fs_gbm_v4_l4_out5 + 0.5 x fs_nn_tabm4 (both fitted on 2021-24). `scripts/submit.py` returned an authentication error in the dry run at 17:58 EDT (same as check_submissions.py): if it persists, the user can upload the CSV by hand (artifacts are in the sandbox; send the file via SendUserFile).
 

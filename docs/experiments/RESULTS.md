@@ -162,3 +162,12 @@ Component checks submitted 2026-10-18 about 18:15 EDT at the user's request (pub
 | TabM alone | 0.12346 | 0.1413 / 0.1328 |
 | (earlier) v2 GBM 0.12455, v1 GBM 0.12153, GLM 0.12133 | | |
 Reading: the public order of the two blends matches the local order (+0.0009 public, +0.0027 / +0.0013 local); the blend beats both of its components (GBM +0.0013, TabM +0.0033), which is the diversity effect we want. TabM alone is worse than the GBM publicly although it was better on fold A and similar on fold B: fold A single-model scores overstate the NN, and fold B (the one that looks like 2025: immature last year) is the better guide, where the NN is about equal to the GBM. Do not choose a NN-heavy blend from fold A alone. No weights were tuned on these public scores (D20/D21); they are the first public evidence that supports the equal-weight GBM + TabM blend as the current best (0.12679). The top public score seen earlier was 0.12815.
+
+## 17. Per-line blend weights for GBM + TabM (18:25 EDT)
+Weights on TabM per line chosen from the per-line single-model ordering (TabM better on motor on both folds; GBM better on contents on both; buildings close), not by maximising D2: motor 0.7, buildings 0.4, contents 0.3 (equal weights = 0.5 each). Checked neighbours (0.6/0.5/0.4 and 0.7/0.5/0.3) to see that the result does not hinge on the exact values.
+| TabM weights (motor/buildings/contents) | Fold A vs equal (95% CI) | Fold B vs equal (95% CI) |
+|---|---|---|
+| 0.7 / 0.4 / 0.3 | +0.0021 (+0.0006..+0.0044); D2 0.1435, cap250k 0.1369 (equal 0.1414 / 0.1360) | +0.0004 (+0.0002..+0.0007); D2 0.1355, cap250k 0.1365 (equal 0.1351 / 0.1361) |
+| 0.6 / 0.5 / 0.4 | +0.0011 (+0.0003..+0.0023) | +0.0002 (+0.0001..+0.0004) |
+| 0.7 / 0.5 / 0.3 | +0.0019 (+0.0005..+0.0042) | +0.0004 (+0.0002..+0.0006) |
+Small but positive on both folds in every variant, with intervals excluding zero. File: `submissions/blend_gbm_tabm4_perline_v3.csv` (made with `scripts/blend_submissions.py`, which reproduces the submitted equal-weight blend exactly). Not submitted yet; one submission left today.

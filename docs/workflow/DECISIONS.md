@@ -23,7 +23,7 @@ Each decision: what, why (evidence), status. "Reviewed by" is the human who conf
 | D16 | Evaluate with paired bootstrap and a robust (capped) companion score | One outlier claim misled raw fold A | Adopted | Assistant |
 | D17 | Exclude period-length / start-month / end-month features | No gain (+0.0002 / 0.000); avoids end-of-period information | Adopted | Assistant |
 | D18 | Use helper sessions in separate containers for independent screens; they never commit, push or submit | CPU/RAM limits of one container (4 cores, 15 GB); lead asked for parallel work | Adopted | Project lead |
-| D19 | Stay at the written 5 submissions per UTC day | Rules text 5 vs platform 10; lead is checking with the host | Adopted (pending host answer) | Project lead |
+| D19 | Submission limit: 10 per UTC day | Rules text said 5, platform 10; the host confirmed 10 and updated the rules (2026-10-18). Until the answer we stayed at 5 | Resolved | Project lead (asked the host) |
 
 ## Open decisions
 - Which single submission to select as Final (rule: default is best public score; we prefer best CV with a sane level).

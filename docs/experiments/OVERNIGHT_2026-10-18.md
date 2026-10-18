@@ -3,7 +3,7 @@
 Written for the morning hand-over. Instruction received: explore as much as possible with the remaining submissions, refine the single model (no blending), iterate fast, parallelise where possible.
 
 ## Outcome in one paragraph
-Public score went from 0.12153 (v1) to **0.12455 (v2, rank 5)** by adding a severity trend and a frequency completeness offset. Everything else tried (GLM, new features, row timing, hyperparameters, banding, smaller trees, seed averaging, calibration curve) moved fold-A/B scores by less than the noise, so the model family is at its ceiling on this data. Five submissions were used on 2026-10-18 UTC (the written limit); the sixth was deliberately **not** used because the only remaining candidate (v3, leaves 4) is a near copy of v2 (rank correlation 0.992, mean +0.8%) and would add no information.
+Public score went from 0.12153 (v1) to **0.12455 (v2, rank 5)** by adding a severity trend and a frequency completeness offset. Everything else tried (GLM, new features, row timing, hyperparameters, banding, smaller trees, seed averaging, calibration curve) moved fold-A/B scores by less than the noise, so the model family is at its ceiling on this data. Five submissions were used on 2026-10-18 UTC (then the written limit; the host later confirmed 10 per day); a sixth was deliberately **not** used because the only remaining candidate (v3, leaves 4) is a near copy of v2 (rank correlation 0.992, mean +0.8%) and would add no information.
 
 ## What was run
 | Item | Result |
@@ -35,6 +35,6 @@ Public score went from 0.12153 (v1) to **0.12455 (v2, rank 5)** by adding a seve
 `submissions/fs_gbm_v3_leaves4.csv` (validated, dry-run OK). Recommendation: keep v2 (0.12455) as the Final candidate; submit v3 only if you want its leaderboard reading.
 
 ## Open items for you
-1. Host answer on the submission limit (written 5/day vs platform 10/day). Until then we stay at 5 per UTC day.
+1. ~~Host answer on the submission limit~~ Resolved after this report was written: the host confirmed 10 per day (rules updated). Five of ten were used on 2026-10-18 UTC.
 2. Choice of the Final Submission (we have not selected one).
 3. The default branch on GitHub is still `claude/brave-mayer-b3poow`; set it to `main` in repository settings (no tool available to the assistant).

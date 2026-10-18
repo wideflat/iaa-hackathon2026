@@ -14,7 +14,7 @@ Tweedie D2 score with power 1.5 (sklearn `d2_tweedie_score`), pooled over all te
 | Part 1 | Opens 2026-10-16, closes **2026-10-23 16:00 UTC** (also the team-merger deadline) |
 | Part 2 | Separate Kaggle page, opens when Part 1 closes: a new "emerging market" dataset, same team. Task: adapt the approach, explain what changed and remaining uncertainty |
 | Team | Max 3 members; same team in both parts |
-| Submissions | Rules say 5 per day (the API reports 10); one Final Submission is selected for judging (default: best public score) |
+| Submissions | **10 per day** (confirmed by the host on 2026-10-18; the rules text was updated, it previously said 5); one Final Submission is selected for judging (default: best public score) |
 | Public / private split | Public leaderboard uses about 33% of test rows; final standings use the other 67% |
 | Prizes | CAD 500 / 100 / 50, only for members or students of an IAA member association |
 

@@ -30,6 +30,11 @@ def _nn():   # torch is only needed for kind='nn'
     return nn
 
 
+def _boosters():   # xgboost / catboost are only needed for kind='xgb' / 'cat'
+    from . import boosters
+    return boosters
+
+
 def _split_cols(df: pd.DataFrame, cols):
     cat = [c for c in cols if not (pd.api.types.is_numeric_dtype(df[c]) or pd.api.types.is_bool_dtype(df[c]))]
     num = [c for c in cols if c not in cat]
@@ -44,8 +49,8 @@ class FreqSev:
                  glm_alpha_freq: float = 1e-3, glm_alpha_sev: float = 1e-2, min_sev_claims: int = 150,
                  trend: bool = True, completeness: bool = True, params_freq: dict | None = None, params_sev: dict | None = None,
                  bands: bool = False, n_bands: int = 6, n_seeds: int = 1, rebalance_level: str = "line", outlier_mult: float | None = None,
-                 nn_params: dict | None = None):
-        assert kind in ("glm", "gbm", "nn")
+                 nn_params: dict | None = None, threads: int = 4):
+        assert kind in ("glm", "gbm", "nn", "xgb", "cat")
         c = claims_line[claims_line["row_id"].notna() & (claims_line["status"] != "repudiated")]
         self.claims = c[["row_id", "peril", "net_cost"]]
         self.kind, self.cap_quantile, self.rebalance = kind, cap_quantile, rebalance
@@ -59,6 +64,7 @@ class FreqSev:
         self.rebalance_level = rebalance_level   # 'peril': rescale each peril to its own trended training total (fixes the Gamma/Poisson total bias per peril)
         self.n_seeds = n_seeds   # GBM only: average this many boosters per stage (different bagging seeds)
         self.params_freq, self.params_sev = params_freq or {}, params_sev or {}
+        self.threads = threads   # xgb / cat
         self.nn_params = nn_params or {}   # kind='nn': epochs, hidden, dropout, lr, n_seeds... (see models/nn.py)
         self.sev_trend_ = 0.0
         has_dates = {"loss_date", "report_date"} <= set(claims_line.columns)
@@ -202,7 +208,7 @@ class FreqSev:
         return self
 
     def _sub(self, X, idx):
-        return X.iloc[idx] if self.kind == "gbm" else X[idx]
+        return X.iloc[idx] if self.kind in ("gbm", "xgb", "cat") else X[idx]
 
     def _nn_kw(self, cls):
         import inspect
@@ -214,6 +220,8 @@ class FreqSev:
             m = PoissonRegressor(alpha=self.alpha_f, max_iter=200).fit(X, n / expo, sample_weight=expo)
             m.base_ = float(n.sum() / expo.sum())
             return m
+        if self.kind in ("xgb", "cat"):
+            return _boosters().fit_freq(self.kind, X, n, expo, self.params_freq, self.freq_rounds, self.n_seeds, self.threads)
         base = n.sum() / expo.sum()
         params = dict(objective="poisson", learning_rate=0.05, num_leaves=15, min_data_in_leaf=300, feature_fraction=0.8,
                       bagging_fraction=0.8, bagging_freq=1, lambda_l2=10.0, verbose=-1, seed=SEED, num_threads=0)
@@ -228,6 +236,8 @@ class FreqSev:
             m = GammaRegressor(alpha=self.alpha_s, max_iter=200).fit(Xs, y)
             m.mean_ = float(np.mean(y))
             return m
+        if self.kind in ("xgb", "cat"):
+            return _boosters().fit_sev(self.kind, Xs, y, self.params_sev, self.sev_rounds, self.n_seeds, self.threads)
         params = dict(objective="gamma", learning_rate=0.05, num_leaves=15, min_data_in_leaf=60, feature_fraction=0.8,
                       bagging_fraction=0.8, bagging_freq=1, lambda_l2=10.0, verbose=-1, seed=SEED, num_threads=0)
         params.update(self.params_sev)
@@ -249,6 +259,8 @@ class FreqSev:
             m = self.freq_[p]
             return np.clip(m.predict(X), 0.0, 20.0 * m.base_)   # bounded: a GLM can explode on extrapolation
         boosters, base = self.freq_[p]
+        if self.kind in ("xgb", "cat"):
+            return np.mean([np.exp(b.predict_raw(X)) for b in boosters], axis=0) * base
         return np.mean([np.exp(b.predict(X, raw_score=True)) for b in boosters], axis=0) * base
 
     def _sev(self, p, X):
@@ -257,6 +269,8 @@ class FreqSev:
         m = self.sev_[p]
         if self.kind == "glm":
             return np.clip(m.predict(X), 0.1 * m.mean_, 10.0 * m.mean_)
+        if self.kind in ("xgb", "cat"):
+            return np.mean([np.exp(b.predict_raw(X)) for b in m], axis=0)
         return np.mean([b.predict(X) for b in m], axis=0)
 
     def expected_by_peril(self, rows: pd.DataFrame) -> pd.DataFrame:

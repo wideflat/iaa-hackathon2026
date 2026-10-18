@@ -135,3 +135,14 @@ def test_nn_freqsev_balances_total_ranks_risk_and_is_nonnegative():
     assert (p >= 0).all() and np.isclose(p.sum(), rows.y.sum(), rtol=1e-9)
     hi, lo = rows.assign(x=2.0, g="c", exposure_calc=1.0), rows.assign(x=-2.0, g="a", exposure_calc=1.0)
     assert m.predict(hi).mean() > m.predict(lo).mean()
+
+
+@pytest.mark.parametrize("kind", ["xgb", "cat"])
+def test_alternative_boosters_balance_total_rank_risk_and_are_nonnegative(kind):
+    pytest.importorskip("xgboost" if kind == "xgb" else "catboost")
+    rows, claims = _data()
+    m = FreqSev(claims, kind=kind, freq_rounds=60, sev_rounds=40, threads=2, params_freq={"depth": 3} if kind == "cat" else {}).fit(rows)
+    p = m.predict(rows)
+    assert (p >= 0).all() and np.isclose(p.sum(), rows.y.sum(), rtol=1e-9)
+    hi, lo = rows.assign(x=2.0, g="c", exposure_calc=1.0), rows.assign(x=-2.0, g="a", exposure_calc=1.0)
+    assert m.predict(hi).mean() > m.predict(lo).mean()

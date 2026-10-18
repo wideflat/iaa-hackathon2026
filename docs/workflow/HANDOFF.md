@@ -14,7 +14,9 @@
 - Not submitted: `fs_gbm_v4_l4_out5.csv`, `fs_gbm_v3_leaves4.csv`, `fs_nn_v1.csv` alone.
 
 ### Running / half done
-- Nothing running. I killed `fs_nn_s3` (NN with 3 seeds, folds A,B, ~25 min per fold) to free memory for the final NN fit; relaunch: `python scripts/run_cv.py --model fs_nn --folds A,B --threads 4 --outlier-mult 5 --nn-seeds 3 --name fs_nn_s3`.
+- Helper session `session_01W8BsyyYBjof6NBX6rAiaWP` (started 14:48 UTC, own container): runs `fs_xgb_d3` then `fs_cat_d4` on folds A,B; it pushes compact OOF predictions (row_id, fold, pred) to branch `helper/oof-boosters` and messages me. When they arrive: `git fetch origin helper/oof-boosters`, read the parquet files into artifacts/ as `oof_<name>.parquet` by merging y/customer_id from `oof_fs_gbm_l4_out5.parquet`, then `scripts/blend_oof.py` against GBM/NN. It must not submit or push to dev.
+- Local: `fs_nn_s3` (3-seed NN, folds A,B) relaunched 14:44 UTC after a sandbox restart killed it; output `$SCRATCH/nns3.txt`, expect ~50 min.
+- (restart command for the NN run if the container restarts again: `python scripts/run_cv.py --model fs_nn --folds A,B --threads 4 --outlier-mult 5 --nn-seeds 3 --name fs_nn_s3`; background jobs do not survive a sandbox restart.)
 - torch was installed from PyPI (`pip install torch`; the PyTorch index is blocked by the proxy). Re-install after a new container.
 
 ### Next steps (in order)

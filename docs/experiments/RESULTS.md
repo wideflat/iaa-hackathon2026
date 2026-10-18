@@ -112,3 +112,13 @@ Rule (set before looking, as in DECISIONS D23): a model joins the blend only if 
 | GBM + NN v1 + NN wide | +0.0015 (-0.0008..+0.0050) | -0.0000 (-0.0007..+0.0004) | no gain |
 
 R = GBM + NN v1 (A 0.1388 [0.1356], B 0.1338 [0.1349]). The wide net is within noise of NN v1 in the blend: not worth a new submission by itself. The 3-seed NN (variance reduction, running) is the next test; a decision on a final NN configuration waits for it.
+
+## 12. 3-seed NN and risk-dependent tail load (2026-10-18, 15:15 EDT)
+| Run | Fold A D2 [cap250k] | Fold B D2 [cap250k] | Read |
+|---|---|---|---|
+| `fs_nn_s3` (NN v1, 3 seeds averaged per stage) | 0.1406 [0.1330] | 0.1313 [0.1326] | best single model so far; motor 0.0927 / 0.0848 |
+| GBM + `fs_nn_s3` (equal weights), minus R (GBM + NN v1) | +0.0018 (-0.0005..+0.0055) | +0.0006 (-0.0000..+0.0012) | positive on both folds, small; cap250k +0.0000 (A: 0.1356) / +0.0006 (B: 0.1355) |
+| `fs_gbm_tail05` (risk-dependent excess load, lambda 0.5; helper 2) | 0.1338 [0.1323] | 0.1323 [0.1333] | no change vs GBM 0.1339 / 0.1323 |
+| `fs_gbm_tail10` (lambda 1.0; helper 2) | 0.1337 [0.1322] | 0.1323 [0.1332] | no change |
+
+Tail model: fitted for 4 of 5 motor perils on fold A training (theft skipped, too few large claims); tail ratio median about 0.6-0.75, max 2.9-4.2, but the base excess loads are tiny (0.001-0.009), so the load barely moves predictions. Rejected (D25 below): not worth its code.

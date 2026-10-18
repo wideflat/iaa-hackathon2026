@@ -30,7 +30,7 @@ Ultimate = paid + case reserves (= incurred) + IBNR, where IBNR = pure IBNR (not
 | Recoveries on open claims | Recoveries exist only on closed own_damage/theft (80% of incurred) | Will arrive later on open claims: unmodelled upward-to-downward adjustment, flag |
 | Trend | Severity/frequency drift across years | Not yet explicit. Likely cause of GBM under-calibration (0.64-0.75) on fold A. Testable on mature fold A |
 
-## 3. Open questions (could be asked on the competition forum)
+## 3. Open uncertainties about the hidden 2025 answer
 1. At what date and basis is the 2025 answer valued? Includes claims not yet reported at 2025-12-31? Open claims at final settled cost?
 2. Are recoveries on open claims included at their eventual amounts?
 3. Is the answer the simulator's full claim set (a true "ultimate") or an incurred snapshot at a later date?
@@ -64,9 +64,6 @@ Earlier (and in the first draft of the research report) the 0.64-0.75 predicted/
 - The deviance-optimal scalar on the training data is ~1.007: the model is deviance-optimal in-sample. A Tweedie power-1.5 log-link GBM simply does not preserve totals on heavy-tailed data.
 - Rebalancing predictions per line to the training total (`LGBMTweedie(rebalance=True)`) lifts fold A from D2 0.0975 to 0.1225 (oracle scalar chosen on the validation year: 0.1242), fold B 0.1200 -> 0.1253.
 So trend remains untested rather than established; the first trend estimate should be made on the rebalanced model.
-
-## 7. Draft question for the organizers (competition forum)
-"The target is described as the ultimate cost of claims with a loss date in the row's period. (1) At what valuation date and maturity are the 2025 labels measured: all claims eventually reported and settled, or an incurred snapshot at a later date such as 31 Dec 2025? (2) Are open claims at their final cost, and do recoveries on open claims count at their eventual amount? (3) Is the 2025 label built by the same process that produced the 2021-2024 claims (including claims not yet reported at the 2024-12-31 snapshot)?"
 
 ## 8. Annual accident-year triangles and LDFs (`scripts/ldf.py` -> `docs/data/LDF_TABLES.md`)
 Textbook layout: accident year x age 12/24/36/48 months, cumulative reported claims at their current net cost (as-if triangle: reporting

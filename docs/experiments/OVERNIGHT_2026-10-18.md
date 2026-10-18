@@ -37,5 +37,4 @@ Public score went from 0.12153 (v1) to **0.12455 (v2, rank 5)** by adding a seve
 ## Open items for you
 1. Host answer on the submission limit (written 5/day vs platform 10/day). Until then we stay at 5 per UTC day.
 2. Choice of the Final Submission (we have not selected one).
-3. Whether to remove the internal draft questions in `docs/methodology/TARGET_DEFINITION.md` section 7.
-4. The default branch on GitHub is still `claude/brave-mayer-b3poow`; set it to `main` in repository settings.
+3. The default branch on GitHub is still `claude/brave-mayer-b3poow`; set it to `main` in repository settings (no tool available to the assistant).

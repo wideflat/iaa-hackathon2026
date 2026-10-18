@@ -38,4 +38,4 @@ For each of the 15 line/peril combinations (motor 5, buildings 6, contents 4):
 - The first GLM benchmark is unstable (buildings D2 < 0; motor calibration 344 on fold B): heavy-tailed inputs and weak regularisation. Not a valid benchmark yet.
 - The submitted model is trained on 2024 as valued (immature), so its level is probably low for motor bodily injury; the leaderboard level probes agree (optimum near x1.16).
 - Case-estimate development (IBNER) cannot be measured from a single valuation snapshot.
-- Valuation date and maturity of the hidden 2025 answer are not stated by the organisers (questions drafted in `methodology/TARGET_DEFINITION.md` section 7).
+- Valuation date and maturity of the hidden 2025 answer are not stated by the organisers; this is carried as an explicit uncertainty (`methodology/TARGET_DEFINITION.md` section 3).

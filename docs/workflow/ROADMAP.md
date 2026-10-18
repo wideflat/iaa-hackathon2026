@@ -20,6 +20,3 @@ Up to 5 per day (rules). Select exactly one Final Submission before the deadline
 ## Part 2 readiness (new emerging-market dataset)
 - Re-run the drift screens (`src/iaa/drift.py`) and the target/feature checks on the new data; list what changed (missing columns, new levels, distribution shift, different claim maturity).
 - Keep the pipeline parameterised (paths, line list, folds) so it can be re-fit quickly; document remaining uncertainty explicitly.
-
-## Questions for the organisers (forum)
-Valuation date and maturity of the 2025 answer; treatment of open claims and recoveries on open claims; whether the 2025 label is built by the same process as 2021-2024 claims (drafted in `methodology/TARGET_DEFINITION.md` section 7).

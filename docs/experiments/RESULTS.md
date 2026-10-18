@@ -84,3 +84,21 @@ The open 11.9M bodily-injury claim inflated the BI excess load (0.083 vs 0.008) 
 | Submitted `blend_gbm_nn_v1.csv` (= 0.5 `fs_gbm_v4_l4_out5` + 0.5 `fs_nn_v1`, both fitted on 2021-24) | | | **0.12587** (v2 0.12455, v1 0.12153, GLM 0.12133) |
 
 Paired bootstrap, blend minus GBM: fold A +0.0049 (95% CI +0.0024..+0.0082), fold B +0.0014 (CI +0.0003..+0.0025). Blend weights 0.25 / 0.75 were also positive on both folds but 0.5 was the best pooled; no per-line weights used. The public gain over v2 (+0.0013) has the same sign as the local gain over the GBM; the public score is one 2025-type sample and is not used to tune weights (D20/D21). Reading from the Kaggle submissions page (screenshot supplied by the project lead; `scripts/check_submissions.py` returned an authentication error at the time).
+
+## 10. Other algorithms and blend additions (2026-10-18)
+Reference blend R = equal-weight GBM (`fs_gbm_l4_out5`) + NN (`fs_nn_v1`): fold A 0.1388 [cap250k 0.1356], fold B 0.1338 [0.1349]. Candidates are added with equal weights (`scripts/blend_multi.py`, paired bootstrap on the same rows, customer-clustered).
+
+| Model (single) | Fold A D2 [cap250k] | Fold B D2 [cap250k] | Read |
+|---|---|---|---|
+| XGBoost freq x sev, depth 3 (`fs_xgb_d3`, helper session) | 0.1322 [0.1317] | 0.1321 [0.1332] | about LightGBM; 17 min for both folds |
+| CatBoost freq x sev, depth 4 (`fs_cat_d4`, helper session) | 0.1165 [0.1235] | 0.1201 [0.1208] | worse; motor calibration 1.24 on fold B; 27 min per fold |
+| Direct Tweedie NN (`nn_tweedie_v1`) | 0.1336 [0.1297] | 0.1215 [0.1228] | no trend / completeness handling; fold B motor calibration 1.23 |
+
+| Blend | A: cand - R (95% CI) | B: cand - R (95% CI) | Verdict |
+|---|---|---|---|
+| R + direct Tweedie NN | +0.0007 (-0.0000..+0.0015) | -0.0016 (-0.0024..-0.0008) | reject (worse on B) |
+| R + XGBoost | -0.0009 (-0.0027..+0.0004) | +0.0003 (-0.0001..+0.0006) | no gain |
+| R + CatBoost | -0.0027 (-0.0074..+0.0004) | -0.0011 (-0.0020..-0.0002) | reject |
+| R + all three | -0.0009 (-0.0046..+0.0015) | -0.0006 (-0.0012..-0.0000) | reject |
+
+Rule (set before looking, as in DECISIONS D23): a model joins the blend only if the paired difference is positive on both folds. None does. The direct net is structurally disadvantaged on fold B because its immature-year training rows are not completeness-adjusted; the GLM (tuned, fold A 0.1411) helped on fold A but not fold B (3-way 0.1331 vs 0.1338), so it is not adopted either.

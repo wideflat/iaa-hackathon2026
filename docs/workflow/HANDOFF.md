@@ -23,6 +23,9 @@
 **Time zone: report EDT (user's instruction 2026-10-18 12:20 EDT); timestamps above this line are UTC.**
 **Restarts: the sandbox restarts at user turns and kills background jobs; use `scripts/queue_runs.sh` (resumable, checkpoints per fold and line) and relaunch it when `pgrep -af run_cv` is empty. Currently queued: fs_nn_wide, then fs_nn_s3.**
 
+### Parallel ideas started 14:45 EDT (user request) - code on dev (a6e1339)
+Helpers (own containers, no submit/push to dev; predictions pushed to their branches, messages to me): `session_01P3N5TGee8xNV4QmCHwGn3s` recency 0.3/0.7 + domain-shift 0.5/1.0 (branch helper/oof-weights); `session_01T8JKohLCBD1QxVMf88yCM4` risk-dependent tail load lambda 0.5/1.0 (helper/oof-tail); `session_01Et9MuJaioBVYPQPdYYrNzL` entity embeddings NN (helper/oof-entity). Local queue: fs_nn_s3 -> fs_nn_tabm4 (TabM k=4). Compare each with `scripts/blend_multi.py` (GBM-type results against fs_gbm_l4_out5, NN-type results as replacement/addition to R = GBM + NN v1); fetch OOF files with `git show origin/<branch>:artifacts/oofpred_<name>.parquet`, merge y/customer_id from `oof_fs_gbm_l4_out5.parquet` by row_id+fold, save as artifacts/oof_<name>.parquet.
+
 ### Results since the blend (RESULTS section 10, D24)
 XGBoost / CatBoost / direct Tweedie NN / GLM do not improve GBM + NN on both folds (rejected). Helper session finished (idle; helper/oof-boosters branch holds its predictions; can be archived). The sandbox restarts whenever my working directory changes (16:05 again): relaunch `scratchpad/queue3.sh` (fs_nn_wide then fs_nn_s3) if `pgrep -af run_cv` is empty and no OOF files `oof_fs_nn_wide`/`oof_fs_nn_s3` exist.
 

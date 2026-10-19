@@ -64,6 +64,7 @@ def main() -> None:
     ap.add_argument("--nn-cat-te", action="store_true", help="fs_nn: also feed target-encoded categoricals (out-of-fold claim rate) as numeric inputs")
     ap.add_argument("--trend-scale", type=float, default=1.0, help="fs: multiply the estimated severity trend")
     ap.add_argument("--trend-halflife", type=float, default=None, help="fs: weight recent claim years more when estimating the severity trend (half-life in years)")
+    ap.add_argument("--lgb-params", default="", help="fs_gbm: extra LightGBM parameters for both stages, e.g. linear_tree=true,linear_lambda=1.0")
     ap.add_argument("--threads", type=int, default=0, help="LightGBM threads (0 = all); use 2 to run two experiments in parallel")
     ap.add_argument("--resume", action="store_true", help="save/reuse a checkpoint per (fold, line) under artifacts/ckpt/<name>; change --name when settings change")
     ap.add_argument("--name", default=None)
@@ -94,6 +95,10 @@ def main() -> None:
             pf["learning_rate"] = ps["learning_rate"] = a.lr
         if a.leaves:
             pf["num_leaves"] = ps["num_leaves"] = a.leaves
+        for kv in [x for x in a.lgb_params.split(",") if x]:
+            k, v = kv.split("=")
+            val = {"true": True, "false": False}.get(v.lower(), float(v) if v.replace(".", "", 1).replace("-", "", 1).isdigit() else v)
+            pf[k] = ps[k] = val
         if a.max_bin:
             pf["max_bin"] = ps["max_bin"] = a.max_bin
         if a.min_leaf_freq:

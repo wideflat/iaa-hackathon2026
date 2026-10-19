@@ -23,6 +23,8 @@
 **Time zone: report EDT (user's instruction 2026-10-18 12:20 EDT); timestamps above this line are UTC.**
 **Restarts: the sandbox restarts at user turns and kills background jobs; use `scripts/queue_runs.sh` (resumable, checkpoints per fold and line) and relaunch it when `pgrep -af run_cv` is empty. Currently queued: fs_nn_wide, then fs_nn_s3.**
 
+### 17:40 EDT 2026-10-19: structural idea 1 (GBM-offset net) REJECTED (D42, RESULTS 34): alone = target GBM (A 0.1387 / B 0.1339), blend changes within +/-0.001, none positive on both folds. v5 still the best (public 0.12790). Helpers 1 and 3 are still running NN-config screens (wd 1e-3, dropout 0.25, 3 layers, lr 1e-3); collect via branches helper/oof-weights and helper/oof-entity.
+
 ### 16:50 EDT 2026-10-19: PLATEAU. v5 0.12790, v7 (3-seed finals) 0.12785, v4 0.12779, v6 0.12761. All blend variants tried since v5 (leaves 7, 3 seeds, history features, trend uplift, re-weighting, encodings for NN) are within +/-0.0003 locally and publicly. Recommended final selections on Kaggle (up to 2 may be selected): v5 and v7 (same recipe, 1 vs 3 seeds). Remaining ideas are all structural (GLM-offset CANN, residual NN on GBM, different architecture).
 
 ### 15:20 EDT 2026-10-19 (superseded): running: final 3-seed fits of TabM and TabM-PLE (scripts/final_nn_seeds.sh -> submissions/fs_nn_tabm4_s3.csv, fs_nn_tabm4_ple_s3.csv; variance reduction for the final blend; idempotent, rerun after a restart); helper 1: linear-leaf GBM; helper 3: GBM hyperparameter re-screen with target encoding. Residual scan and richer history: no gain (D38).

@@ -54,7 +54,8 @@ class FreqSev:
                  bands: bool = False, n_bands: int = 6, n_seeds: int = 1, rebalance_level: str = "line", outlier_mult: float | None = None,
                  nn_params: dict | None = None, threads: int = 4,
                  recency: float = 0.0, adv_strength: float = 0.0, tail_lambda: float = 0.0, entity_cols=(),
-                 cat_encoding: str = "native", num_encoding: str = "native", cat_te: bool = False):
+                 cat_encoding: str = "native", num_encoding: str = "native", cat_te: bool = False,
+                 trend_scale: float = 1.0, trend_halflife: float | None = None):
         assert kind in ("glm", "gbm", "nn", "xgb", "cat")
         c = claims_line[claims_line["row_id"].notna() & (claims_line["status"] != "repudiated")]
         self.claims = c[["row_id", "peril", "net_cost"]]
@@ -71,6 +72,7 @@ class FreqSev:
         self.params_freq, self.params_sev = params_freq or {}, params_sev or {}
         self.threads = threads   # xgb / cat
         assert cat_encoding in ("native", "label", "count", "both", "target", "target_peril")
+        self.trend_scale, self.trend_halflife = trend_scale, trend_halflife   # severity trend = trend_scale x pooled estimate (recent-weighted when trend_halflife is set)
         self.cat_te = cat_te   # kind=nn: also feed the smoothed out-of-fold claim-rate (target) encoding of every categorical as a numeric input
         assert num_encoding in ("native", "lowcard", "count", "both")
         self.num_encoding = num_encoding   # tree kinds: native = numeric as is; lowcard = numerics with <= 20 distinct values also as categorical; count = log count of each exact value added; both
@@ -103,16 +105,21 @@ class FreqSev:
         return pd.Series(np.asarray(years)).map(table).fillna(1.0).to_numpy()
 
     @staticmethod
-    def _estimate_trend(cl: pd.DataFrame) -> float:
-        """Pooled annual log-trend of capped claim cost with peril fixed effects (clipped to [0, 0.12])."""
+    def _estimate_trend(cl: pd.DataFrame, halflife: float | None = None) -> float:
+        """Pooled annual log-trend of capped claim cost with peril fixed effects (clipped to [0, 0.12]).
+
+        halflife (years): weight claims by 0.5 ** ((last year - year) / halflife), i.e. let recent years count more (the severity trend has been accelerating)."""
         if cl["year"].nunique() < 2:
             return 0.0
         y = np.log(cl["cost"].clip(lower=1.0))
         x = cl["year"].astype(float)
-        dy = y - y.groupby(cl["peril"]).transform("mean")
-        dx = x - x.groupby(cl["peril"]).transform("mean")
-        den = float((dx ** 2).sum())
-        return float(np.clip((dx * dy).sum() / den, 0.0, 0.12)) if den > 0 else 0.0
+        w = pd.Series(1.0, index=cl.index) if halflife is None else pd.Series(0.5 ** ((x.max() - x) / halflife), index=cl.index)
+        g = cl["peril"]
+        my = (w * y).groupby(g).transform("sum") / w.groupby(g).transform("sum")
+        mx = (w * x).groupby(g).transform("sum") / w.groupby(g).transform("sum")
+        dy, dx = y - my, x - mx
+        den = float((w * dx ** 2).sum())
+        return float(np.clip((w * dx * dy).sum() / den, 0.0, 0.12)) if den > 0 else 0.0
 
     # ---- feature matrices -------------------------------------------------------------------
     def _fit_features(self, train: pd.DataFrame):
@@ -289,7 +296,7 @@ class FreqSev:
             self.cap_[p], self.excess_[p] = cap, float((xs_cost - capped).sum() / capped.sum())
         cl["cost"] = cl["net_cost"].clip(upper=cl["peril"].map(self.cap_))
         # B) severity trend: projects every claim to the cost level of year `ref`
-        self.sev_trend_ = self._estimate_trend(cl) if self.trend else 0.0
+        self.sev_trend_ = float(np.clip(self.trend_scale * self._estimate_trend(cl, self.trend_halflife), 0.0, 0.2)) if self.trend else 0.0
         self.ref_year_ = ref
         cl["tf"] = np.exp(self.sev_trend_ * (ref - cl["year"]))
         # C) models per peril

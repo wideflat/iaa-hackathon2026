@@ -31,8 +31,9 @@ class NNX:
 
 
 class Encoder:
-    def __init__(self, num_cols, cat_cols, min_level_count: int = 200, entity_cols=(), entity_min_count: int = 2, entity_dim: int = 4):
+    def __init__(self, num_cols, cat_cols, min_level_count: int = 200, entity_cols=(), entity_min_count: int = 2, entity_dim: int = 4, ple_bins: int = 0):
         self.entity_cols, self.entity_min_count, self.entity_dim = list(entity_cols), entity_min_count, entity_dim
+        self.ple_bins = ple_bins   # > 0: add piecewise-linear (quantile-bin) encodings of the numeric inputs that have more than ple_bins distinct values
         self.num_cols, self.cat_cols, self.min_level_count = list(num_cols), list(cat_cols) + self.entity_cols, min_level_count
 
     def fit(self, df: pd.DataFrame):
@@ -50,7 +51,13 @@ class Encoder:
             self.levels_[c] = {lv: i + 1 for i, lv in enumerate(vc[vc >= floor].index)}
         self.cards_ = [len(v) + 1 for v in self.levels_.values()]
         self.emb_dims_ = [self.entity_dim if c in self.entity_cols else min(8, (len(v) + 1) // 2 + 1) for c, v in self.levels_.items()]
-        self.n_num_ = len(self.num_cols) + len(self.miss_cols_)
+        self.ple_ = {}
+        if self.ple_bins:
+            for c in self.num_cols:
+                e = np.unique(np.quantile(filled[c].to_numpy(), np.linspace(0, 1, self.ple_bins + 1)))
+                if len(e) > 3:
+                    self.ple_[c] = e
+        self.n_num_ = len(self.num_cols) + len(self.miss_cols_) + sum(len(e) - 1 for e in self.ple_.values())
         return self
 
     def transform(self, df: pd.DataFrame) -> NNX:
@@ -59,6 +66,13 @@ class Encoder:
         z = ((num.fillna(self.med_) - self.mu_) / self.sd_).clip(-6.0, 6.0).to_numpy(dtype="float32")
         if self.miss_cols_:
             z = np.hstack([z, raw[self.miss_cols_].isna().to_numpy(dtype="float32")])
+        if self.ple_:
+            filled = num.fillna(self.med_)
+            blocks = []
+            for c, e in self.ple_.items():
+                v = filled[c].to_numpy(dtype="float32")[:, None]
+                blocks.append(np.clip((v - e[None, :-1]) / np.maximum(e[None, 1:] - e[None, :-1], 1e-6), 0.0, 1.0).astype("float32"))
+            z = np.hstack([z] + blocks)
         cat = np.column_stack([
             df[c].astype(object).where(df[c].notna(), "missing").astype(str).map(self.levels_[c]).fillna(0).to_numpy(dtype="int64")
             for c in self.cat_cols]) if self.cat_cols else np.zeros((len(df), 0), dtype="int64")

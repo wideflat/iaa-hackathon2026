@@ -54,6 +54,8 @@ def main() -> None:
     ap.add_argument("--tail-lambda", type=float, default=0.0, help="fs_gbm: risk-dependent excess load exponent")
     ap.add_argument("--entity", action="store_true", help="fs_nn: customer_id and address_id as learned embeddings")
     ap.add_argument("--nn-tabm-k", type=int, default=None, help="fs_nn: TabM BatchEnsemble members per MLP")
+    ap.add_argument("--engineered", action="store_true", help="add the label-free engineered features (iaa.engineered)")
+    ap.add_argument("--nn-ple", type=int, default=None, help="fs_nn: piecewise-linear encoding of numeric inputs with this many quantile bins")
     ap.add_argument("--threads", type=int, default=0, help="LightGBM threads (0 = all); use 2 to run two experiments in parallel")
     ap.add_argument("--resume", action="store_true", help="save/reuse a checkpoint per (fold, line) under artifacts/ckpt/<name>; change --name when settings change")
     ap.add_argument("--name", default=None)
@@ -62,6 +64,9 @@ def main() -> None:
 
     claims = data.load_claims()
     frames = cache.load_frames()
+    if a.engineered:
+        from iaa.engineered import add_engineered
+        frames = add_engineered(frames)
     train_frames = None
     if a.closed_only:
         cu, ad, we = data.load_customers(), data.load_addresses(), data.load_weather()
@@ -88,7 +93,7 @@ def main() -> None:
                 pf["max_depth" if a.model == "fs_xgb" else "depth"] = ps["max_depth" if a.model == "fs_xgb" else "depth"] = a.depth
         nnp = {k: v for k, v in {"epochs": a.nn_epochs, "hidden": tuple(int(x) for x in a.nn_hidden.split(",")) if a.nn_hidden else None,
                                  "dropout": a.nn_dropout, "lr": a.nn_lr, "wd": a.nn_wd, "n_seeds": a.nn_seeds,
-                                 "tabm_k": a.nn_tabm_k, "threads": a.threads or 4}.items() if v is not None}
+                                 "tabm_k": a.nn_tabm_k, "ple_bins": a.nn_ple, "threads": a.threads or 4}.items() if v is not None}
         factory = lambda line: FreqSev(matched[line], kind=a.model[3:], rebalance=not a.no_rebalance, drop_noise=not a.keep_noise,  # noqa: E731
                                        extra_drop=extra, trend=not a.no_trend, completeness=not a.no_completeness,
                                        freq_rounds=a.freq_rounds, sev_rounds=a.sev_rounds, cap_quantile=a.cap_q,

@@ -203,3 +203,12 @@ def test_risk_dependent_tail_load_keeps_total_and_ranking():
     m.fit(rows)
     assert "A" in m.tail_
     _checks(m, rows)
+
+
+def test_piecewise_linear_encoding_adds_inputs_and_trains():
+    pytest.importorskip("torch")
+    rows, claims = _data()
+    rows["customer_id"] = [f"C{i // 3}" for i in range(len(rows))]
+    m = FreqSev(claims, kind="nn", nn_params={"epochs": 3, "hidden": (16, 8), "threads": 2, "ple_bins": 6}).fit(rows)
+    assert m.enc_.ple_ and m.enc_.n_num_ > 1
+    _checks(m, rows)

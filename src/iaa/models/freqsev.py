@@ -127,7 +127,7 @@ class FreqSev:
             self.ohe_ = OneHotEncoder(handle_unknown="ignore", min_frequency=1000, sparse_output=True).fit(self._cat(train))
         elif self.kind == "nn":
             self.enc_ = _nn().Encoder(self.num_, self.cat_, entity_cols=self.entity_cols, entity_min_count=self.nn_params.get("entity_min", 2),
-                                      entity_dim=self.nn_params.get("entity_dim", 4)).fit(train)
+                                      entity_dim=self.nn_params.get("entity_dim", 4), ple_bins=self.nn_params.get("ple_bins", 0) or 0).fit(train)
         else:
             self.levels_ = {c: sorted(train[c].dropna().astype(str).unique()) for c in self.cat_}
 

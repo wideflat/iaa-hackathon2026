@@ -229,3 +229,10 @@ Single GBM (LightGBM leaves 4, outlier 5), local D2 [cap250k] fold A / fold B:
 | **target (smoothed out-of-fold claim rate)** | **0.1376 [0.1365]** | **0.1339 [0.1350]** |
 Target encoding is the best single model on both folds and both metrics. Submitted alone (`fs_gbm_target.csv`, fitted on 2021-24): public **0.12720** vs 0.12548 for the native GBM (+0.0017; local gain +0.0037 A / +0.0016 B) and equal to the previous best blend (0.12718): the encoding change is a real gain that the public score confirms.
 Blends (per-line weights 0.7/0.4/0.3 on the mean of TabM and TabM-PLE; OOF, A / B): submitted blend (native GBM) 0.1437 [0.1377] / 0.1359 [0.1369]; with the target GBM instead 0.1442 [0.1384] / 0.1361 [0.1371] (+0.0006 (CI +0.0001..+0.0011) A, +0.0001 (-0.0004..+0.0006) B); adding label and/or both and native GBMs on top changes nothing (+/-0.0001): the encoding variants are highly correlated, so averaging them adds little. Candidate: `blend_gbmtarget_tabm_ple_perline_v5.csv`.
+
+## 27. Numeric-input encodings for the GBM (helper 3, 22:06 EDT; on top of label encoding, reference A 0.1375 [0.1354], B 0.1336 [0.1347])
+| Run | Fold A [cap250k] | Fold B [cap250k] | Read |
+|---|---|---|---|
+| `fs_gbm_label_num` (`--num-encoding both`: low-cardinality numerics also as categoricals + log counts of numeric values) | 0.1347 [0.1345] | 0.1308 [0.1324] | worse (-0.0028 on both folds): rejected |
+| `fs_gbm_label_bin1023` (LightGBM max_bin 1023 instead of 255) | 0.1375 [0.1354] | 0.1335 [0.1347] | no change |
+Trees are invariant to monotone transforms of numeric inputs, so only information-adding encodings can matter; the extra copies add noise. Numeric transforms for the NN (rank-gauss, log1p) are running (`fs_nn_tabm4_q`, `fs_nn_tabm4_log`; PLE already helped).

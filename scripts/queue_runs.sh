@@ -18,3 +18,4 @@ run fs_nn_tabm4_q --model fs_nn --folds A,B --threads 4 --outlier-mult 5 --nn-ta
 run fs_nn_tabm4_log --model fs_nn --folds A,B --threads 4 --outlier-mult 5 --nn-tabm-k 4 --nn-numtf log --note "TabM k=4 + log1p of right-skewed numeric inputs"
 run fs_nn_tabm4_te --model fs_nn --folds A,B --threads 4 --outlier-mult 5 --nn-tabm-k 4 --nn-cat-te --note "TabM k=4 + target-encoded categorical inputs"
 run fs_gbm_target_peril --model fs_gbm --folds A,B --threads 4 --leaves 4 --freq-rounds 350 --sev-rounds 300 --outlier-mult 5 --cat-encoding target_peril --note "GBM with per-peril smoothed out-of-fold claim-rate encodings of categoricals"
+run fs_gbm_target_hl1 --model fs_gbm --folds A,B --threads 4 --leaves 4 --freq-rounds 350 --sev-rounds 300 --outlier-mult 5 --cat-encoding target --trend-halflife 1 --note "target-encoded GBM, severity trend weighted to recent years (half-life 1 year)"

@@ -35,6 +35,7 @@ Each decision: what, why (evidence), status. "Reviewed by" is the human who conf
 | D27 | Reject recency weighting and domain-shift weighting | RESULTS section 14: no run positive on both folds and both metrics; adversarial weights near uniform | Rejected; code kept behind `--recency` / `--adv-weights` (default off) | Project lead |
 | D28 | Adopt GBM + TabM-style NN (equal weights) as the next candidate | RESULTS section 15: above the submitted GBM + NN v1 blend on both folds and both metrics; B interval excludes 0 | Final TabM fit on 2021-24 running; submit after checks | Project lead |
 | D29 | Keep GBM + TabM with hand-set per-line weights; no stacker, no GLM/XGBoost/extra NN in the blend | RESULTS section 21: likelihood-fitted per-line weights evaluated on the other fold equal the hand weights within 0.0004; extra components do not help | Adopted | Project lead |
+| D30 | Reject the engineered feature set (ratios, weather anomalies, premium residual) | RESULTS section 22: GBM unchanged; TabM motor up but buildings down and B worse in the blend | Rejected; code kept behind `--engineered` | Project lead |
 
 ## Open decisions
 - Names of the team's independent reviewer and approver for the governance log (placeholders in `workflow/AI_USAGE.md`): to be filled in by the project lead.

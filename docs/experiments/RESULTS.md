@@ -252,3 +252,5 @@ Conclusion (D32): of all numeric encodings tried, only the piecewise-linear enco
 `fs_nn_tabm4_ple_te` (TabM + PLE + target-encoded categorical inputs; helper 3, 22:52 EDT): A 0.1427 [cap250k 0.1352], B 0.1341 [0.1351] vs TabM + PLE 0.1430 [0.1364] / 0.1340 [0.1351]: no gain. Target-encoded inputs do not help the NN (D33): the embeddings already carry it.
 
 `fs_gbm_target_peril` (per-peril claim-rate encodings of the categoricals instead of one any-claim encoding; 23:00 EDT): A 0.1380 [cap250k 0.1362], B 0.1340 [0.1350] vs `fs_gbm_target` 0.1376 [0.1365] / 0.1339 [0.1350]: equal within noise. Not adopted (D34): more code, no gain.
+
+`fs_gbm_target_hl1` (target-encoded GBM, severity trend weighted to recent years, half-life 1 year; 23:10 EDT): A 0.1384 [cap250k 0.1364], B 0.1340 [0.1351] vs `fs_gbm_target` 0.1376 [0.1365] / 0.1339 [0.1350]: equal within noise; calibration (pred / actual) unchanged (A: motor 1.05, buildings 1.02, contents 0.94; B: 1.03, 0.99, 1.00). Trend multipliers x1.5 / x0.5 are running on helper 1.

@@ -23,7 +23,9 @@
 **Time zone: report EDT (user's instruction 2026-10-18 12:20 EDT); timestamps above this line are UTC.**
 **Restarts: the sandbox restarts at user turns and kills background jobs; use `scripts/queue_runs.sh` (resumable, checkpoints per fold and line) and relaunch it when `pgrep -af run_cv` is empty. Currently queued: fs_nn_wide, then fs_nn_s3.**
 
-### 15:20 EDT 2026-10-19: running: final 3-seed fits of TabM and TabM-PLE (scripts/final_nn_seeds.sh -> submissions/fs_nn_tabm4_s3.csv, fs_nn_tabm4_ple_s3.csv; variance reduction for the final blend; idempotent, rerun after a restart); helper 1: linear-leaf GBM; helper 3: GBM hyperparameter re-screen with target encoding. Residual scan and richer history: no gain (D38).
+### 16:50 EDT 2026-10-19: PLATEAU. v5 0.12790, v7 (3-seed finals) 0.12785, v4 0.12779, v6 0.12761. All blend variants tried since v5 (leaves 7, 3 seeds, history features, trend uplift, re-weighting, encodings for NN) are within +/-0.0003 locally and publicly. Recommended final selections on Kaggle (up to 2 may be selected): v5 and v7 (same recipe, 1 vs 3 seeds). Remaining ideas are all structural (GLM-offset CANN, residual NN on GBM, different architecture).
+
+### 15:20 EDT 2026-10-19 (superseded): running: final 3-seed fits of TabM and TabM-PLE (scripts/final_nn_seeds.sh -> submissions/fs_nn_tabm4_s3.csv, fs_nn_tabm4_ple_s3.csv; variance reduction for the final blend; idempotent, rerun after a restart); helper 1: linear-leaf GBM; helper 3: GBM hyperparameter re-screen with target encoding. Residual scan and richer history: no gain (D38).
 
 ### 00:22 EDT: v6 (2025 inflation uplift) scored 0.12761 < v5 0.12790: REJECTED (D37). v5 (blend_gbmtarget_tabm_ple_perline_v5.csv, public 0.12790) remains the final candidate. Re-weighting did not beat v5 on both folds (D36). Public scores so far: v5 0.12790, v4 0.12779, v6 0.12761, target GBM 0.12720, ...
 

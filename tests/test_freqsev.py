@@ -254,3 +254,12 @@ def test_nn_with_target_encoded_categoricals_trains_and_ranks_risk():
     m = FreqSev(claims, kind="nn", nn_params={"epochs": 3, "hidden": (16, 8), "threads": 2}, cat_te=True).fit(rows)
     assert "te_g" in m.enc_.num_cols
     _checks(m, rows)
+
+
+def test_per_peril_target_encoding_trains_and_ranks_risk():
+    rows, claims = _data()
+    m = FreqSev(claims, kind="gbm", freq_rounds=40, sev_rounds=30, cat_encoding="target_peril").fit(rows)
+    assert set(m.tep_) == set(m.freq_)
+    _checks(m, rows)
+    X = m._x(rows)
+    assert not np.allclose(m._xp("A", X, rows)["g"], m._xp("B", X, rows)["g"])

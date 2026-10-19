@@ -70,7 +70,7 @@ class FreqSev:
         self.n_seeds = n_seeds   # GBM only: average this many boosters per stage (different bagging seeds)
         self.params_freq, self.params_sev = params_freq or {}, params_sev or {}
         self.threads = threads   # xgb / cat
-        assert cat_encoding in ("native", "label", "count", "both", "target")
+        assert cat_encoding in ("native", "label", "count", "both", "target", "target_peril")
         self.cat_te = cat_te   # kind=nn: also feed the smoothed out-of-fold claim-rate (target) encoding of every categorical as a numeric input
         assert num_encoding in ("native", "lowcard", "count", "both")
         self.num_encoding = num_encoding   # tree kinds: native = numeric as is; lowcard = numerics with <= 20 distinct values also as categorical; count = log count of each exact value added; both
@@ -178,7 +178,7 @@ class FreqSev:
             sv = x[c].astype(object).where(x[c].notna(), None).map(lambda v: None if v is None else str(v))
             if self.cat_encoding == "native":
                 x[c] = pd.Categorical(sv, categories=lv)
-            elif self.cat_encoding == "target":
+            elif self.cat_encoding in ("target", "target_peril"):
                 key = sv.fillna("missing")
                 x[c] = key.map(self.te_[c]).fillna(1.0).astype("float32")
             else:
@@ -242,7 +242,22 @@ class FreqSev:
         cl = self.claims[self.claims["row_id"].isin(pos)].copy()
         cl["year"] = cl["row_id"].map(years).to_numpy()
         counts = cl.groupby(["row_id", "peril"]).size().unstack(fill_value=0).reindex(pos, fill_value=0)
-        if self.cat_encoding == "target" or (self.kind == "nn" and self.cat_te):   # out-of-fold encodings for the training rows (5 folds), full-training statistics for any other rows
+        if self.cat_encoding == "target_peril":   # one out-of-fold encoding per peril (claim rate of that peril); the base columns hold the any-claim encoding
+            self.tep_, self.oofp_ = {}, {}
+            fold_p = pd.util.hash_array(train["row_id"].astype(str).to_numpy()) % 5
+            for p in counts.columns:
+                npc = counts[p].to_numpy(dtype=float)
+                if npc.sum() < 20:
+                    continue
+                self.tep_[p] = self._te_stats(train, npc, expo)
+                o = {c: np.ones(len(train), dtype="float32") for c in self.cat_}
+                for f in range(5):
+                    st = self._te_stats(train, npc, expo, rows=(fold_p != f))
+                    for c in self.cat_:
+                        k = train[c].astype(object).where(train[c].notna(), "missing").astype(str)
+                        o[c][fold_p == f] = k[fold_p == f].map(st[c]).fillna(1.0).to_numpy(dtype="float32")
+                self.oofp_[p] = o
+        if self.cat_encoding in ("target", "target_peril") or (self.kind == "nn" and self.cat_te):   # out-of-fold encodings for the training rows (5 folds), full-training statistics for any other rows
             any_claim = (counts.to_numpy().sum(axis=1) > 0).astype(float)
             self.te_ = self._te_stats(train, any_claim, expo)
             fold = pd.util.hash_array(train["row_id"].astype(str).to_numpy()) % 5
@@ -261,7 +276,7 @@ class FreqSev:
             X = self.enc_.transform(train_aug)
         else:
             X = self._x(train)
-        if self.cat_encoding == "target":
+        if self.cat_encoding in ("target", "target_peril"):
             for c in self.cat_:
                 X[c] = oof[c]
         # A) caps and excess loads per peril
@@ -297,10 +312,15 @@ class FreqSev:
                 sev_p.append(np.full(len(idx), j))
                 sev_y.append((cp["cost"] * cp["tf"]).clip(lower=1.0).to_numpy())
             else:
-                self.freq_[p] = self._fit_freq(X, n, expo * cvec, w_row)
-                self.sev_[p] = self._fit_sev(X, idx, (cp["cost"] * cp["tf"]).clip(lower=1.0).to_numpy(), None if w_row is None else w_row[idx])
+                Xp = X
+                if self.cat_encoding == "target_peril" and p in self.oofp_:
+                    Xp = X.copy()
+                    for c in self.cat_:
+                        Xp[c] = self.oofp_[p][c]
+                self.freq_[p] = self._fit_freq(Xp, n, expo * cvec, w_row)
+                self.sev_[p] = self._fit_sev(Xp, idx, (cp["cost"] * cp["tf"]).clip(lower=1.0).to_numpy(), None if w_row is None else w_row[idx])
                 if self.tail_lambda:
-                    self._fit_tail(p, X, idx, cp["net_cost"].to_numpy())
+                    self._fit_tail(p, Xp, idx, cp["net_cost"].to_numpy())
             cc = self._c_vec(p, cp["year"].to_numpy()) if self.completeness else 1.0
             lp_cost = cp["net_cost"] if self.outlier_mult is None else cp["net_cost"].clip(upper=self.outlier_mult * self.cap_[p])
             lp = float((lp_cost * cp["tf"] / cc).sum())   # ultimate-equivalent, trended training cost of this peril
@@ -406,11 +426,24 @@ class FreqSev:
             return np.mean([np.exp(b.predict_raw(X)) for b in m], axis=0)
         return np.mean([b.predict(X) for b in m], axis=0)
 
+    def _xp(self, p, X, rows: pd.DataFrame):
+        """Design matrix with the categoricals replaced by peril p's claim-rate encoding (cat_encoding='target_peril')."""
+        if self.cat_encoding != "target_peril" or p not in self.tep_:
+            return X
+        Xp = X.copy()
+        for c in self.cat_:
+            Xp[c] = rows[c].astype(object).where(rows[c].notna(), "missing").astype(str).map(self.tep_[p][c]).fillna(1.0).to_numpy(dtype="float32")
+        return Xp
+
     def expected_by_peril(self, rows: pd.DataFrame) -> pd.DataFrame:
         X = self._x(rows)
         expo = rows["exposure_calc"].to_numpy()
         kp = getattr(self, "kp_", {})
-        return pd.DataFrame({p: kp.get(p, 1.0) * self._freq_rate(p, X) * expo * self._sev(p, X) * (1.0 + self.excess_[p] * self._tail_ratio(p, X)) for p in self.freq_}, index=rows.index)
+        cols = {}
+        for p in self.freq_:
+            Xp = self._xp(p, X, rows)
+            cols[p] = kp.get(p, 1.0) * self._freq_rate(p, Xp) * expo * self._sev(p, Xp) * (1.0 + self.excess_[p] * self._tail_ratio(p, Xp))
+        return pd.DataFrame(cols, index=rows.index)
 
     def _predict_raw(self, rows: pd.DataFrame) -> np.ndarray:
         return self.expected_by_peril(rows).sum(axis=1).to_numpy()

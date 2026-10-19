@@ -31,7 +31,7 @@ def main() -> None:
     ap.add_argument("--num-encoding", default="native", choices=["native", "lowcard", "count", "both"])
     ap.add_argument("--nn-numtf", default=None, choices=["standard", "log", "quantile"])
     ap.add_argument("--nn-cat-te", action="store_true")
-    ap.add_argument("--cat-encoding", default="native", choices=["native", "label", "count", "both", "target"])
+    ap.add_argument("--cat-encoding", default="native", choices=["native", "label", "count", "both", "target", "target_peril"])
     ap.add_argument("--nn-ple", type=int, default=0)
     ap.add_argument("--rebalance-level", choices=["line", "peril"], default="line")
     ap.add_argument("--outlier-mult", type=float, default=None, help="winsorise single claims above k x cap in excess load and level")

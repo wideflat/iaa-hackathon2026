@@ -56,7 +56,7 @@ def main() -> None:
     ap.add_argument("--nn-tabm-k", type=int, default=None, help="fs_nn: TabM BatchEnsemble members per MLP")
     ap.add_argument("--engineered", action="store_true", help="add the label-free engineered features (iaa.engineered)")
     ap.add_argument("--nn-ple", type=int, default=None, help="fs_nn: piecewise-linear encoding of numeric inputs with this many quantile bins")
-    ap.add_argument("--cat-encoding", default="native", choices=["native", "label", "count", "both", "target"], help="tree models: categorical encoding")
+    ap.add_argument("--cat-encoding", default="native", choices=["native", "label", "count", "both", "target", "target_peril"], help="tree models: categorical encoding")
     ap.add_argument("--num-encoding", default="native", choices=["native", "lowcard", "count", "both"], help="tree models: extra encodings of numeric inputs")
     ap.add_argument("--nn-numtf", default=None, choices=["standard", "log", "quantile"], help="fs_nn: numeric input transform")
     ap.add_argument("--max-bin", type=int, default=None, help="fs_gbm: LightGBM max_bin for both stages")

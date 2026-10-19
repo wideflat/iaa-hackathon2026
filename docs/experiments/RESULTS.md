@@ -246,3 +246,5 @@ Conclusion (D32): of all numeric encodings tried, only the piecewise-linear enco
 
 ## 28. Submitted 2026-10-18 22:28 EDT: v5 = target-encoded GBM + mean(TabM, TabM-PLE), per-line NN weights 0.7/0.4/0.3
 `blend_gbmtarget_tabm_ple_perline_v5.csv`: public **0.12790** (previous best 0.12779; target GBM alone 0.12720; native-GBM blend 0.12779). Local A 0.1442 [cap 0.1384], B 0.1361 [0.1371] (+0.0006 / +0.0001 vs the previous best blend). Gap to the top public score seen (0.12815): 0.0003. Current final-submission candidate (D20). The public gain over the previous blend (+0.0001) is smaller than the single-model gain from target encoding (+0.0017) because the neural nets already carry most of what the encoding adds.
+
+`fs_nn_tabm4_te` (TabM k=4 + target-encoded categorical inputs, 22:41 EDT): A 0.1395 [cap250k 0.1340], B 0.1314 [0.1325] vs plain TabM 0.1413 [0.1331] / 0.1328 [0.1338]: no gain (A -0.0018 uncapped, +0.0009 capped; B -0.0014 / -0.0013). The embeddings already capture what the target encoding adds for the NN; the TE + PLE combination is running on helper 3.

@@ -23,6 +23,8 @@
 **Time zone: report EDT (user's instruction 2026-10-18 12:20 EDT); timestamps above this line are UTC.**
 **Restarts: the sandbox restarts at user turns and kills background jobs; use `scripts/queue_runs.sh` (resumable, checkpoints per fold and line) and relaunch it when `pgrep -af run_cv` is empty. Currently queued: fs_nn_wide, then fs_nn_s3.**
 
+### 00:22 EDT: v6 (2025 inflation uplift) scored 0.12761 < v5 0.12790: REJECTED (D37). v5 (blend_gbmtarget_tabm_ple_perline_v5.csv, public 0.12790) remains the final candidate. Re-weighting did not beat v5 on both folds (D36). Public scores so far: v5 0.12790, v4 0.12779, v6 0.12761, target GBM 0.12720, ...
+
 ### 22:29 EDT: v5 SUBMITTED, public 0.12790 = NEW BEST (blend_gbmtarget_tabm_ple_perline_v5.csv). Next: NN with target-encoded categorical inputs (`--nn-cat-te`) is running.
 
 ### 22:25 EDT (superseded): GBM with target encoding alone scores 0.12720 (public). Candidate NOT yet submitted (awaiting the user's go-ahead): submissions/blend_gbmtarget_tabm_ple_perline_v5.csv (target GBM + mean(TabM, TabM-PLE), NN weights 0.7/0.4/0.3; local A 0.1442, B 0.1361). Numeric encodings tested: only PLE helps (D32). Local queue and helpers are idle.

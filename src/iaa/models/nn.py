@@ -190,16 +190,18 @@ class FreqNet:
         self.enc, self.hidden, self.dropout, self.epochs, self.lr, self.batch, self.wd = enc, hidden, dropout, epochs, lr, batch, wd
         self.patience, self.n_seeds, self.threads, self.tabm_k = patience, n_seeds, threads, tabm_k
 
-    def fit(self, X: NNX, counts: np.ndarray, expo: np.ndarray, val_mask: np.ndarray, w: np.ndarray | None = None):
-        self.base_ = counts.sum(0) / expo.sum(0)
+    def fit(self, X: NNX, counts: np.ndarray, expo: np.ndarray, val_mask: np.ndarray, w: np.ndarray | None = None, off: np.ndarray | None = None):
+        """off (n, K): log expected rate of a base model; the net then learns a multiplicative correction (rate() returns the correction factor)."""
+        self.base_ = np.ones(counts.shape[1]) if off is not None else counts.sum(0) / expo.sum(0)
         b0 = torch.tensor(np.log(self.base_), dtype=torch.float32)
         tensors = [torch.from_numpy(X.num), torch.from_numpy(X.cat), torch.from_numpy(counts.astype("float32")),
                    torch.from_numpy(np.log(np.maximum(expo, 1e-6)).astype("float32")),
-                   torch.from_numpy((np.ones(len(counts)) if w is None else w).astype("float32"))]
+                   torch.from_numpy((np.ones(len(counts)) if w is None else w).astype("float32")),
+                   torch.from_numpy(np.zeros(counts.shape, dtype="float32") if off is None else off.astype("float32"))]
 
-        def loss(net, num, cat, n, logoff, ww):
+        def loss(net, num, cat, n, logoff, ww, bo):
             out = net(num, cat)
-            eta = (out if out.dim() == 3 else out[:, None, :]) + b0 + logoff[:, None, :]
+            eta = (out if out.dim() == 3 else out[:, None, :]) + b0 + logoff[:, None, :] + bo[:, None, :]
             per_row = (torch.exp(eta) - n[:, None, :] * eta).sum(2).mean(1)   # mean over TabM members
             return (per_row * ww).sum() / ww.sum()
 
@@ -222,16 +224,18 @@ class SevNet:
         self.enc, self.hidden, self.dropout, self.epochs, self.lr, self.batch, self.wd = enc, hidden, dropout, epochs, lr, batch, wd
         self.patience, self.n_seeds, self.threads, self.tabm_k = patience, n_seeds, threads, tabm_k
 
-    def fit(self, X: NNX, peril_idx: np.ndarray, y: np.ndarray, k: int, val_mask: np.ndarray, w: np.ndarray | None = None):
-        self.mean_ = np.array([y[peril_idx == j].mean() if (peril_idx == j).any() else y.mean() for j in range(k)])
+    def fit(self, X: NNX, peril_idx: np.ndarray, y: np.ndarray, k: int, val_mask: np.ndarray, w: np.ndarray | None = None, off: np.ndarray | None = None):
+        """off (n,): log expected severity of a base model for each claim's own peril; the net then learns a multiplicative correction (mean() returns the factor)."""
+        self.mean_ = np.ones(k) if off is not None else np.array([y[peril_idx == j].mean() if (peril_idx == j).any() else y.mean() for j in range(k)])
         b0 = torch.tensor(np.log(self.mean_), dtype=torch.float32)
         tensors = [torch.from_numpy(X.num), torch.from_numpy(X.cat), torch.from_numpy(peril_idx.astype("int64")), torch.from_numpy(y.astype("float32")),
-                   torch.from_numpy((np.ones(len(y)) if w is None else w).astype("float32"))]
+                   torch.from_numpy((np.ones(len(y)) if w is None else w).astype("float32")),
+                   torch.from_numpy(np.zeros(len(y), dtype="float32") if off is None else off.astype("float32"))]
 
-        def loss(net, num, cat, pi, yy, ww):
+        def loss(net, num, cat, pi, yy, ww, bo):
             out = net(num, cat)
             out = out if out.dim() == 3 else out[:, None, :]
-            eta = out.gather(2, pi[:, None, None].expand(-1, out.shape[1], 1))[:, :, 0] + b0[pi][:, None]
+            eta = out.gather(2, pi[:, None, None].expand(-1, out.shape[1], 1))[:, :, 0] + b0[pi][:, None] + bo[:, None]
             per_row = (yy[:, None] * torch.exp(-eta) + eta).mean(1)
             return (per_row * ww).sum() / ww.sum()
 

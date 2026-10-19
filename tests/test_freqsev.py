@@ -263,3 +263,15 @@ def test_per_peril_target_encoding_trains_and_ranks_risk():
     _checks(m, rows)
     X = m._x(rows)
     assert not np.allclose(m._xp("A", X, rows)["g"], m._xp("B", X, rows)["g"])
+
+
+def test_nn_on_cross_fitted_gbm_offset_learns_a_bounded_correction_and_ranks_risk():
+    pytest.importorskip("torch")
+    rows, claims = _data()
+    rows["customer_id"] = [f"C{i // 3}" for i in range(len(rows))]
+    gbm = dict(freq_rounds=40, sev_rounds=30, cat_encoding="target", params_freq={"num_leaves": 4}, params_sev={"num_leaves": 4})
+    m = FreqSev(claims, kind="nn", nn_params={"epochs": 3, "hidden": (16, 8), "threads": 2}, gbm_offset=gbm).fit(rows)
+    _checks(m, rows)
+    g = FreqSev(claims, kind="gbm", **gbm).fit(rows)
+    corr = m.predict(rows) / g.predict(rows)   # both are rebalanced to the same total, so the net's correction averages near 1
+    assert 0.5 < np.median(corr) < 2.0 and np.corrcoef(m.predict(rows), g.predict(rows))[0, 1] > 0.9

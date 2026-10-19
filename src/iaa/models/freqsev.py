@@ -55,7 +55,7 @@ class FreqSev:
                  nn_params: dict | None = None, threads: int = 4,
                  recency: float = 0.0, adv_strength: float = 0.0, tail_lambda: float = 0.0, entity_cols=(),
                  cat_encoding: str = "native", num_encoding: str = "native", cat_te: bool = False,
-                 trend_scale: float = 1.0, trend_halflife: float | None = None):
+                 trend_scale: float = 1.0, trend_halflife: float | None = None, gbm_offset: dict | None = None):
         assert kind in ("glm", "gbm", "nn", "xgb", "cat")
         c = claims_line[claims_line["row_id"].notna() & (claims_line["status"] != "repudiated")]
         self.claims = c[["row_id", "peril", "net_cost"]]
@@ -73,6 +73,9 @@ class FreqSev:
         self.threads = threads   # xgb / cat
         assert cat_encoding in ("native", "label", "count", "both", "target", "target_peril")
         self.trend_scale, self.trend_halflife = trend_scale, trend_halflife   # severity trend = trend_scale x pooled estimate (recent-weighted when trend_halflife is set)
+        assert gbm_offset is None or kind == "nn", "gbm_offset is for the NN kind"
+        self.gbm_offset = gbm_offset   # kind=nn: FreqSev kwargs of an inner LightGBM model; its cross-fitted per-peril rate and severity become log offsets and the net learns a multiplicative correction
+        self._claims_line = claims_line
         self.cat_te = cat_te   # kind=nn: also feed the smoothed out-of-fold claim-rate (target) encoding of every categorical as a numeric input
         assert num_encoding in ("native", "lowcard", "count", "both")
         self.num_encoding = num_encoding   # tree kinds: native = numeric as is; lowcard = numerics with <= 20 distinct values also as categorical; count = log count of each exact value added; both
@@ -303,10 +306,13 @@ class FreqSev:
         level = 0.0
         self.level_by_peril_ = {}
         kept = [p for p in counts.columns if counts[p].sum() >= 20]
+        if self.kind == "nn" and self.gbm_offset is not None:
+            off_f, off_s = self._gbm_offsets(train, kept)
         if self.kind == "nn":   # one multi-head network per stage instead of one model per peril
             val = (pd.util.hash_array(train["row_id" if self.entity_cols else "customer_id"].astype(str).to_numpy()) % 20 == 0)   # entity embeddings need the hold-out customers seen in training
             cm = np.column_stack([self._c_vec(p, train["year"].to_numpy()) if self.completeness else np.ones(len(train)) for p in kept])
-            self.fnet_ = _nn().FreqNet(self.enc_, **self._nn_kw(_nn().FreqNet)).fit(X, counts[kept].to_numpy(dtype=float), expo[:, None] * cm, val, w=w_row)
+            self.fnet_ = _nn().FreqNet(self.enc_, **self._nn_kw(_nn().FreqNet)).fit(X, counts[kept].to_numpy(dtype=float), expo[:, None] * cm, val, w=w_row,
+                                                                                                    off=None if self.gbm_offset is None else off_f)
             sev_idx, sev_p, sev_y = [], [], []
         for j, p in enumerate(kept):
             n = counts[p].to_numpy(dtype=float)
@@ -336,7 +342,8 @@ class FreqSev:
         if self.kind == "nn":
             idx = np.concatenate(sev_idx)
             self.snet_ = _nn().SevNet(self.enc_, **self._nn_kw(_nn().SevNet)).fit(X[idx], np.concatenate(sev_p), np.concatenate(sev_y), len(kept), val[idx],
-                                                                                                                w=None if w_row is None else w_row[idx])
+                                                                                                                w=None if w_row is None else w_row[idx],
+                                                                                                                off=None if self.gbm_offset is None else off_s[idx, np.concatenate(sev_p)])
             self.kept_ = kept
         self.k_ = 1.0
         self.kp_ = {}
@@ -347,6 +354,21 @@ class FreqSev:
             else:
                 self.k_ = float(level / self._predict_raw(train).sum())
         return self
+
+    def _gbm_offsets(self, train: pd.DataFrame, kept):
+        """Cross-fitted (4 customer-hash folds) log rate and log severity of the inner GBM at every training row, shape (n, K); also fits self.gbm_ on all training rows for prediction."""
+        fold = pd.util.hash_array(train["customer_id"].astype(str).to_numpy()) % 4
+        lf, ls = np.zeros((len(train), len(kept))), np.zeros((len(train), len(kept)))
+        for f in range(4):
+            inner = FreqSev(self._claims_line, kind="gbm", **self.gbm_offset).fit(train[fold != f])
+            assert set(kept) <= set(inner.freq_), f"inner GBM fold {f} lacks perils {set(kept) - set(inner.freq_)}"
+            m = fold == f
+            Xs = inner._x(train[m])
+            for j, p in enumerate(kept):
+                lf[m, j] = np.log(inner._freq_rate(p, Xs))
+                ls[m, j] = np.log(inner._sev(p, Xs))
+        self.gbm_ = FreqSev(self._claims_line, kind="gbm", **self.gbm_offset).fit(train)
+        return lf, ls
 
     def _sub(self, X, idx):
         return X.iloc[idx] if self.kind in ("gbm", "xgb", "cat") else X[idx]
@@ -447,9 +469,13 @@ class FreqSev:
         expo = rows["exposure_calc"].to_numpy()
         kp = getattr(self, "kp_", {})
         cols = {}
+        Xg = self.gbm_._x(rows) if self.gbm_offset is not None else None
         for p in self.freq_:
             Xp = self._xp(p, X, rows)
-            cols[p] = kp.get(p, 1.0) * self._freq_rate(p, Xp) * expo * self._sev(p, Xp) * (1.0 + self.excess_[p] * self._tail_ratio(p, Xp))
+            rate, sev = self._freq_rate(p, Xp), self._sev(p, Xp)
+            if Xg is not None:   # the nets return correction factors on top of the inner GBM
+                rate, sev = rate * self.gbm_._freq_rate(p, Xg), sev * self.gbm_._sev(p, Xg)
+            cols[p] = kp.get(p, 1.0) * rate * expo * sev * (1.0 + self.excess_[p] * self._tail_ratio(p, Xp))
         return pd.DataFrame(cols, index=rows.index)
 
     def _predict_raw(self, rows: pd.DataFrame) -> np.ndarray:

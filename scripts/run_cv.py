@@ -61,6 +61,7 @@ def main() -> None:
     ap.add_argument("--num-encoding", default="native", choices=["native", "lowcard", "count", "both"], help="tree models: extra encodings of numeric inputs")
     ap.add_argument("--nn-numtf", default=None, choices=["standard", "log", "quantile"], help="fs_nn: numeric input transform")
     ap.add_argument("--max-bin", type=int, default=None, help="fs_gbm: LightGBM max_bin for both stages")
+    ap.add_argument("--nn-gbm-offset", action="store_true", help="fs_nn: the net learns a multiplicative correction on top of the cross-fitted target-encoded GBM (leaves 4, 350/300 rounds, outlier 5)")
     ap.add_argument("--nn-cat-te", action="store_true", help="fs_nn: also feed target-encoded categoricals (out-of-fold claim rate) as numeric inputs")
     ap.add_argument("--trend-scale", type=float, default=1.0, help="fs: multiply the estimated severity trend")
     ap.add_argument("--trend-halflife", type=float, default=None, help="fs: weight recent claim years more when estimating the severity trend (half-life in years)")
@@ -112,11 +113,13 @@ def main() -> None:
         nnp = {k: v for k, v in {"epochs": a.nn_epochs, "hidden": tuple(int(x) for x in a.nn_hidden.split(",")) if a.nn_hidden else None,
                                  "dropout": a.nn_dropout, "lr": a.nn_lr, "wd": a.nn_wd, "n_seeds": a.nn_seeds,
                                  "tabm_k": a.nn_tabm_k, "ple_bins": a.nn_ple, "num_transform": a.nn_numtf, "threads": a.threads or 4}.items() if v is not None}
+        GBM_OFFSET = dict(freq_rounds=350, sev_rounds=300, outlier_mult=5.0, cat_encoding="target",
+                          params_freq={"num_threads": a.threads or 4, "num_leaves": 4}, params_sev={"num_threads": a.threads or 4, "num_leaves": 4})
         factory = lambda line: FreqSev(matched[line], kind=a.model[3:], rebalance=not a.no_rebalance, drop_noise=not a.keep_noise,  # noqa: E731
                                        extra_drop=extra, trend=not a.no_trend, completeness=not a.no_completeness,
                                        freq_rounds=a.freq_rounds, sev_rounds=a.sev_rounds, cap_quantile=a.cap_q,
                                        params_freq=pf, params_sev=ps, nn_params=nnp, threads=a.threads or 4, recency=a.recency, adv_strength=a.adv_weights, tail_lambda=a.tail_lambda,
-                                       entity_cols=("customer_id", "address_id") if a.entity else (), cat_encoding=a.cat_encoding, num_encoding=a.num_encoding, cat_te=a.nn_cat_te, trend_scale=a.trend_scale, trend_halflife=a.trend_halflife, bands=a.bands, n_seeds=a.seeds, rebalance_level=a.rebalance_level, outlier_mult=a.outlier_mult,
+                                       entity_cols=("customer_id", "address_id") if a.entity else (), cat_encoding=a.cat_encoding, num_encoding=a.num_encoding, cat_te=a.nn_cat_te, trend_scale=a.trend_scale, trend_halflife=a.trend_halflife, gbm_offset=GBM_OFFSET if a.nn_gbm_offset else None, bands=a.bands, n_seeds=a.seeds, rebalance_level=a.rebalance_level, outlier_mult=a.outlier_mult,
                                        **({"glm_alpha_freq": a.alpha_freq} if a.alpha_freq else {}), **({"glm_alpha_sev": a.alpha_sev} if a.alpha_sev else {}))
     elif a.model == "nn_tweedie":
         from iaa.models.nn_tweedie import NNTweedie

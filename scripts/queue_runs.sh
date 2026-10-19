@@ -12,3 +12,5 @@ run fs_nn_s3 --model fs_nn --folds A,B --threads 4 --outlier-mult 5 --nn-seeds 3
 run fs_nn_tabm4 --model fs_nn --folds A,B --threads 4 --outlier-mult 5 --nn-tabm-k 4 --note "TabM-style BatchEnsemble NN, k=4 members, 1 net"
 run fs_nn_tabm4_wide --model fs_nn --folds A,B --threads 4 --outlier-mult 5 --nn-tabm-k 4 --nn-hidden 384,192 --nn-dropout 0.2 --note "TabM k=4, hidden 384,192, dropout 0.2"
 run fs_nn_tabm4_small --model fs_nn --folds A,B --threads 4 --outlier-mult 5 --nn-tabm-k 4 --nn-hidden 128,64 --note "TabM k=4, hidden 128,64"
+run fs_gbm_label --model fs_gbm --folds A,B --threads 4 --leaves 4 --freq-rounds 350 --sev-rounds 300 --outlier-mult 5 --cat-encoding label --note "GBM with frequency-ranked integer label encoding of categoricals"
+run fs_gbm_target --model fs_gbm --folds A,B --threads 4 --leaves 4 --freq-rounds 350 --sev-rounds 300 --outlier-mult 5 --cat-encoding target --note "GBM with smoothed out-of-fold claim-rate (target) encoding of categoricals"

@@ -53,7 +53,8 @@ class FreqSev:
                  trend: bool = True, completeness: bool = True, params_freq: dict | None = None, params_sev: dict | None = None,
                  bands: bool = False, n_bands: int = 6, n_seeds: int = 1, rebalance_level: str = "line", outlier_mult: float | None = None,
                  nn_params: dict | None = None, threads: int = 4,
-                 recency: float = 0.0, adv_strength: float = 0.0, tail_lambda: float = 0.0, entity_cols=()):
+                 recency: float = 0.0, adv_strength: float = 0.0, tail_lambda: float = 0.0, entity_cols=(),
+                 cat_encoding: str = "native"):
         assert kind in ("glm", "gbm", "nn", "xgb", "cat")
         c = claims_line[claims_line["row_id"].notna() & (claims_line["status"] != "repudiated")]
         self.claims = c[["row_id", "peril", "net_cost"]]
@@ -69,6 +70,8 @@ class FreqSev:
         self.n_seeds = n_seeds   # GBM only: average this many boosters per stage (different bagging seeds)
         self.params_freq, self.params_sev = params_freq or {}, params_sev or {}
         self.threads = threads   # xgb / cat
+        assert cat_encoding in ("native", "label", "count", "both", "target")
+        self.cat_encoding = cat_encoding   # tree kinds: how categoricals enter (native = LightGBM categorical splits; label = frequency-ranked integer codes; count = level counts; both; target = smoothed out-of-fold claim-rate)
         self.recency, self.adv_strength, self.tail_lambda, self.entity_cols = recency, adv_strength, tail_lambda, tuple(entity_cols)
         self.uses_target = adv_strength > 0
         self.tail_min_claims, self.tail_min_events = 400, 40   # a peril needs this many claims / large claims to get a tail propensity model
@@ -130,6 +133,22 @@ class FreqSev:
                                       entity_dim=self.nn_params.get("entity_dim", 4), ple_bins=self.nn_params.get("ple_bins", 0) or 0).fit(train)
         else:
             self.levels_ = {c: sorted(train[c].dropna().astype(str).unique()) for c in self.cat_}
+            vc = {c: train[c].dropna().astype(str).value_counts() for c in self.cat_}
+            self.rank_ = {c: {lv: i for i, lv in enumerate(v.index)} for c, v in vc.items()}   # most frequent level = 0
+            self.count_ = {c: v.to_dict() for c, v in vc.items()}
+
+    def _te_stats(self, train: pd.DataFrame, any_claim: np.ndarray, expo: np.ndarray, rows: np.ndarray | None = None):
+        """Smoothed relative claim rate per level (exposure-weighted, prior weight 200 exposure-years); `rows` restricts the statistics to those training rows."""
+        r0 = any_claim.sum() / expo.sum()
+        out = {}
+        for c in self.cat_:
+            k = train[c].astype(object).where(train[c].notna(), "missing").astype(str).to_numpy()
+            d = pd.DataFrame({"k": k, "n": any_claim, "e": expo})
+            if rows is not None:
+                d = d[rows]
+            g = d.groupby("k").sum()
+            out[c] = ((g["n"] + 200.0 * r0) / (g["e"] + 200.0) / r0).to_dict()
+        return out
 
     def _cat(self, df):
         return df[self.cat_].astype(object).where(df[self.cat_].notna(), "missing").astype(str)
@@ -146,7 +165,19 @@ class FreqSev:
             return sparse.hstack(blocks).tocsr()
         x = df[self.cols_].copy()
         for c, lv in self.levels_.items():
-            x[c] = pd.Categorical(x[c].astype(object).where(x[c].notna(), None).map(lambda v: None if v is None else str(v)), categories=lv)
+            sv = x[c].astype(object).where(x[c].notna(), None).map(lambda v: None if v is None else str(v))
+            if self.cat_encoding == "native":
+                x[c] = pd.Categorical(sv, categories=lv)
+            elif self.cat_encoding == "target":
+                key = sv.fillna("missing")
+                x[c] = key.map(self.te_[c]).fillna(1.0).astype("float32")
+            else:
+                if self.cat_encoding in ("count", "both"):
+                    x[f"{c}_cnt"] = np.log1p(sv.map(self.count_[c]).fillna(0.0)).astype("float32")
+                if self.cat_encoding in ("label", "both"):
+                    x[c] = sv.map(self.rank_[c]).astype("float32")
+                else:
+                    x = x.drop(columns=c)
         for c in self.num_:
             if pd.api.types.is_bool_dtype(x[c]):
                 x[c] = x[c].astype("int8")
@@ -188,7 +219,6 @@ class FreqSev:
     def fit(self, train: pd.DataFrame, target: pd.DataFrame | None = None):
         self._fit_features(train)
         w_row = self._row_weights(train, target)
-        X = self._x(train)
         expo = train["exposure_calc"].to_numpy()
         pos = pd.Index(train["row_id"])
         years = pd.Series(train["year"].to_numpy(), index=pos)
@@ -196,6 +226,20 @@ class FreqSev:
         cl = self.claims[self.claims["row_id"].isin(pos)].copy()
         cl["year"] = cl["row_id"].map(years).to_numpy()
         counts = cl.groupby(["row_id", "peril"]).size().unstack(fill_value=0).reindex(pos, fill_value=0)
+        if self.cat_encoding == "target":   # out-of-fold encodings for the training rows (5 folds), full-training statistics for any other rows
+            any_claim = (counts.to_numpy().sum(axis=1) > 0).astype(float)
+            self.te_ = self._te_stats(train, any_claim, expo)
+            fold = pd.util.hash_array(train["row_id"].astype(str).to_numpy()) % 5
+            oof = {c: np.ones(len(train), dtype="float32") for c in self.cat_}
+            for f in range(5):
+                st = self._te_stats(train, any_claim, expo, rows=(fold != f))
+                for c in self.cat_:
+                    k = train[c].astype(object).where(train[c].notna(), "missing").astype(str)
+                    oof[c][fold == f] = k[fold == f].map(st[c]).fillna(1.0).to_numpy(dtype="float32")
+        X = self._x(train)
+        if self.cat_encoding == "target":
+            for c in self.cat_:
+                X[c] = oof[c]
         # A) caps and excess loads per peril
         self.freq_, self.sev_, self.excess_, self.cap_ = {}, {}, {}, {}
         self.tail_ = {}

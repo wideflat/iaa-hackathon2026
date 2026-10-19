@@ -212,3 +212,15 @@ def test_piecewise_linear_encoding_adds_inputs_and_trains():
     m = FreqSev(claims, kind="nn", nn_params={"epochs": 3, "hidden": (16, 8), "threads": 2, "ple_bins": 6}).fit(rows)
     assert m.enc_.ple_ and m.enc_.n_num_ > 1
     _checks(m, rows)
+
+
+@pytest.mark.parametrize("enc", ["label", "count", "both", "target"])
+def test_alternative_categorical_encodings_train_and_rank_risk(enc):
+    rows, claims = _data()
+    rows = rows.assign(row_id=rows["row_id"])
+    m = FreqSev(claims, kind="gbm", freq_rounds=40, sev_rounds=30, cat_encoding=enc).fit(rows)
+    _checks(m, rows)
+    X = m._x(rows)
+    assert not any(isinstance(X[c].dtype, pd.CategoricalDtype) for c in X.columns)
+    if enc in ("count", "both"):
+        assert "g_cnt" in X.columns

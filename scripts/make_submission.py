@@ -28,6 +28,7 @@ def main() -> None:
     ap.add_argument("--seeds", type=int, default=1)
     ap.add_argument("--nn-tabm-k", type=int, default=0, help="fs_nn: TabM members per MLP (0 = plain MLP)")
     ap.add_argument("--engineered", action="store_true")
+    ap.add_argument("--cat-encoding", default="native", choices=["native", "label", "count", "both", "target"])
     ap.add_argument("--nn-ple", type=int, default=0)
     ap.add_argument("--rebalance-level", choices=["line", "peril"], default="line")
     ap.add_argument("--outlier-mult", type=float, default=None, help="winsorise single claims above k x cap in excess load and level")
@@ -46,7 +47,7 @@ def main() -> None:
             p = {"num_leaves": a.leaves} if a.leaves else {}
             model = FreqSev(target.matched_claims(tr, claims, line), kind=a.model[3:], drop_noise=not a.keep_noise, freq_rounds=a.freq_rounds,
                             sev_rounds=a.sev_rounds, params_freq=p, params_sev=p, n_seeds=a.seeds, nn_params={"n_seeds": a.seeds, "threads": 4, **({"tabm_k": a.nn_tabm_k} if a.nn_tabm_k else {}), **({"ple_bins": a.nn_ple} if a.nn_ple else {})},
-                            rebalance_level=a.rebalance_level, outlier_mult=a.outlier_mult)
+                            rebalance_level=a.rebalance_level, outlier_mult=a.outlier_mult, cat_encoding=a.cat_encoding)
         else:
             model = MeanRateModel() if a.model == "mean_rate" else LGBMTweedie(drop_noise=not a.keep_noise, n_rounds=a.rounds)
         model.fit(tr)

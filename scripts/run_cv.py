@@ -56,6 +56,7 @@ def main() -> None:
     ap.add_argument("--nn-tabm-k", type=int, default=None, help="fs_nn: TabM BatchEnsemble members per MLP")
     ap.add_argument("--engineered", action="store_true", help="add the label-free engineered features (iaa.engineered)")
     ap.add_argument("--nn-ple", type=int, default=None, help="fs_nn: piecewise-linear encoding of numeric inputs with this many quantile bins")
+    ap.add_argument("--cat-encoding", default="native", choices=["native", "label", "count", "both", "target"], help="tree models: categorical encoding")
     ap.add_argument("--threads", type=int, default=0, help="LightGBM threads (0 = all); use 2 to run two experiments in parallel")
     ap.add_argument("--resume", action="store_true", help="save/reuse a checkpoint per (fold, line) under artifacts/ckpt/<name>; change --name when settings change")
     ap.add_argument("--name", default=None)
@@ -98,7 +99,7 @@ def main() -> None:
                                        extra_drop=extra, trend=not a.no_trend, completeness=not a.no_completeness,
                                        freq_rounds=a.freq_rounds, sev_rounds=a.sev_rounds, cap_quantile=a.cap_q,
                                        params_freq=pf, params_sev=ps, nn_params=nnp, threads=a.threads or 4, recency=a.recency, adv_strength=a.adv_weights, tail_lambda=a.tail_lambda,
-                                       entity_cols=("customer_id", "address_id") if a.entity else (), bands=a.bands, n_seeds=a.seeds, rebalance_level=a.rebalance_level, outlier_mult=a.outlier_mult,
+                                       entity_cols=("customer_id", "address_id") if a.entity else (), cat_encoding=a.cat_encoding, bands=a.bands, n_seeds=a.seeds, rebalance_level=a.rebalance_level, outlier_mult=a.outlier_mult,
                                        **({"glm_alpha_freq": a.alpha_freq} if a.alpha_freq else {}), **({"glm_alpha_sev": a.alpha_sev} if a.alpha_sev else {}))
     elif a.model == "nn_tweedie":
         from iaa.models.nn_tweedie import NNTweedie

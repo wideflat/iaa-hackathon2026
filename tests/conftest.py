@@ -24,6 +24,7 @@ def claims():
         "claim_id": ["K1", "K2", "K3", "K4", "K5"],
         "policy_id": ["P1", "P1", "P2", "P2", "P1"],
         "line": ["motor"] * 5,
+        "peril": ["own_damage"] * 5,
         "loss_date": d(["2022-03-01", "2022-08-01", "2022-05-05", "2022-06-06", "2020-05-01"]),
         "report_date": d(["2022-03-05", "2022-08-09", "2022-05-06", "2022-06-10", "2020-05-02"]),
         "status": ["closed", "open", "closed", "repudiated", "closed"],

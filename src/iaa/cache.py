@@ -7,17 +7,18 @@ import hashlib
 
 import pandas as pd
 
-from . import data, features
+from . import cleaning, data, features
 from .config import ARTIFACTS_DIR, LINES, REPO_ROOT
 
 _KEEP_FLOAT64 = {"y", "y_all", "y_true", "exposure", "exposure_calc"}
-_SOURCES = ("src/iaa/data.py", "src/iaa/target.py", "src/iaa/features.py")
+_SOURCES = ("src/iaa/data.py", "src/iaa/cleaning.py", "src/iaa/target.py", "src/iaa/features.py")
 
 
 def cache_key() -> str:
     h = hashlib.md5()
     for p in _SOURCES:
         h.update((REPO_ROOT / p).read_bytes())
+    h.update(",".join(sorted(cleaning.active_fixes())).encode())   # an ablation run must not reuse the frames of another set of repairs
     return h.hexdigest()[:10]
 
 

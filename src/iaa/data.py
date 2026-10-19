@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from . import cleaning
 from .config import DATA_DIR, LINES
 
 _POLICY_FILES = {line: f"policies_{line}.parquet" for line in LINES}
@@ -23,19 +24,26 @@ def _parse_policy_dates(df: pd.DataFrame) -> pd.DataFrame:
 
 def load_policies(line: str, data_dir: Path | None = None) -> pd.DataFrame:
     """Training policy rows (2021-2024) for one line, with `year` and parsed dates."""
-    return _parse_policy_dates(_read(_POLICY_FILES[line], data_dir))
+    return cleaning.clean_policies(_parse_policy_dates(_read(_POLICY_FILES[line], data_dir)), line)
 
 
 def load_test(line: str, data_dir: Path | None = None) -> pd.DataFrame:
     """2025 rows to predict for one line (no target, no renewal_decision)."""
-    return _parse_policy_dates(_read(_TEST_FILES[line], data_dir))
+    return cleaning.clean_policies(_parse_policy_dates(_read(_TEST_FILES[line], data_dir)), line)
 
 
-def load_claims(data_dir: Path | None = None) -> pd.DataFrame:
+def load_claims_raw(data_dir: Path | None = None) -> pd.DataFrame:
     df = _read("claims.parquet", data_dir)
     df["loss_date"] = pd.to_datetime(df["loss_date"])
     df["report_date"] = pd.to_datetime(df["report_date"])
     return df
+
+
+def load_claims(data_dir: Path | None = None) -> pd.DataFrame:
+    """Claims after the data-quality repairs in cleaning.py (duplicates dropped, placeholder loss dates imputed)."""
+    starts = pd.concat([pd.read_parquet(Path(data_dir or DATA_DIR) / _POLICY_FILES[l], columns=["policy_id", "period_start"]) for l in LINES])
+    first_start = pd.to_datetime(starts["period_start"]).groupby(starts["policy_id"]).min()
+    return cleaning.clean_claims(load_claims_raw(data_dir), first_start)
 
 
 def load_customers(data_dir: Path | None = None) -> pd.DataFrame:

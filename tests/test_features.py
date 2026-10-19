@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from iaa import features
 
@@ -11,11 +12,12 @@ def test_claim_history_uses_only_claims_known_before_the_row_year(claims):
     out = features.add_claim_history(rows, pd.concat([claims, late])).set_index("row_id")
     # 2022 row: only the 2020 claim (K5, 300) is history
     assert out.loc["R_2022", "hist_n_claims"] == 1 and out.loc["R_2022", "hist_cost"] == 300.0
-    # 2023 row: K1(200) K2(500) K5(300) known; K9 (reported Feb 2023) must NOT be
-    assert out.loc["R_2023", "hist_n_claims"] == 3 and out.loc["R_2023", "hist_cost"] == 1000.0
+    # 2023 row: K1(200) K2(500, open: less the expected recovery of 800 / 4,200 of the closed incurred) K5(300) known; K9 (reported Feb 2023) must NOT be
+    k2 = 500.0 * (1.0 - 800.0 / 4200.0)
+    assert out.loc["R_2023", "hist_n_claims"] == 3 and out.loc["R_2023", "hist_cost"] == pytest.approx(200.0 + k2 + 300.0)
     assert out.loc["R_2023", "hist_n_last_year"] == 2  # K1, K2 lost in 2022; K9 still unreported
     # 2024 row: K9 now known; "last year" is 2023 and nothing was lost in 2023
-    assert out.loc["R_2024", "hist_n_claims"] == 4 and out.loc["R_2024", "hist_cost"] == 1900.0
+    assert out.loc["R_2024", "hist_n_claims"] == 4 and out.loc["R_2024", "hist_cost"] == pytest.approx(200.0 + k2 + 300.0 + 900.0)
     assert out.loc["R_2024", "hist_n_last_year"] == 0
 
 

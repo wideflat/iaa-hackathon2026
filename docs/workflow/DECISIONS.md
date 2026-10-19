@@ -38,6 +38,9 @@ Each decision: what, why (evidence), status. "Reviewed by" is the human who conf
 | D30 | Reject the engineered feature set (ratios, weather anomalies, premium residual) | RESULTS section 22: GBM unchanged; TabM motor up but buildings down and B worse in the blend | Rejected; code kept behind `--engineered` | Project lead |
 | D31 | Use target (smoothed out-of-fold claim-rate) encoding for the GBM's categoricals; keep PLE for the NN | RESULTS sections 23, 26: GBM A 0.1376 / B 0.1339 vs native 0.1339 / 0.1323; public 0.12720 vs 0.12548 | Adopted (code: `--cat-encoding target`, `--nn-ple 8`) | Project lead |
 | D32 | No other numeric encodings (quantile, log, low-cardinality copies, counts, max_bin) | RESULTS sections 27, this note: all worse or equal | Rejected | Project lead |
+| D33 | No target-encoded inputs for the NN | RESULTS (23:00 EDT notes): TabM + TE A 0.1395 / B 0.1314, + PLE 0.1427 / 0.1341: no gain | Rejected | Project lead |
+| D34 | No per-peril target encoding (single any-claim encoding kept) | same D2 within noise | Rejected | Project lead |
+| D35 | Keep the severity trend multiplier at 1.0 (pooled estimate) | RESULTS section 29: D2 flat across multipliers; calibration about right for buildings and contents on both folds; motor over-predicted 3-5% (multiplier 0.5 would fix it) but worth under +0.0003 | Kept; motor multiplier an open uncertainty | Project lead |
 
 ## Open decisions
 - Names of the team's independent reviewer and approver for the governance log (placeholders in `workflow/AI_USAGE.md`): to be filled in by the project lead.

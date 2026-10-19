@@ -254,3 +254,14 @@ Conclusion (D32): of all numeric encodings tried, only the piecewise-linear enco
 `fs_gbm_target_peril` (per-peril claim-rate encodings of the categoricals instead of one any-claim encoding; 23:00 EDT): A 0.1380 [cap250k 0.1362], B 0.1340 [0.1350] vs `fs_gbm_target` 0.1376 [0.1365] / 0.1339 [0.1350]: equal within noise. Not adopted (D34): more code, no gain.
 
 `fs_gbm_target_hl1` (target-encoded GBM, severity trend weighted to recent years, half-life 1 year; 23:10 EDT): A 0.1384 [cap250k 0.1364], B 0.1340 [0.1351] vs `fs_gbm_target` 0.1376 [0.1365] / 0.1339 [0.1350]: equal within noise; calibration (pred / actual) unchanged (A: motor 1.05, buildings 1.02, contents 0.94; B: 1.03, 0.99, 1.00). Trend multipliers x1.5 / x0.5 are running on helper 1.
+
+## 29. Severity trend ('inflation factor') optimisation (23:40 EDT; helper 1 for the multipliers)
+Estimated pooled trend per line (log-linear, peril effects removed, claims capped at the 99.9th percentile; `scripts/trend_check.py`): fitted on 2021-22 / 2021-23 / 2021-24: motor 6.4% / 4.4% / 5.7%; buildings 2.7% / 4.9% / 6.7%; contents 1.8% / 3.5% / 4.3% per year. Realised year-on-year change in severity: motor +6.3%, +2.5%, +9.5% (2022, 2023, 2024); buildings +2.8%, +6.9%, +10.1%; contents +1.8%, +5.0%, +5.7%: inflation is accelerating, so a pooled linear estimate lags the latest year.
+Backtest of the trend multiplier on the target-encoded GBM (calibration = predicted / actual, motor / buildings / contents; fold A 2023, fold B 2024; D2 [cap250k]):
+| Trend | Fold A calibration | Fold B calibration | A D2 [cap] | B D2 [cap] |
+|---|---|---|---|---|
+| x0.5 | 1.014 / 1.007 / 0.929 | 1.006 / 0.950 / 0.972 | 0.1375 [0.1368] | 0.1339 [0.1351] |
+| x1.0 (current) | 1.045 / 1.020 / 0.937 | 1.035 / 0.985 / 0.996 | 0.1376 [0.1365] | 0.1339 [0.1350] |
+| x1.5 | 1.080 / 1.034 / 0.943 | 1.065 / 1.017 / 1.019 | 0.1376 [0.1356] | 0.1336 [0.1346] |
+| recent-weighted (half-life 1 y) | 1.05 / 1.02 / 0.94 | 1.03 / 0.99 / 1.00 | 0.1384 [0.1364] | 0.1340 [0.1351] |
+Reading: D2 does not react to the trend (all within 0.0004); calibration says buildings and contents are about right at x1.0 on both folds (the buildings optimum lies between x1.0 and x1.5 on fold B and below x1.0 on fold A), while motor is over-predicted by 3-5% at x1.0 on both folds and is closest to 1.0 at x0.5. The acceleration seen in the year-by-year changes is not confirmed as a bias by the backtests. Decision (D35): keep the pooled trend (multiplier 1.0); do not raise it on the strength of the 2024 jump alone. A motor-specific multiplier of about 0.5-0.7 would be supported by both folds but is worth under +0.0003 D2 and conflicts with the recent motor change (+9.5%); left unchanged and noted as an open uncertainty in methodology/MODELLING.md.

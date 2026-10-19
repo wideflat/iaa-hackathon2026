@@ -31,8 +31,10 @@ class NNX:
 
 
 class Encoder:
-    def __init__(self, num_cols, cat_cols, min_level_count: int = 200, entity_cols=(), entity_min_count: int = 2, entity_dim: int = 4, ple_bins: int = 0):
+    def __init__(self, num_cols, cat_cols, min_level_count: int = 200, entity_cols=(), entity_min_count: int = 2, entity_dim: int = 4, ple_bins: int = 0, num_transform: str = "standard"):
         self.entity_cols, self.entity_min_count, self.entity_dim = list(entity_cols), entity_min_count, entity_dim
+        assert num_transform in ("standard", "log", "quantile")
+        self.num_transform = num_transform   # standard: winsorise + z-score; log: log1p of right-skewed non-negative inputs first; quantile: rank-gauss (normal scores)
         self.ple_bins = ple_bins   # > 0: add piecewise-linear (quantile-bin) encodings of the numeric inputs that have more than ple_bins distinct values
         self.num_cols, self.cat_cols, self.min_level_count = list(num_cols), list(cat_cols) + self.entity_cols, min_level_count
 
@@ -40,9 +42,16 @@ class Encoder:
         num = df[self.num_cols].astype("float32")
         self.lo_, self.hi_ = num.quantile(0.005), num.quantile(0.995)
         num = num.clip(self.lo_, self.hi_, axis=1)
+        self.logcols_ = []
+        if self.num_transform == "log":
+            self.logcols_ = [c for c in self.num_cols if num[c].min() >= 0 and num[c].nunique() > 10 and abs(float(num[c].skew())) > 1.0]
+            num = self._log(num)
         self.med_ = num.median()
         self.miss_cols_ = [c for c in self.num_cols if df[c].isna().any()]
         filled = num.fillna(self.med_)
+        if self.num_transform == "quantile":
+            from sklearn.preprocessing import QuantileTransformer
+            self.qt_ = QuantileTransformer(n_quantiles=1000, output_distribution="normal", subsample=500_000, random_state=SEED).fit(filled.to_numpy())
         self.mu_, self.sd_ = filled.mean(), filled.std().replace(0, 1.0).fillna(1.0)
         self.levels_ = {}
         for c in self.cat_cols:
@@ -60,10 +69,21 @@ class Encoder:
         self.n_num_ = len(self.num_cols) + len(self.miss_cols_) + sum(len(e) - 1 for e in self.ple_.values())
         return self
 
+    def _log(self, num: pd.DataFrame) -> pd.DataFrame:
+        num = num.copy()
+        for c in self.logcols_:
+            num[c] = np.log1p(num[c].clip(lower=0))
+        return num
+
     def transform(self, df: pd.DataFrame) -> NNX:
         raw = df[self.num_cols].astype("float32")
         num = raw.clip(self.lo_, self.hi_, axis=1)
-        z = ((num.fillna(self.med_) - self.mu_) / self.sd_).clip(-6.0, 6.0).to_numpy(dtype="float32")
+        if self.logcols_:
+            num = self._log(num)
+        if self.num_transform == "quantile":
+            z = np.clip(self.qt_.transform(num.fillna(self.med_).to_numpy()), -6.0, 6.0).astype("float32")
+        else:
+            z = ((num.fillna(self.med_) - self.mu_) / self.sd_).clip(-6.0, 6.0).to_numpy(dtype="float32")
         if self.miss_cols_:
             z = np.hstack([z, raw[self.miss_cols_].isna().to_numpy(dtype="float32")])
         if self.ple_:

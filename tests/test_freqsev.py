@@ -224,3 +224,24 @@ def test_alternative_categorical_encodings_train_and_rank_risk(enc):
     assert not any(isinstance(X[c].dtype, pd.CategoricalDtype) for c in X.columns)
     if enc in ("count", "both"):
         assert "g_cnt" in X.columns
+
+
+@pytest.mark.parametrize("enc", ["lowcard", "count", "both"])
+def test_numeric_encodings_for_trees_add_columns_and_rank_risk(enc):
+    rows, claims = _data()
+    rows = rows.assign(seats=(np.arange(len(rows)) % 4).astype(float))
+    m = FreqSev(claims, kind="gbm", freq_rounds=40, sev_rounds=30, cat_encoding="label", num_encoding=enc).fit(rows)
+    _checks(m, rows)
+    X = m._x(rows)
+    assert (("seats_cat" in X.columns) == (enc in ("lowcard", "both"))) and (("x_ncnt" in X.columns) == (enc in ("count", "both")))
+
+
+@pytest.mark.parametrize("tf", ["log", "quantile"])
+def test_nn_numeric_transforms_train_and_rank_risk(tf):
+    pytest.importorskip("torch")
+    rows, claims = _data()
+    rows["customer_id"] = [f"C{i // 3}" for i in range(len(rows))]
+    rows["skewed"] = np.exp(np.random.default_rng(1).normal(size=len(rows)) * 1.5)
+    m = FreqSev(claims, kind="nn", nn_params={"epochs": 3, "hidden": (16, 8), "threads": 2, "num_transform": tf}).fit(rows)
+    _checks(m, rows)
+    assert (tf != "log") or "skewed" in m.enc_.logcols_

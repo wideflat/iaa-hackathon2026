@@ -215,3 +215,5 @@ Native = LightGBM categorical splits (reference A 0.1339 [cap250k 0.1323], B 0.1
 |---|---|---|---|
 | `fs_gbm_both` (helper 3) | 0.1368 [0.1353] | 0.1334 [0.1346] | better than native on both folds and both metrics (A +0.0029, B +0.0011); motor 0.0780 vs 0.0717 on A |
 Blend (equal weights) with TabM: replacing the native GBM by the `both` GBM beats GBM + TabM by +0.0010 (CI +0.0004..+0.0015) on A and +0.0002 (-0.0003..+0.0008) on B (cap250k: 0.1370 vs 0.1360, 0.1364 vs 0.1361). Using both GBMs together adds nothing (A -0.0004, B +0.0002). Label, count and target variants still running (`fs_gbm_label` locally, `fs_gbm_count` helper 1); not yet compared.
+
+Update 21:40 EDT: `fs_gbm_label` (frequency-ranked integer label codes only): A 0.1375 [cap250k 0.1354], B 0.1336 [0.1347]: better than `both` (0.1368 / 0.1334) and than native (0.1339 / 0.1323) on both folds and both metrics. Numeric-input encodings for the trees (`--num-encoding lowcard|count|both`, `--max-bin`) and for the NN (`--nn-numtf log|quantile`, PLE already tested) are being tested on top of the label encoding.

@@ -54,7 +54,7 @@ class FreqSev:
                  bands: bool = False, n_bands: int = 6, n_seeds: int = 1, rebalance_level: str = "line", outlier_mult: float | None = None,
                  nn_params: dict | None = None, threads: int = 4,
                  recency: float = 0.0, adv_strength: float = 0.0, tail_lambda: float = 0.0, entity_cols=(),
-                 cat_encoding: str = "native"):
+                 cat_encoding: str = "native", num_encoding: str = "native"):
         assert kind in ("glm", "gbm", "nn", "xgb", "cat")
         c = claims_line[claims_line["row_id"].notna() & (claims_line["status"] != "repudiated")]
         self.claims = c[["row_id", "peril", "net_cost"]]
@@ -71,6 +71,8 @@ class FreqSev:
         self.params_freq, self.params_sev = params_freq or {}, params_sev or {}
         self.threads = threads   # xgb / cat
         assert cat_encoding in ("native", "label", "count", "both", "target")
+        assert num_encoding in ("native", "lowcard", "count", "both")
+        self.num_encoding = num_encoding   # tree kinds: native = numeric as is; lowcard = numerics with <= 20 distinct values also as categorical; count = log count of each exact value added; both
         self.cat_encoding = cat_encoding   # tree kinds: how categoricals enter (native = LightGBM categorical splits; label = frequency-ranked integer codes; count = level counts; both; target = smoothed out-of-fold claim-rate)
         self.recency, self.adv_strength, self.tail_lambda, self.entity_cols = recency, adv_strength, tail_lambda, tuple(entity_cols)
         self.uses_target = adv_strength > 0
@@ -130,12 +132,16 @@ class FreqSev:
             self.ohe_ = OneHotEncoder(handle_unknown="ignore", min_frequency=1000, sparse_output=True).fit(self._cat(train))
         elif self.kind == "nn":
             self.enc_ = _nn().Encoder(self.num_, self.cat_, entity_cols=self.entity_cols, entity_min_count=self.nn_params.get("entity_min", 2),
-                                      entity_dim=self.nn_params.get("entity_dim", 4), ple_bins=self.nn_params.get("ple_bins", 0) or 0).fit(train)
+                                      entity_dim=self.nn_params.get("entity_dim", 4), ple_bins=self.nn_params.get("ple_bins", 0) or 0,
+                                      num_transform=self.nn_params.get("num_transform", "standard") or "standard").fit(train)
         else:
             self.levels_ = {c: sorted(train[c].dropna().astype(str).unique()) for c in self.cat_}
             vc = {c: train[c].dropna().astype(str).value_counts() for c in self.cat_}
             self.rank_ = {c: {lv: i for i, lv in enumerate(v.index)} for c, v in vc.items()}   # most frequent level = 0
             self.count_ = {c: v.to_dict() for c, v in vc.items()}
+            nums = [c for c in self.num_ if not pd.api.types.is_bool_dtype(train[c])]
+            self.lowcard_ = {c: sorted(train[c].dropna().unique().tolist()) for c in nums if train[c].nunique() <= 20}
+            self.numcnt_ = {c: train[c].round(6).value_counts().to_dict() for c in nums}
 
     def _te_stats(self, train: pd.DataFrame, any_claim: np.ndarray, expo: np.ndarray, rows: np.ndarray | None = None):
         """Smoothed relative claim rate per level (exposure-weighted, prior weight 200 exposure-years); `rows` restricts the statistics to those training rows."""
@@ -181,6 +187,12 @@ class FreqSev:
         for c in self.num_:
             if pd.api.types.is_bool_dtype(x[c]):
                 x[c] = x[c].astype("int8")
+        if self.num_encoding in ("lowcard", "both"):
+            for c, lv in self.lowcard_.items():
+                x[f"{c}_cat"] = pd.Categorical(x[c].astype("float64"), categories=lv)
+        if self.num_encoding in ("count", "both"):
+            for c, cnt in self.numcnt_.items():
+                x[f"{c}_ncnt"] = np.log1p(df[c].round(6).map(cnt).fillna(0.0)).astype("float32")
         return x
 
     # ---- fitting ------------------------------------------------------------------------------

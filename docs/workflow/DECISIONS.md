@@ -44,6 +44,7 @@ Each decision: what, why (evidence), status. "Reviewed by" is the human who conf
 | D36 | No re-weighting of the blend (NN weights 0.9 / 0.36 / 0.26 vs v5 0.7 / 0.4 / 0.3) | A +0.0010 (CI includes 0), B +0.0000: not better on both folds | Not submitted | Project lead |
 | D37 | No forward-looking inflation uplift for 2025 | v6 (buildings x1.0757, contents x1.0312) scored 0.12761 vs v5 0.12790; backtests gave no case for raising the trend | Rejected; v5 stays the final candidate | Project lead |
 | D38 | No richer claim-history features (per-peril counts, gap, max cost, open claims) | RESULTS section 31: A +0.0004, B 0.0000 uncapped, capped -0.0005 / +0.0001 | Rejected; code behind `--history-extra` | Project lead |
+| D39 | Keep single-seed NN finals (v5); 3-seed finals add nothing | v7 (3-seed) public 0.12785 vs v5 0.12790 | v5 stays | Project lead |
 
 ## Open decisions
 - Names of the team's independent reviewer and approver for the governance log (placeholders in `workflow/AI_USAGE.md`): to be filled in by the project lead.

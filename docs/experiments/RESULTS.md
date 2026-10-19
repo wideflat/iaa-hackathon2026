@@ -187,3 +187,12 @@ Level check of the GBM + TabM blend (actual / predicted, fold A, fold B): motor 
 
 ## 20. Per-line-weight blend submitted (19:56 EDT)
 `blend_gbm_tabm4_perline_v3.csv` (TabM weight 0.7 motor / 0.4 buildings / 0.3 contents): public **0.12718**, vs 0.12679 for the equal-weight blend (+0.0004; the local gain was +0.0021 on fold A and +0.0004 on fold B). New best public score; the top public score seen earlier was 0.12815. This is the current final-submission candidate under D20 (local validation positive on both folds and the public score supports it).
+
+## 21. Stacking per-line blend weights across folds (`scripts/stack_oof.py`, 00:00 EDT 2026-10-19)
+Per-line non-negative weights (sum 1) fitted by maximum Tweedie likelihood on one fold's out-of-fold predictions and evaluated on the other.
+| Components | fitted A -> eval B | fitted B -> eval A | vs hand-set per-line weights (0.7/0.4/0.3 on TabM; B 0.1355, A 0.1435) |
+|---|---|---|---|
+| GBM + TabM | 0.1353 [cap 0.1362] | 0.1439 [0.1371] | equal to within 0.0004: the hand weights are about the cross-fold optimum (fitted weights: motor TabM 0.75-1.0, buildings 0.26-0.33, contents 0.17-0.27) |
+| + GLM (fs_glm_v3) | 0.1349 | 0.1440 | no gain (worse on B, +0.0005 on A) |
+| + GLM + XGBoost + wide NN + small TabM | 0.1347 | 0.1440 | no gain; weights unstable between folds |
+Conclusion (D29): no stacking layer or extra components beyond GBM + TabM with per-line weights. The remaining headroom is in better components (features, representations), not in combining.

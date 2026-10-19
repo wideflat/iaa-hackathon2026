@@ -236,3 +236,10 @@ Blends (per-line weights 0.7/0.4/0.3 on the mean of TabM and TabM-PLE; OOF, A / 
 | `fs_gbm_label_num` (`--num-encoding both`: low-cardinality numerics also as categoricals + log counts of numeric values) | 0.1347 [0.1345] | 0.1308 [0.1324] | worse (-0.0028 on both folds): rejected |
 | `fs_gbm_label_bin1023` (LightGBM max_bin 1023 instead of 255) | 0.1375 [0.1354] | 0.1335 [0.1347] | no change |
 Trees are invariant to monotone transforms of numeric inputs, so only information-adding encodings can matter; the extra copies add noise. Numeric transforms for the NN (rank-gauss, log1p) are running (`fs_nn_tabm4_q`, `fs_nn_tabm4_log`; PLE already helped).
+
+Numeric transforms for the TabM net (22:23 EDT; plain TabM: A 0.1413 [0.1331], B 0.1328 [0.1338]; PLE: A 0.1430 [0.1364], B 0.1340 [0.1351]):
+| Run | Fold A [cap250k] | Fold B [cap250k] | Read |
+|---|---|---|---|
+| `fs_nn_tabm4_q` (rank-gauss / quantile transform) | 0.1397 [0.1336] | 0.1308 [0.1321] | worse than plain on both folds |
+| `fs_nn_tabm4_log` (log1p of right-skewed non-negative inputs) | 0.1420 [0.1338] | 0.1316 [0.1327] | A up, B down: no gain |
+Conclusion (D32): of all numeric encodings tried, only the piecewise-linear encoding (8 quantile bins) helps the NN; extra numeric copies hurt the trees. Categorical encoding is where the gain was (target encoding for the trees: D31 -> see section 26).

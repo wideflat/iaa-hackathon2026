@@ -23,7 +23,9 @@
 **Time zone: report EDT (user's instruction 2026-10-18 12:20 EDT); timestamps above this line are UTC.**
 **Restarts: the sandbox restarts at user turns and kills background jobs; use `scripts/queue_runs.sh` (resumable, checkpoints per fold and line) and relaunch it when `pgrep -af run_cv` is empty. Currently queued: fs_nn_wide, then fs_nn_s3.**
 
-### 21:13 EDT: NEW BEST public 0.12779 = blend_gbm_tabm_ple_perline_v4.csv (GBM v4 + mean of TabM and TabM-PLE, per-line NN weights 0.7/0.4/0.3). Next idea (user): alternative categorical encodings (label / count) as separate GBMs for the blend.
+### 22:25 EDT: GBM with target encoding alone scores 0.12720 (public). Candidate NOT yet submitted (awaiting the user's go-ahead): submissions/blend_gbmtarget_tabm_ple_perline_v5.csv (target GBM + mean(TabM, TabM-PLE), NN weights 0.7/0.4/0.3; local A 0.1442, B 0.1361). Numeric encodings tested: only PLE helps (D32). Local queue and helpers are idle.
+
+### 21:13 EDT: previous best public 0.12779 = blend_gbm_tabm_ple_perline_v4.csv (GBM v4 + mean of TabM and TabM-PLE, per-line NN weights 0.7/0.4/0.3). Next idea (user): alternative categorical encodings (label / count) as separate GBMs for the blend.
 
 ### 19:56 EDT: previous best public 0.12718 = per-line-weight blend GBM v4 + TabM (blend_gbm_tabm4_perline_v3.csv, TabM weight 0.7 motor / 0.4 buildings / 0.3 contents). Submissions: 10 used on the 2026-10-18 UTC day (the 10th at 23:55 UTC); the daily limit probably resets at 00:00 UTC = 20:00 EDT. Helper 1's TabM k=8 run is still pending (not expected to matter).
 

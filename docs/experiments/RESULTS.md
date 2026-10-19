@@ -208,3 +208,10 @@ Conclusion (D29): no stacking layer or extra components beyond GBM + TabM with p
 
 ## 24. Submitted 2026-10-18 21:12 EDT: GBM + mean(TabM, TabM-PLE), per-line weights
 `blend_gbm_tabm_ple_perline_v4.csv`: public **0.12779** (previous best 0.12718; equal-weight GBM + TabM 0.12679). Local: A 0.1437 [cap 0.1377], B 0.1359 [0.1369]. Public gain +0.0006 over the previous best, same sign as the local gain (+0.0002 / +0.0004). Top public score seen earlier: 0.12815 (gap 0.0004). Current final-submission candidate (D20).
+
+## 25. Alternative categorical encodings for the GBM (21:27 EDT)
+Native = LightGBM categorical splits (reference A 0.1339 [cap250k 0.1323], B 0.1323 [0.1333]). `--cat-encoding both` = frequency-ranked integer label code plus log level count, as numeric columns.
+| Run | Fold A D2 [cap250k] | Fold B D2 [cap250k] | Read |
+|---|---|---|---|
+| `fs_gbm_both` (helper 3) | 0.1368 [0.1353] | 0.1334 [0.1346] | better than native on both folds and both metrics (A +0.0029, B +0.0011); motor 0.0780 vs 0.0717 on A |
+Blend (equal weights) with TabM: replacing the native GBM by the `both` GBM beats GBM + TabM by +0.0010 (CI +0.0004..+0.0015) on A and +0.0002 (-0.0003..+0.0008) on B (cap250k: 0.1370 vs 0.1360, 0.1364 vs 0.1361). Using both GBMs together adds nothing (A -0.0004, B +0.0002). Label, count and target variants still running (`fs_gbm_label` locally, `fs_gbm_count` helper 1); not yet compared.

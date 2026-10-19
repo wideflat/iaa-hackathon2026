@@ -250,3 +250,5 @@ Conclusion (D32): of all numeric encodings tried, only the piecewise-linear enco
 `fs_nn_tabm4_te` (TabM k=4 + target-encoded categorical inputs, 22:41 EDT): A 0.1395 [cap250k 0.1340], B 0.1314 [0.1325] vs plain TabM 0.1413 [0.1331] / 0.1328 [0.1338]: no gain (A -0.0018 uncapped, +0.0009 capped; B -0.0014 / -0.0013). The embeddings already capture what the target encoding adds for the NN; the TE + PLE combination is running on helper 3.
 
 `fs_nn_tabm4_ple_te` (TabM + PLE + target-encoded categorical inputs; helper 3, 22:52 EDT): A 0.1427 [cap250k 0.1352], B 0.1341 [0.1351] vs TabM + PLE 0.1430 [0.1364] / 0.1340 [0.1351]: no gain. Target-encoded inputs do not help the NN (D33): the embeddings already carry it.
+
+`fs_gbm_target_peril` (per-peril claim-rate encodings of the categoricals instead of one any-claim encoding; 23:00 EDT): A 0.1380 [cap250k 0.1362], B 0.1340 [0.1350] vs `fs_gbm_target` 0.1376 [0.1365] / 0.1339 [0.1350]: equal within noise. Not adopted (D34): more code, no gain.

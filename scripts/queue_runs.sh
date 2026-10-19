@@ -14,3 +14,5 @@ run fs_nn_tabm4_wide --model fs_nn --folds A,B --threads 4 --outlier-mult 5 --nn
 run fs_nn_tabm4_small --model fs_nn --folds A,B --threads 4 --outlier-mult 5 --nn-tabm-k 4 --nn-hidden 128,64 --note "TabM k=4, hidden 128,64"
 run fs_gbm_label --model fs_gbm --folds A,B --threads 4 --leaves 4 --freq-rounds 350 --sev-rounds 300 --outlier-mult 5 --cat-encoding label --note "GBM with frequency-ranked integer label encoding of categoricals"
 run fs_gbm_target --model fs_gbm --folds A,B --threads 4 --leaves 4 --freq-rounds 350 --sev-rounds 300 --outlier-mult 5 --cat-encoding target --note "GBM with smoothed out-of-fold claim-rate (target) encoding of categoricals"
+run fs_nn_tabm4_q --model fs_nn --folds A,B --threads 4 --outlier-mult 5 --nn-tabm-k 4 --nn-numtf quantile --note "TabM k=4 + rank-gauss (quantile) numeric transform"
+run fs_nn_tabm4_log --model fs_nn --folds A,B --threads 4 --outlier-mult 5 --nn-tabm-k 4 --nn-numtf log --note "TabM k=4 + log1p of right-skewed numeric inputs"

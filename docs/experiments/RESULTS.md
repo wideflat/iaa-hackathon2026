@@ -217,3 +217,15 @@ Native = LightGBM categorical splits (reference A 0.1339 [cap250k 0.1323], B 0.1
 Blend (equal weights) with TabM: replacing the native GBM by the `both` GBM beats GBM + TabM by +0.0010 (CI +0.0004..+0.0015) on A and +0.0002 (-0.0003..+0.0008) on B (cap250k: 0.1370 vs 0.1360, 0.1364 vs 0.1361). Using both GBMs together adds nothing (A -0.0004, B +0.0002). Label, count and target variants still running (`fs_gbm_label` locally, `fs_gbm_count` helper 1); not yet compared.
 
 Update 21:40 EDT: `fs_gbm_label` (frequency-ranked integer label codes only): A 0.1375 [cap250k 0.1354], B 0.1336 [0.1347]: better than `both` (0.1368 / 0.1334) and than native (0.1339 / 0.1323) on both folds and both metrics. Numeric-input encodings for the trees (`--num-encoding lowcard|count|both`, `--max-bin`) and for the NN (`--nn-numtf log|quantile`, PLE already tested) are being tested on top of the label encoding.
+
+## 26. Categorical encodings: summary and public check (21:57 EDT)
+Single GBM (LightGBM leaves 4, outlier 5), local D2 [cap250k] fold A / fold B:
+| Encoding of categoricals | A | B |
+|---|---|---|
+| native categorical splits (reference) | 0.1339 [0.1323] | 0.1323 [0.1333] |
+| label (frequency-ranked integers) | 0.1375 [0.1354] | 0.1336 [0.1347] |
+| count (log level counts; helper 1, log line only) | 0.1377 [0.1357] | 0.1331 [0.1343] |
+| both (label + count) | 0.1368 [0.1353] | 0.1334 [0.1346] |
+| **target (smoothed out-of-fold claim rate)** | **0.1376 [0.1365]** | **0.1339 [0.1350]** |
+Target encoding is the best single model on both folds and both metrics. Submitted alone (`fs_gbm_target.csv`, fitted on 2021-24): public **0.12720** vs 0.12548 for the native GBM (+0.0017; local gain +0.0037 A / +0.0016 B) and equal to the previous best blend (0.12718): the encoding change is a real gain that the public score confirms.
+Blends (per-line weights 0.7/0.4/0.3 on the mean of TabM and TabM-PLE; OOF, A / B): submitted blend (native GBM) 0.1437 [0.1377] / 0.1359 [0.1369]; with the target GBM instead 0.1442 [0.1384] / 0.1361 [0.1371] (+0.0006 (CI +0.0001..+0.0011) A, +0.0001 (-0.0004..+0.0006) B); adding label and/or both and native GBMs on top changes nothing (+/-0.0001): the encoding variants are highly correlated, so averaging them adds little. Candidate: `blend_gbmtarget_tabm_ple_perline_v5.csv`.

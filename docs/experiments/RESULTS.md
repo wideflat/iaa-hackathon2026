@@ -299,3 +299,21 @@ Conclusion: a boosted-residual NN is a GBM-like model and adds nothing the blend
 - Helper 3 NN-config screen, 3 hidden layers (192,96,48) dropout 0.15, TabM-PLE (`fs_nn_tabm4_ple_h3`): alone A 0.1443, B 0.1339 (reference TabM-PLE 0.1430 / 0.1340). In the v5 blend, replacing TabM-PLE by it: A +0.0007 (CI -0.0003..+0.0023), B +0.0000; adding it as a third NN member: A +0.0005 (CI -0.0000..+0.0012), B +0.0001. Below the bar (not positive with a CI above 0 on both folds); no final fit. Remaining helper screens (wd 1e-3, dropout 0.25, lr 1e-3, linear-leaf GBM) pending.
 - Helper 3, lr 1e-3 / 24 epochs TabM-PLE (`fs_nn_tabm4_ple_lr1`): alone A 0.1413 [0.1356], B 0.1348 [0.1359] (reference 0.1430 [0.1364] / 0.1340 [0.1351]). Added as a third NN member of the v5 blend: A -0.0005 (CI -0.0014..+0.0001), B +0.0001 (CI 0.0000..+0.0003): mixed, no gain. NN training-config screens (width, depth, lr, dropout, wd) are exhausted: all within +/-0.001 of the reference.
 - Direct Tweedie LightGBM (`lgbm_v2_rebalanced`, A 0.1225 / B 0.1253) mixed into the v5 blend at 10/20/30%: A -0.0003 / -0.0010 / -0.0019, B 0.0000 / -0.0003 / -0.0008 (paired vs v5; B CI excludes 0 at 30%). Worse at every weight on both folds; a target-encoded direct-Tweedie refit would need to gain 0.01+ alone to change this, so it is not run (D43).
+
+## 35. Review of the target construction and data quality (19:00 EDT 2026-10-19)
+Systematic scan of every table (duplicates, sentinels, unit changes, level-by-year recodes, date consistency, claim-to-row matching) and of the D1/D7/D8 assumptions. Defects found (DATA_QUALITY items 11-14, repairs in `src/iaa/cleaning.py`, applied in the loaders, tested in `tests/test_cleaning.py`):
+- 604 exact duplicate claims (11-character ids, 600 in loss year 2022): dropped.
+- 252 claims with the placeholder loss date 2020-12-01 (reported through 2021): loss date imputed from report date and peril lag, so they enter the 2021 target (they were dropped as unmatched).
+- `sum_insured` 1000x too large on 0.2% of buildings/contents rows, train and test (1,395 / 1,402 train, 370 / 360 test rows): divided by 1000.
+- `construction_type`: T (2021-22) is W (2023+) recoded, plus case variants (11 levels -> 4): the 2025 rows contain only W/w, so a model trained before 2023 never saw the test level.
+- D1 check: recoveries are booked only on closed claims, but whether a claim recovers is fixed at the outset (own_damage: 30% of closed claims in every accident year including 2024, always 80% of incurred; theft 13% at 30%). Open own_damage/theft claims therefore carry an expected recovery of 23.6% / 4.0% of incurred, not yet booked: net cost of open claims reduced accordingly (`target.open_recovery_rates`; -1.37M, 1.2% of motor 2024).
+- Checked and clean: duplicate policy rows or periods, overlapping periods, orphan claims, claim line vs policy line, report before loss, ages vs dates of birth, numeric medians by year, level-by-year of every other categorical, near-duplicate claims. `customer_service_contacts` lagged one year carries no information (claim frequency flat in last year's contacts given no claim), confirming D3.
+
+Local effect, target-encoded GBM (A / B pooled D2; paired bootstrap vs the unrepaired `fs_gbm_target` 0.1376 / 0.1339):
+| Repairs | A | B |
+|---|---|---|
+| all four (`fs_gbm_target_clean`) | 0.1369 (-0.0007, CI -0.0022..+0.0003) | 0.1338 (-0.0001, CI -0.0005..+0.0003) |
+| claims only (duplicates, placeholder dates) | 0.1368 (-0.0008, CI -0.0022..+0.0002; motor 0.0795 -> 0.0781) | 0.1338 (-0.0002) |
+| policy rows only (sum_insured, construction) | 0.1376 (0.0000, CI -0.0002..+0.0002) | 0.1338 (-0.0001) |
+| all + expected recoveries on open claims (`fs_gbm_target_clean_rec`, scored on its own y) | 0.1369 (+0.0000 vs clean) | 0.1333 (0.0000 vs clean) |
+No repair changes the validation score measurably (all intervals include 0; the fold-A motor dip comes from the claims repairs and fold A trains on two years only, so its severity trend is the least stable estimate). They are kept because each is a correction whose truth is known from the data, not because they score; a refit on 2021-24 sees all of them and the 2025 rows no longer contain the 730 corrupted sum_insured values (D44).

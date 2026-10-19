@@ -243,3 +243,6 @@ Numeric transforms for the TabM net (22:23 EDT; plain TabM: A 0.1413 [0.1331], B
 | `fs_nn_tabm4_q` (rank-gauss / quantile transform) | 0.1397 [0.1336] | 0.1308 [0.1321] | worse than plain on both folds |
 | `fs_nn_tabm4_log` (log1p of right-skewed non-negative inputs) | 0.1420 [0.1338] | 0.1316 [0.1327] | A up, B down: no gain |
 Conclusion (D32): of all numeric encodings tried, only the piecewise-linear encoding (8 quantile bins) helps the NN; extra numeric copies hurt the trees. Categorical encoding is where the gain was (target encoding for the trees: D31 -> see section 26).
+
+## 28. Submitted 2026-10-18 22:28 EDT: v5 = target-encoded GBM + mean(TabM, TabM-PLE), per-line NN weights 0.7/0.4/0.3
+`blend_gbmtarget_tabm_ple_perline_v5.csv`: public **0.12790** (previous best 0.12779; target GBM alone 0.12720; native-GBM blend 0.12779). Local A 0.1442 [cap 0.1384], B 0.1361 [0.1371] (+0.0006 / +0.0001 vs the previous best blend). Gap to the top public score seen (0.12815): 0.0003. Current final-submission candidate (D20). The public gain over the previous blend (+0.0001) is smaller than the single-model gain from target encoding (+0.0017) because the neural nets already carry most of what the encoding adds.

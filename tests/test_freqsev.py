@@ -245,3 +245,12 @@ def test_nn_numeric_transforms_train_and_rank_risk(tf):
     m = FreqSev(claims, kind="nn", nn_params={"epochs": 3, "hidden": (16, 8), "threads": 2, "num_transform": tf}).fit(rows)
     _checks(m, rows)
     assert (tf != "log") or "skewed" in m.enc_.logcols_
+
+
+def test_nn_with_target_encoded_categoricals_trains_and_ranks_risk():
+    pytest.importorskip("torch")
+    rows, claims = _data()
+    rows["customer_id"] = [f"C{i // 3}" for i in range(len(rows))]
+    m = FreqSev(claims, kind="nn", nn_params={"epochs": 3, "hidden": (16, 8), "threads": 2}, cat_te=True).fit(rows)
+    assert "te_g" in m.enc_.num_cols
+    _checks(m, rows)

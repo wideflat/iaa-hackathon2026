@@ -54,7 +54,7 @@ class FreqSev:
                  bands: bool = False, n_bands: int = 6, n_seeds: int = 1, rebalance_level: str = "line", outlier_mult: float | None = None,
                  nn_params: dict | None = None, threads: int = 4,
                  recency: float = 0.0, adv_strength: float = 0.0, tail_lambda: float = 0.0, entity_cols=(),
-                 cat_encoding: str = "native", num_encoding: str = "native"):
+                 cat_encoding: str = "native", num_encoding: str = "native", cat_te: bool = False):
         assert kind in ("glm", "gbm", "nn", "xgb", "cat")
         c = claims_line[claims_line["row_id"].notna() & (claims_line["status"] != "repudiated")]
         self.claims = c[["row_id", "peril", "net_cost"]]
@@ -71,6 +71,7 @@ class FreqSev:
         self.params_freq, self.params_sev = params_freq or {}, params_sev or {}
         self.threads = threads   # xgb / cat
         assert cat_encoding in ("native", "label", "count", "both", "target")
+        self.cat_te = cat_te   # kind=nn: also feed the smoothed out-of-fold claim-rate (target) encoding of every categorical as a numeric input
         assert num_encoding in ("native", "lowcard", "count", "both")
         self.num_encoding = num_encoding   # tree kinds: native = numeric as is; lowcard = numerics with <= 20 distinct values also as categorical; count = log count of each exact value added; both
         self.cat_encoding = cat_encoding   # tree kinds: how categoricals enter (native = LightGBM categorical splits; label = frequency-ranked integer codes; count = level counts; both; target = smoothed out-of-fold claim-rate)
@@ -161,6 +162,9 @@ class FreqSev:
 
     def _x(self, df: pd.DataFrame):
         if self.kind == "nn":
+            if self.cat_te:
+                df = df.assign(**{f"te_{c}": df[c].astype(object).where(df[c].notna(), "missing").astype(str).map(self.te_[c]).fillna(1.0).to_numpy(dtype="float32")
+                                  for c in self.cat_})
             return self.enc_.transform(df)
         if self.kind == "glm":
             num = df[self.num_].astype(float).clip(self.lo_, self.hi_, axis=1)
@@ -238,7 +242,7 @@ class FreqSev:
         cl = self.claims[self.claims["row_id"].isin(pos)].copy()
         cl["year"] = cl["row_id"].map(years).to_numpy()
         counts = cl.groupby(["row_id", "peril"]).size().unstack(fill_value=0).reindex(pos, fill_value=0)
-        if self.cat_encoding == "target":   # out-of-fold encodings for the training rows (5 folds), full-training statistics for any other rows
+        if self.cat_encoding == "target" or (self.kind == "nn" and self.cat_te):   # out-of-fold encodings for the training rows (5 folds), full-training statistics for any other rows
             any_claim = (counts.to_numpy().sum(axis=1) > 0).astype(float)
             self.te_ = self._te_stats(train, any_claim, expo)
             fold = pd.util.hash_array(train["row_id"].astype(str).to_numpy()) % 5
@@ -248,7 +252,15 @@ class FreqSev:
                 for c in self.cat_:
                     k = train[c].astype(object).where(train[c].notna(), "missing").astype(str)
                     oof[c][fold == f] = k[fold == f].map(st[c]).fillna(1.0).to_numpy(dtype="float32")
-        X = self._x(train)
+        if self.kind == "nn" and self.cat_te:
+            te_names = [f"te_{c}" for c in self.cat_]
+            train_aug = train.assign(**{f"te_{c}": oof[c] for c in self.cat_})
+            self.enc_ = _nn().Encoder(self.num_ + te_names, self.cat_, entity_cols=self.entity_cols, entity_min_count=self.nn_params.get("entity_min", 2),
+                                      entity_dim=self.nn_params.get("entity_dim", 4), ple_bins=self.nn_params.get("ple_bins", 0) or 0,
+                                      num_transform=self.nn_params.get("num_transform", "standard") or "standard").fit(train_aug)
+            X = self.enc_.transform(train_aug)
+        else:
+            X = self._x(train)
         if self.cat_encoding == "target":
             for c in self.cat_:
                 X[c] = oof[c]

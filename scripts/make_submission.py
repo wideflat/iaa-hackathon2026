@@ -27,6 +27,7 @@ def main() -> None:
     ap.add_argument("--sev-rounds", type=int, default=200)
     ap.add_argument("--seeds", type=int, default=1)
     ap.add_argument("--nn-tabm-k", type=int, default=0, help="fs_nn: TabM members per MLP (0 = plain MLP)")
+    ap.add_argument("--history-extra", action="store_true", help="add per-peril / gap / max-cost / open-claim history features (iaa.engineered_history)")
     ap.add_argument("--engineered", action="store_true")
     ap.add_argument("--num-encoding", default="native", choices=["native", "lowcard", "count", "both"])
     ap.add_argument("--nn-numtf", default=None, choices=["standard", "log", "quantile"])
@@ -41,6 +42,9 @@ def main() -> None:
 
     claims = data.load_claims()
     frames = cache.load_frames()
+    if a.history_extra:
+        from iaa.engineered_history import add_history_extra
+        frames = add_history_extra(frames, claims)
     if a.engineered:
         from iaa.engineered import add_engineered
         frames = add_engineered(frames)

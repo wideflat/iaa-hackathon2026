@@ -196,3 +196,7 @@ Per-line non-negative weights (sum 1) fitted by maximum Tweedie likelihood on on
 | + GLM (fs_glm_v3) | 0.1349 | 0.1440 | no gain (worse on B, +0.0005 on A) |
 | + GLM + XGBoost + wide NN + small TabM | 0.1347 | 0.1440 | no gain; weights unstable between folds |
 Conclusion (D29): no stacking layer or extra components beyond GBM + TabM with per-line weights. The remaining headroom is in better components (features, representations), not in combining.
+
+## 22. Engineered features, GBM (20:18 EDT)
+`--engineered` (src/iaa/engineered.py; label-free): premium per sum insured / vehicle value group, licence age, mileage per vehicle age, history frequency and severity, weather anomalies (vs region-year mean) and year-on-year changes, and the premium residual (log premium minus a cross-fitted regression on the other rating features = the underwriter's load beyond the rating factors).
+`fs_gbm_eng` (LightGBM leaves 4, outlier 5): A 0.1340 [0.1325], B 0.1323 [0.1334] vs the same GBM without: 0.1339 [0.1323] / 0.1323 [0.1333]. No change: trees already find these interactions. Weak linear correlations of the new columns with cost (all below 0.06). The NN (TabM) with the same features and with piecewise-linear encodings of the numeric inputs is being tested next, since neural nets are weaker at ratios and thresholds.

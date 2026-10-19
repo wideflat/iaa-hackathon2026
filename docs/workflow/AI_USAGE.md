@@ -15,4 +15,6 @@ Record each significant AI contribution and how a human or a test verified it.
 | Claim checking | Research subagents' conclusions (e.g. recovery bias) were re-tested on the data | Corrected the recovery estimate from "several-fold" to ~1.5% after measuring recoveries per claim |
 | Incident handling | Logged and fixed: `y_true`/`y_all` leakage into features, Gamma failure on zero-cost claims, cache race, OOM kills | Guard tests, a D2 > 0.35 alarm, and process rules (run heavy jobs one at a time) |
 
+| Data-quality audit (missed, then caught) | For three days the modelling work assumed the tables were clean apart from the leak and the corrupted exposure column; a systematic scan requested by the lead (duplicates, sentinels, unit changes, level-by-year recodes, date consistency) found four more planted defects: 604 duplicate claims, 252 placeholder loss dates, `sum_insured` 1000x on 0.2% of rows (train and test), a recoded `construction_type` | Each defect reproduced with an independent query (e.g. the 11-character claim ids match a 10-character original on all 11 other fields), repaired in `src/iaa/cleaning.py` with fail-fast count bands and unit tests, effect measured by ablation (RESULTS 35: no measurable D2 change). Lesson recorded: audit first, tune second |
+
 Human review checkpoints: (add here: who reviewed which decision and when).

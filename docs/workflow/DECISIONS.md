@@ -46,6 +46,7 @@ Each decision: what, why (evidence), status. "Reviewed by" is the human who conf
 | D38 | No richer claim-history features (per-peril counts, gap, max cost, open claims) | RESULTS section 31: A +0.0004, B 0.0000 uncapped, capped -0.0005 / +0.0001 | Rejected; code behind `--history-extra` | Project lead |
 | D39 | Keep single-seed NN finals (v5); 3-seed finals add nothing | v7 (3-seed) public 0.12785 vs v5 0.12790 | v5 stays | Project lead |
 | D40 | Keep the leaves-4 target GBM in the blend | leaves 7 / averaging 4 and 7: +/-0.0001 in the blend on both folds | v5 recipe unchanged | Project lead |
+| D41 | No second-stage / residual correction of the blend | RESULTS section 33: stage-2 Tweedie GBM trained on one fold hurts the other (-0.004 to -0.006 with features, -0.0002 / -0.0006 without) | Rejected | Project lead |
 
 ## Open decisions
 - Names of the team's independent reviewer and approver for the governance log (placeholders in `workflow/AI_USAGE.md`): to be filled in by the project lead.

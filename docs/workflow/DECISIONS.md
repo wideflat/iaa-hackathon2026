@@ -48,6 +48,7 @@ Each decision: what, why (evidence), status. "Reviewed by" is the human who conf
 | D40 | Keep the leaves-4 target GBM in the blend | leaves 7 / averaging 4 and 7: +/-0.0001 in the blend on both folds | v5 recipe unchanged | Project lead |
 | D41 | No second-stage / residual correction of the blend | RESULTS section 33: stage-2 Tweedie GBM trained on one fold hurts the other (-0.004 to -0.006 with features, -0.0002 / -0.0006 without) | Rejected | Project lead |
 | D42 | No GBM-offset (CANN-style residual) net in the blend | RESULTS section 34: alone A 0.1387 / B 0.1339 (= target GBM); in the v5 blend -0.0010..+0.0002 on A, -0.0004..+0.0001 on B, CIs include 0 | Rejected; code kept behind `--nn-gbm-offset` | Project lead |
+| D43 | No direct Tweedie GBM in the blend | RESULTS section 34 notes: 10/20/30% weight gives A -0.0003/-0.0010/-0.0019, B 0.0000/-0.0003/-0.0008 | Rejected | Project lead |
 
 ## Open decisions
 - Names of the team's independent reviewer and approver for the governance log (placeholders in `workflow/AI_USAGE.md`): to be filled in by the project lead.

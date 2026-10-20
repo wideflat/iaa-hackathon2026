@@ -55,6 +55,7 @@ Each decision: what, why (evidence), status. "Reviewed by" is the human who conf
 | D47 | No event thinning and no year-on-year features in a final model; R04 = R05 noted | RESULTS 39: event-thinned GBM A +0.0001 / B 0.0000; yoy features A -0.0006 / B -0.0001; both are neutral-to-negative locally although the R07 Q4-2023 surge (buildings storm 4x, motor glass 3x) and the NCB signal are real | Rejected; code kept (`--thin-events`, `--yoy`) | Project lead |
 | D48 | No seasonal offset, timing or exposure inputs, per-peril trend or year input stacked into the final GBM | RESULTS 40: seasonal offset A 0.0000 / B -0.0002; inputs +0.0009 / +0.0002 and +0.0024 / +0.0003 (heavy-tail row); the stack +0.0006 / +0.0002 does not add up; all inside the validation noise | Rejected as a replacement for v8; code kept (`--seasonality`, `--extra-features`) | Project lead |
 | D49 | Keep the fixed per-line NN weights 0.7 / 0.4 / 0.3; no peril-level blend weights | RESULTS 40 notes: peril weights fitted on one fold lose -0.0002 / -0.0010 on the other; fitted weights are inconsistent between folds | Rejected | Project lead |
+| D50 | No linear-leaf GBM | RESULTS 40 notes: fold B motor explodes (D2 -166), fold A +0.0003 | Rejected | Project lead |
 
 ## Open decisions
 - Names of the team's independent reviewer and approver for the governance log (placeholders in `workflow/AI_USAGE.md`): to be filled in by the project lead.

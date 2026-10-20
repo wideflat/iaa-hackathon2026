@@ -345,3 +345,10 @@ def test_seasonality_learns_a_winter_peak_and_gives_winter_windows_a_higher_freq
     dec = rows.iloc[:2].assign(period_start=pd.Timestamp("2022-12-01"), period_end=pd.Timestamp("2022-12-31"))
     jun = rows.iloc[:2].assign(period_start=pd.Timestamp("2022-06-01"), period_end=pd.Timestamp("2022-06-30"))
     assert m._season_factor("A", dec)[0] > 1.5 * m._season_factor("A", jun)[0]
+
+
+def test_adjusted_pure_premium_tweedie_balances_ranks_risk_and_has_one_column():
+    rows, claims = _data()
+    m = FreqSev(claims, kind="tw", freq_rounds=40, outlier_mult=5.0).fit(rows)
+    assert list(m.expected_by_peril(rows).columns) == ["all"]
+    _checks(m, rows)

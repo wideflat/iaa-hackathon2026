@@ -18,7 +18,7 @@ from iaa.models.freqsev import FreqSev  # noqa: E402
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", choices=["mean_rate", "lgbm", "fs_glm", "fs_gbm", "fs_nn", "fs_xgb", "fs_cat", "nn_tweedie"], required=True)
+    ap.add_argument("--model", choices=["mean_rate", "lgbm", "fs_glm", "fs_gbm", "fs_nn", "fs_xgb", "fs_cat", "fs_tw", "nn_tweedie"], required=True)
     ap.add_argument("--folds", default="A,B")
     ap.add_argument("--keep-noise", action="store_true", help="keep suspected noise columns as features")
     ap.add_argument("--drop", default="", help="comma-separated extra columns to drop")

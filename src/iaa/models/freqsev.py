@@ -57,7 +57,7 @@ class FreqSev:
                  cat_encoding: str = "native", num_encoding: str = "native", cat_te: bool = False,
                  trend_scale: float = 1.0, trend_halflife: float | None = None, gbm_offset: dict | None = None,
                  level_halflife: float | None = None, year_feature: bool = False, trend_mode: str = "pooled", extra_features=(), seasonality: bool = False):
-        assert kind in ("glm", "gbm", "nn", "xgb", "cat")
+        assert kind in ("glm", "gbm", "nn", "xgb", "cat", "tw")
         c = claims_line[claims_line["row_id"].notna() & (claims_line["status"] != "repudiated")]
         self.claims = c[["row_id", "peril", "net_cost"] + (["loss_date"] if "loss_date" in c.columns else [])]
         self.kind, self.cap_quantile, self.rebalance = kind, cap_quantile, rebalance
@@ -341,6 +341,8 @@ class FreqSev:
                 sev_idx.append(idx)
                 sev_p.append(np.full(len(idx), j))
                 sev_y.append((cp["cost"] * cp["tf"]).clip(lower=1.0).to_numpy())
+            elif self.kind == "tw":
+                pass   # one Tweedie model on the adjusted pure premium, fitted after the loop
             else:
                 Xp = X
                 if self.cat_encoding == "target_peril" and p in self.oofp_:
@@ -356,6 +358,24 @@ class FreqSev:
             lp = float((lp_cost * cp["tf"] * cp["lw"] / cc).sum())   # ultimate-equivalent, trended training cost of this peril (recent-weighted if level_halflife)
             self.level_by_peril_[p] = lp
             level += lp
+        if self.kind == "tw":
+            assert self.rebalance_level == "line", "the Tweedie kind has no peril split"
+            cl["c"] = 1.0
+            for p in cl["peril"].unique():
+                m = (cl["peril"] == p).to_numpy()
+                cl.loc[m, "c"] = self._c_vec(p, cl.loc[m, "year"].to_numpy()) if self.completeness else 1.0
+            y_row = (cl["cost"] * cl["tf"] / cl["c"]).groupby(cl["row_id"]).sum().reindex(pos, fill_value=0.0).to_numpy()   # ultimate-equivalent trended capped cost of each row
+            shares = {p: float((cl.loc[cl["peril"] == p, "cost"] * cl.loc[cl["peril"] == p, "tf"]).sum()) for p in kept}
+            tot = sum(shares.values())
+            self.c_by_year["all"] = {y: sum(shares[p] / tot * self._c_vec(p, [y])[0] for p in kept) for y in range(2021, VALUATION_DATE.year + 1)}
+            self.tw_base_ = float(y_row.sum() / expo.sum())
+            params = dict(objective="tweedie", tweedie_variance_power=1.5, learning_rate=0.05, num_leaves=15, min_data_in_leaf=300, feature_fraction=0.8,
+                          bagging_fraction=0.8, bagging_freq=1, lambda_l2=10.0, verbose=-1, seed=SEED, num_threads=0)
+            params.update(self.params_freq)
+            ds = lgb.Dataset(X, label=y_row, weight=w_row, init_score=np.log(expo * self.tw_base_), free_raw_data=False)
+            self.freq_["all"] = [lgb.train({**params, "seed": SEED + i}, ds, num_boost_round=self.freq_rounds) for i in range(self.n_seeds)]
+            self.sev_["all"] = None
+            self.excess_["all"] = 0.0
         if self.kind == "nn":
             idx = np.concatenate(sev_idx)
             self.snet_ = _nn().SevNet(self.enc_, **self._nn_kw(_nn().SevNet)).fit(X[idx], np.concatenate(sev_p), np.concatenate(sev_y), len(kept), val[idx],
@@ -522,6 +542,9 @@ class FreqSev:
     def expected_by_peril(self, rows: pd.DataFrame) -> pd.DataFrame:
         X = self._x(rows)
         expo = rows["exposure_calc"].to_numpy()
+        if self.kind == "tw":   # a single column: the Tweedie model has no peril split
+            raw = np.mean([np.exp(b.predict(X, raw_score=True)) for b in self.freq_["all"]], axis=0)
+            return pd.DataFrame({"all": self.tw_base_ * raw * expo}, index=rows.index)
         kp = getattr(self, "kp_", {})
         cols = {}
         Xg = self.gbm_._x(rows) if self.gbm_offset is not None else None

@@ -57,7 +57,7 @@ class FreqSev:
                  cat_encoding: str = "native", num_encoding: str = "native", cat_te: bool = False,
                  trend_scale: float = 1.0, trend_halflife: float | None = None, gbm_offset: dict | None = None,
                  level_halflife: float | None = None, year_feature: bool = False, trend_mode: str = "pooled", extra_features=(), seasonality: bool = False):
-        assert kind in ("glm", "gbm", "nn", "xgb", "cat", "tw")
+        assert kind in ("glm", "gbm", "nn", "xgb", "cat", "tw", "twnn")
         c = claims_line[claims_line["row_id"].notna() & (claims_line["status"] != "repudiated")]
         self.claims = c[["row_id", "peril", "net_cost"] + (["loss_date"] if "loss_date" in c.columns else [])]
         self.kind, self.cap_quantile, self.rebalance = kind, cap_quantile, rebalance
@@ -149,7 +149,7 @@ class FreqSev:
                 self.band_ = KBinsDiscretizer(n_bins=self.n_bands, encode="onehot", strategy="quantile", subsample=200000,
                                               dtype=np.float32, random_state=SEED).fit(z)
             self.ohe_ = OneHotEncoder(handle_unknown="ignore", min_frequency=1000, sparse_output=True).fit(self._cat(train))
-        elif self.kind == "nn":
+        elif self.kind in ("nn", "twnn"):
             self.enc_ = _nn().Encoder(self.num_, self.cat_, entity_cols=self.entity_cols, entity_min_count=self.nn_params.get("entity_min", 2),
                                       entity_dim=self.nn_params.get("entity_dim", 4), ple_bins=self.nn_params.get("ple_bins", 0) or 0,
                                       num_transform=self.nn_params.get("num_transform", "standard") or "standard").fit(train)
@@ -179,7 +179,7 @@ class FreqSev:
         return df[self.cat_].astype(object).where(df[self.cat_].notna(), "missing").astype(str)
 
     def _x(self, df: pd.DataFrame):
-        if self.kind == "nn":
+        if self.kind in ("nn", "twnn"):
             if self.cat_te:
                 df = df.assign(**{f"te_{c}": df[c].astype(object).where(df[c].notna(), "missing").astype(str).map(self.te_[c]).fillna(1.0).to_numpy(dtype="float32")
                                   for c in self.cat_})
@@ -341,7 +341,7 @@ class FreqSev:
                 sev_idx.append(idx)
                 sev_p.append(np.full(len(idx), j))
                 sev_y.append((cp["cost"] * cp["tf"]).clip(lower=1.0).to_numpy())
-            elif self.kind == "tw":
+            elif self.kind in ("tw", "twnn"):
                 pass   # one Tweedie model on the adjusted pure premium, fitted after the loop
             else:
                 Xp = X
@@ -358,8 +358,8 @@ class FreqSev:
             lp = float((lp_cost * cp["tf"] * cp["lw"] / cc).sum())   # ultimate-equivalent, trended training cost of this peril (recent-weighted if level_halflife)
             self.level_by_peril_[p] = lp
             level += lp
-        if self.kind == "tw":
-            assert self.rebalance_level == "line", "the Tweedie kind has no peril split"
+        if self.kind in ("tw", "twnn"):
+            assert self.rebalance_level == "line", "the Tweedie kinds have no peril split"
             cl["c"] = 1.0
             for p in cl["peril"].unique():
                 m = (cl["peril"] == p).to_numpy()
@@ -369,11 +369,14 @@ class FreqSev:
             tot = sum(shares.values())
             self.c_by_year["all"] = {y: sum(shares[p] / tot * self._c_vec(p, [y])[0] for p in kept) for y in range(2021, VALUATION_DATE.year + 1)}
             self.tw_base_ = float(y_row.sum() / expo.sum())
-            params = dict(objective="tweedie", tweedie_variance_power=1.5, learning_rate=0.05, num_leaves=15, min_data_in_leaf=300, feature_fraction=0.8,
-                          bagging_fraction=0.8, bagging_freq=1, lambda_l2=10.0, verbose=-1, seed=SEED, num_threads=0)
-            params.update(self.params_freq)
-            ds = lgb.Dataset(X, label=y_row, weight=w_row, init_score=np.log(expo * self.tw_base_), free_raw_data=False)
-            self.freq_["all"] = [lgb.train({**params, "seed": SEED + i}, ds, num_boost_round=self.freq_rounds) for i in range(self.n_seeds)]
+            if self.kind == "tw":
+                params = dict(objective="tweedie", tweedie_variance_power=1.5, learning_rate=0.05, num_leaves=15, min_data_in_leaf=300, feature_fraction=0.8,
+                              bagging_fraction=0.8, bagging_freq=1, lambda_l2=10.0, verbose=-1, seed=SEED, num_threads=0)
+                params.update(self.params_freq)
+                ds = lgb.Dataset(X, label=y_row, weight=w_row, init_score=np.log(expo * self.tw_base_), free_raw_data=False)
+                self.freq_["all"] = [lgb.train({**params, "seed": SEED + i}, ds, num_boost_round=self.freq_rounds) for i in range(self.n_seeds)]
+            else:
+                self.freq_["all"] = self._fit_tweedie_net(X, y_row, expo, train)
             self.sev_["all"] = None
             self.excess_["all"] = 0.0
         if self.kind == "nn":
@@ -444,6 +447,28 @@ class FreqSev:
         if self.level_halflife is None:
             return np.ones(len(years))
         return 0.5 ** ((ref - 1 - np.asarray(years, dtype=float)) / self.level_halflife)
+
+    def _fit_tweedie_net(self, X, y_row, expo, train):
+        """Direct Tweedie(1.5) net (embeddings + MLP/TabM + linear skip) on the adjusted row cost with an exposure offset; returns the list of fitted nets."""
+        import torch
+        nnm = _nn()
+        kw = self._nn_kw(nnm.FreqNet)
+        yc = np.minimum(y_row, np.quantile(y_row[y_row > 0], 0.9995)).astype("float32")
+        b0 = float(np.log(self.tw_base_))
+        tensors = [torch.from_numpy(X.num), torch.from_numpy(X.cat), torch.from_numpy(yc), torch.from_numpy(np.log(np.maximum(expo, 1e-6)).astype("float32"))]
+        val = pd.util.hash_array(train["customer_id"].astype(str).to_numpy()) % 20 == 0
+
+        def loss(net, num, cat, yy, logoff):
+            out = net(num, cat)
+            out = out if out.dim() == 3 else out[:, None, :]
+            eta = out[:, :, 0] + b0 + logoff[:, None]
+            return (-yy[:, None] * torch.exp(-0.5 * eta) / (-0.5) + torch.exp(0.5 * eta) / 0.5).mean()
+
+        nets = []
+        for sd in range(kw.get("n_seeds", 1)):
+            net = nnm._Net(self.enc_.n_num_, self.enc_.cards_, 1, kw.get("hidden", (192, 96)), kw.get("dropout", 0.1), emb_dims=self.enc_.emb_dims_, tabm_k=kw.get("tabm_k", 0))
+            nets.append(nnm._train(net, loss, tensors, val, kw.get("epochs", 12), kw.get("lr", 2e-3), kw.get("batch", 2048), kw.get("wd", 1e-4), kw.get("patience", 2), SEED + sd, kw.get("threads", 4)))
+        return nets
 
     def _sub(self, X, idx):
         return X.iloc[idx] if self.kind in ("gbm", "xgb", "cat") else X[idx]
@@ -542,8 +567,11 @@ class FreqSev:
     def expected_by_peril(self, rows: pd.DataFrame) -> pd.DataFrame:
         X = self._x(rows)
         expo = rows["exposure_calc"].to_numpy()
-        if self.kind == "tw":   # a single column: the Tweedie model has no peril split
-            raw = np.mean([np.exp(b.predict(X, raw_score=True)) for b in self.freq_["all"]], axis=0)
+        if self.kind in ("tw", "twnn"):   # a single column: the Tweedie models have no peril split
+            if self.kind == "tw":
+                raw = np.mean([np.exp(b.predict(X, raw_score=True)) for b in self.freq_["all"]], axis=0)
+            else:
+                raw = np.exp(np.mean([_nn()._predict(n, X)[:, 0] for n in self.freq_["all"]], axis=0))
             return pd.DataFrame({"all": self.tw_base_ * raw * expo}, index=rows.index)
         kp = getattr(self, "kp_", {})
         cols = {}

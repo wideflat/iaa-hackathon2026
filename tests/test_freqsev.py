@@ -352,3 +352,12 @@ def test_adjusted_pure_premium_tweedie_balances_ranks_risk_and_has_one_column():
     m = FreqSev(claims, kind="tw", freq_rounds=40, outlier_mult=5.0).fit(rows)
     assert list(m.expected_by_peril(rows).columns) == ["all"]
     _checks(m, rows)
+
+
+def test_adjusted_pure_premium_tweedie_net_balances_and_ranks_risk():
+    pytest.importorskip("torch")
+    rows, claims = _data()
+    rows["customer_id"] = [f"C{i // 3}" for i in range(len(rows))]
+    m = FreqSev(claims, kind="twnn", outlier_mult=5.0, nn_params={"epochs": 4, "hidden": (16, 8), "threads": 2, "tabm_k": 2}).fit(rows)
+    assert list(m.expected_by_peril(rows).columns) == ["all"]
+    _checks(m, rows)

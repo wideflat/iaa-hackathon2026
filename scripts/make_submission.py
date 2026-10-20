@@ -26,7 +26,7 @@ def _fit_claims(a, tr, claims, line):
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", choices=["mean_rate", "lgbm", "fs_gbm", "fs_glm", "fs_nn", "fs_tw", "fs_twx", "fs_twnn"], required=True)
+    ap.add_argument("--model", choices=["mean_rate", "lgbm", "fs_gbm", "fs_glm", "fs_nn", "fs_xgb", "fs_tw", "fs_twx", "fs_twnn"], required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--keep-noise", action="store_true")
     ap.add_argument("--rounds", type=int, default=400)

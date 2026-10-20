@@ -36,8 +36,11 @@ def run_cv(frames: dict, model_factory, fold_keys=("A", "B"), n_boot: int = 200,
             train, _ = split(tr_src[tr_src["split"] == "train"], fold)
             model = model_factory(line)
             model = model.fit(train, target=valid) if getattr(model, "uses_target", False) else model.fit(train)   # domain-shift weights see the features of the rows to be predicted
-            pred = model.predict_observed(valid) if (not fold.mature and hasattr(model, "predict_observed")) else model.predict(valid)
+            observed = not fold.mature and hasattr(model, "predict_observed")
+            pred = model.predict_observed(valid) if observed else model.predict(valid)
             part = valid[["row_id", "customer_id", "line", "y", "year"]].assign(pred=pred)
+            if hasattr(model, "predict_by_peril"):   # per-peril expected cost (sums to pred), for blends with peril-level weights
+                part = part.join(model.predict_by_peril(valid, observed).add_prefix("pp_").set_axis(valid.index))
             if ck is not None:
                 ck.parent.mkdir(parents=True, exist_ok=True)
                 part.to_parquet(ck)

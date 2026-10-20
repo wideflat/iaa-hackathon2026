@@ -500,6 +500,13 @@ class FreqSev:
     def predict(self, rows: pd.DataFrame) -> np.ndarray:
         return self.k_ * self._predict_raw(rows)
 
+    def predict_by_peril(self, rows: pd.DataFrame, observed: bool) -> pd.DataFrame:
+        """Per-peril expected cost whose row sums equal predict (observed=False) or predict_observed (observed=True)."""
+        by = self.expected_by_peril(rows)
+        if observed:
+            by = by * np.column_stack([self._c_vec(p, rows["year"].to_numpy()) for p in by.columns])
+        return self.k_ * by
+
     def predict_observed(self, rows: pd.DataFrame) -> np.ndarray:
         """Prediction scaled by the expected reported share of each row's accident year: comparable with an immature (as-valued) actual."""
         by = self.expected_by_peril(rows)

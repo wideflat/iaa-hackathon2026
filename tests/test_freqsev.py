@@ -309,3 +309,11 @@ def test_per_peril_trend_is_estimated_per_peril_and_balances():
     assert (p >= 0).all() and np.isfinite(p).all()
     hi, lo = rows.assign(x=2.0, g="c", exposure_calc=1.0), rows.assign(x=-2.0, g="a", exposure_calc=1.0)
     assert m.predict(hi).mean() > m.predict(lo).mean()
+
+
+def test_predict_by_peril_sums_to_the_prediction_for_both_the_mature_and_the_observed_view():
+    rows, claims = _data()
+    rows = rows.assign(year=2021 + np.arange(len(rows)) % 3)
+    m = FreqSev(claims, kind="gbm", freq_rounds=40, sev_rounds=30).fit(rows)
+    assert np.allclose(m.predict_by_peril(rows, False).sum(axis=1), m.predict(rows))
+    assert np.allclose(m.predict_by_peril(rows, True).sum(axis=1), m.predict_observed(rows))

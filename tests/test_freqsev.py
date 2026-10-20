@@ -275,3 +275,26 @@ def test_nn_on_cross_fitted_gbm_offset_learns_a_bounded_correction_and_ranks_ris
     g = FreqSev(claims, kind="gbm", **gbm).fit(rows)
     corr = m.predict(rows) / g.predict(rows)   # both are rebalanced to the same total, so the net's correction averages near 1
     assert 0.5 < np.median(corr) < 2.0 and np.corrcoef(m.predict(rows), g.predict(rows))[0, 1] > 0.9
+
+
+def test_recent_weighted_rebalancing_matches_the_recent_cost_level_and_reduces_to_plain_rebalancing_without_a_halflife():
+    rows, claims = _data()
+    rows = rows.assign(year=2021 + np.arange(len(rows)) % 3)
+    plain = FreqSev(claims, kind="gbm", freq_rounds=40, sev_rounds=30, rebalance_level="peril").fit(rows)
+    same = FreqSev(claims, kind="gbm", freq_rounds=40, sev_rounds=30, rebalance_level="peril", level_halflife=None).fit(rows)
+    assert plain.kp_ == same.kp_
+    recent = FreqSev(claims, kind="gbm", freq_rounds=40, sev_rounds=30, rebalance_level="peril", level_halflife=0.5).fit(rows)
+    w = recent._level_weights(rows["year"].to_numpy(), rows["year"].max() + 1)
+    assert w.max() == 1.0 and np.isclose(w.min(), 0.0625)
+    for p, k in recent.kp_.items():   # weighted predicted total equals the recent-weighted level
+        got = k * (w * recent.expected_by_peril(rows)[p].to_numpy() / k).sum()
+        assert np.isclose(got, recent.level_by_peril_[p], rtol=1e-6)
+
+
+def test_year_feature_adds_the_year_column_and_lets_the_model_learn_a_level_shift():
+    rows, claims = _data()
+    rows = rows.assign(year=2021 + np.arange(len(rows)) % 3)
+    m = FreqSev(claims, kind="gbm", freq_rounds=40, sev_rounds=30, year_feature=True).fit(rows)
+    assert m.cols_[-1] == "year" and "year" in m._x(rows).columns
+    assert np.isfinite(m.predict(rows.assign(year=2025))).all()
+    assert "year" not in FreqSev(claims, kind="gbm", freq_rounds=40, sev_rounds=30).fit(rows).cols_

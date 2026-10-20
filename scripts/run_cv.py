@@ -62,6 +62,9 @@ def main() -> None:
     ap.add_argument("--nn-numtf", default=None, choices=["standard", "log", "quantile"], help="fs_nn: numeric input transform")
     ap.add_argument("--max-bin", type=int, default=None, help="fs_gbm: LightGBM max_bin for both stages")
     ap.add_argument("--nn-gbm-offset", action="store_true", help="fs_nn: the net learns a multiplicative correction on top of the cross-fitted target-encoded GBM (leaves 4, 350/300 rounds, outlier 5)")
+    ap.add_argument("--level-halflife", type=float, default=None, help="fs: rebalance to the recent-weighted trended cost (half-life in years) instead of all training years equally")
+    ap.add_argument("--deflate", default="", help="comma-separated nominal columns to divide by their median in the row's own year (e.g. written_premium,sum_insured)")
+    ap.add_argument("--year-feature", action="store_true", help="fs_gbm: add the policy year as a numeric input")
     ap.add_argument("--nn-cat-te", action="store_true", help="fs_nn: also feed target-encoded categoricals (out-of-fold claim rate) as numeric inputs")
     ap.add_argument("--trend-scale", type=float, default=1.0, help="fs: multiply the estimated severity trend")
     ap.add_argument("--trend-halflife", type=float, default=None, help="fs: weight recent claim years more when estimating the severity trend (half-life in years)")
@@ -74,6 +77,9 @@ def main() -> None:
 
     claims = data.load_claims()
     frames = cache.load_frames()
+    if a.deflate:
+        from iaa.deflate import deflate_frames
+        frames = deflate_frames(frames, [c for c in a.deflate.split(",") if c])
     if a.history_extra:
         from iaa.engineered_history import add_history_extra
         frames = add_history_extra(frames, claims)
@@ -119,7 +125,7 @@ def main() -> None:
                                        extra_drop=extra, trend=not a.no_trend, completeness=not a.no_completeness,
                                        freq_rounds=a.freq_rounds, sev_rounds=a.sev_rounds, cap_quantile=a.cap_q,
                                        params_freq=pf, params_sev=ps, nn_params=nnp, threads=a.threads or 4, recency=a.recency, adv_strength=a.adv_weights, tail_lambda=a.tail_lambda,
-                                       entity_cols=("customer_id", "address_id") if a.entity else (), cat_encoding=a.cat_encoding, num_encoding=a.num_encoding, cat_te=a.nn_cat_te, trend_scale=a.trend_scale, trend_halflife=a.trend_halflife, gbm_offset=GBM_OFFSET if a.nn_gbm_offset else None, bands=a.bands, n_seeds=a.seeds, rebalance_level=a.rebalance_level, outlier_mult=a.outlier_mult,
+                                       entity_cols=("customer_id", "address_id") if a.entity else (), cat_encoding=a.cat_encoding, num_encoding=a.num_encoding, cat_te=a.nn_cat_te, trend_scale=a.trend_scale, trend_halflife=a.trend_halflife, gbm_offset=GBM_OFFSET if a.nn_gbm_offset else None, level_halflife=a.level_halflife, year_feature=a.year_feature, bands=a.bands, n_seeds=a.seeds, rebalance_level=a.rebalance_level, outlier_mult=a.outlier_mult,
                                        **({"glm_alpha_freq": a.alpha_freq} if a.alpha_freq else {}), **({"glm_alpha_sev": a.alpha_sev} if a.alpha_sev else {}))
     elif a.model == "nn_tweedie":
         from iaa.models.nn_tweedie import NNTweedie

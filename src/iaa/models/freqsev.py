@@ -55,7 +55,8 @@ class FreqSev:
                  nn_params: dict | None = None, threads: int = 4,
                  recency: float = 0.0, adv_strength: float = 0.0, tail_lambda: float = 0.0, entity_cols=(),
                  cat_encoding: str = "native", num_encoding: str = "native", cat_te: bool = False,
-                 trend_scale: float = 1.0, trend_halflife: float | None = None, gbm_offset: dict | None = None):
+                 trend_scale: float = 1.0, trend_halflife: float | None = None, gbm_offset: dict | None = None,
+                 level_halflife: float | None = None, year_feature: bool = False):
         assert kind in ("glm", "gbm", "nn", "xgb", "cat")
         c = claims_line[claims_line["row_id"].notna() & (claims_line["status"] != "repudiated")]
         self.claims = c[["row_id", "peril", "net_cost"]]
@@ -76,6 +77,8 @@ class FreqSev:
         assert gbm_offset is None or kind == "nn", "gbm_offset is for the NN kind"
         self.gbm_offset = gbm_offset   # kind=nn: FreqSev kwargs of an inner LightGBM model; its cross-fitted per-peril rate and severity become log offsets and the net learns a multiplicative correction
         self._claims_line = claims_line
+        self.year_feature = year_feature   # policy year as a numeric input: lets the trees learn regime shifts by segment; rows of later years fall on the last year's side of every split
+        self.level_halflife = level_halflife   # rebalancing target = recent-weighted trended cost (weight 0.5 ** (years before the last training year / level_halflife)) instead of all years equally
         self.cat_te = cat_te   # kind=nn: also feed the smoothed out-of-fold claim-rate (target) encoding of every categorical as a numeric input
         assert num_encoding in ("native", "lowcard", "count", "both")
         self.num_encoding = num_encoding   # tree kinds: native = numeric as is; lowcard = numerics with <= 20 distinct values also as categorical; count = log count of each exact value added; both
@@ -126,7 +129,7 @@ class FreqSev:
 
     # ---- feature matrices -------------------------------------------------------------------
     def _fit_features(self, train: pd.DataFrame):
-        self.cols_ = feature_columns(train, self.drop_noise, self.extra_drop)
+        self.cols_ = feature_columns(train, self.drop_noise, self.extra_drop) + (["year"] if self.year_feature else [])
         self.num_, self.cat_ = _split_cols(train, self.cols_)
         if self.kind == "glm":
             num = train[self.num_].astype(float)
@@ -302,6 +305,8 @@ class FreqSev:
         self.sev_trend_ = float(np.clip(self.trend_scale * self._estimate_trend(cl, self.trend_halflife), 0.0, 0.2)) if self.trend else 0.0
         self.ref_year_ = ref
         cl["tf"] = np.exp(self.sev_trend_ * (ref - cl["year"]))
+        lw_row = self._level_weights(train["year"].to_numpy(), ref)
+        cl["lw"] = self._level_weights(cl["year"].to_numpy(), ref)
         # C) models per peril
         level = 0.0
         self.level_by_peril_ = {}
@@ -336,7 +341,7 @@ class FreqSev:
                     self._fit_tail(p, Xp, idx, cp["net_cost"].to_numpy())
             cc = self._c_vec(p, cp["year"].to_numpy()) if self.completeness else 1.0
             lp_cost = cp["net_cost"] if self.outlier_mult is None else cp["net_cost"].clip(upper=self.outlier_mult * self.cap_[p])
-            lp = float((lp_cost * cp["tf"] / cc).sum())   # ultimate-equivalent, trended training cost of this peril
+            lp = float((lp_cost * cp["tf"] * cp["lw"] / cc).sum())   # ultimate-equivalent, trended training cost of this peril (recent-weighted if level_halflife)
             self.level_by_peril_[p] = lp
             level += lp
         if self.kind == "nn":
@@ -350,9 +355,9 @@ class FreqSev:
         if self.rebalance:
             if self.rebalance_level == "peril":
                 by = self.expected_by_peril(train)
-                self.kp_ = {p: float(self.level_by_peril_[p] / by[p].sum()) for p in by.columns}
+                self.kp_ = {p: float(self.level_by_peril_[p] / (lw_row * by[p].to_numpy()).sum()) for p in by.columns}
             else:
-                self.k_ = float(level / self._predict_raw(train).sum())
+                self.k_ = float(level / (lw_row * self._predict_raw(train)).sum())
         return self
 
     def _gbm_offsets(self, train: pd.DataFrame, kept):
@@ -369,6 +374,11 @@ class FreqSev:
                 ls[m, j] = np.log(inner._sev(p, Xs))
         self.gbm_ = FreqSev(self._claims_line, kind="gbm", **self.gbm_offset).fit(train)
         return lf, ls
+
+    def _level_weights(self, years: np.ndarray, ref: int) -> np.ndarray:
+        if self.level_halflife is None:
+            return np.ones(len(years))
+        return 0.5 ** ((ref - 1 - np.asarray(years, dtype=float)) / self.level_halflife)
 
     def _sub(self, X, idx):
         return X.iloc[idx] if self.kind in ("gbm", "xgb", "cat") else X[idx]

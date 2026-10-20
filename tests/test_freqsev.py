@@ -317,3 +317,31 @@ def test_predict_by_peril_sums_to_the_prediction_for_both_the_mature_and_the_obs
     m = FreqSev(claims, kind="gbm", freq_rounds=40, sev_rounds=30).fit(rows)
     assert np.allclose(m.predict_by_peril(rows, False).sum(axis=1), m.predict(rows))
     assert np.allclose(m.predict_by_peril(rows, True).sum(axis=1), m.predict_observed(rows))
+
+
+def test_extra_features_add_normally_excluded_columns_as_inputs():
+    rows, claims = _data()
+    m = FreqSev(claims, kind="gbm", freq_rounds=40, sev_rounds=30, extra_features=("exposure_calc",)).fit(rows)
+    assert "exposure_calc" in m.cols_ and "exposure_calc" in m._x(rows).columns
+
+
+def test_seasonality_learns_a_winter_peak_and_gives_winter_windows_a_higher_frequency_factor():
+    rng = np.random.default_rng(1)
+    n = 20000
+    start = pd.Timestamp("2022-01-01") + pd.to_timedelta(rng.integers(0, 330, n), unit="D")
+    length = rng.integers(20, 120, n)
+    rows = pd.DataFrame({"row_id": [f"R{i}" for i in range(n)], "x": rng.normal(size=n), "period_start": start, "period_end": start + pd.to_timedelta(length, unit="D"), "year": 2022})
+    rows["exposure_calc"] = (length + 1) / 365.0
+    days = FreqSev._days_by_month(rows)
+    winter = np.array([2, 2, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 2.0])   # peril A runs 4x higher in Dec-Feb
+    rate = 0.8 * (days @ winter) / 365.0
+    k = rng.poisson(rate)
+    cl = [{"row_id": rows.row_id[i], "peril": "A", "net_cost": rng.gamma(2.0, 400.0), "status": "closed",
+           "loss_date": rows.period_start[i] + pd.Timedelta(days=int(rng.integers(0, length[i]))), "report_date": rows.period_end[i]} for i in np.nonzero(k)[0] for _ in range(k[i])]
+    claims = pd.DataFrame(cl)
+    m = FreqSev(claims, kind="gbm", freq_rounds=30, sev_rounds=20, seasonality=True, completeness=False).fit(rows)
+    s = m.season_["A"]
+    assert s[[11, 0, 1]].min() > 1.2 * s[2:11].max() * 0.9 and abs(float(np.average(s, weights=days.sum(axis=0))) - 1.0) < 0.05
+    dec = rows.iloc[:2].assign(period_start=pd.Timestamp("2022-12-01"), period_end=pd.Timestamp("2022-12-31"))
+    jun = rows.iloc[:2].assign(period_start=pd.Timestamp("2022-06-01"), period_end=pd.Timestamp("2022-06-30"))
+    assert m._season_factor("A", dec)[0] > 1.5 * m._season_factor("A", jun)[0]

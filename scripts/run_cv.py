@@ -68,6 +68,8 @@ def main() -> None:
     ap.add_argument("--trend-mode", default="pooled", choices=["pooled", "peril"], help="fs: severity trend pooled per line or per peril")
     ap.add_argument("--thin-events", action="store_true", help="fs: thin regional claim surges (iaa.events) back to the cell's baseline month for fitting")
     ap.add_argument("--yoy", action="store_true", help="add year-on-year change features of the policy inputs (iaa.yoy)")
+    ap.add_argument("--extra-features", default="", help="comma-separated normally excluded columns to add as inputs (e.g. exposure_calc,start_month,end_month)")
+    ap.add_argument("--seasonality", action="store_true", help="fs: frequency offset for the calendar months a row is in force (winter storm / escape of water)")
     ap.add_argument("--nn-cat-te", action="store_true", help="fs_nn: also feed target-encoded categoricals (out-of-fold claim rate) as numeric inputs")
     ap.add_argument("--trend-scale", type=float, default=1.0, help="fs: multiply the estimated severity trend")
     ap.add_argument("--trend-halflife", type=float, default=None, help="fs: weight recent claim years more when estimating the severity trend (half-life in years)")
@@ -134,7 +136,7 @@ def main() -> None:
                                        extra_drop=extra, trend=not a.no_trend, completeness=not a.no_completeness,
                                        freq_rounds=a.freq_rounds, sev_rounds=a.sev_rounds, cap_quantile=a.cap_q,
                                        params_freq=pf, params_sev=ps, nn_params=nnp, threads=a.threads or 4, recency=a.recency, adv_strength=a.adv_weights, tail_lambda=a.tail_lambda,
-                                       entity_cols=("customer_id", "address_id") if a.entity else (), cat_encoding=a.cat_encoding, num_encoding=a.num_encoding, cat_te=a.nn_cat_te, trend_scale=a.trend_scale, trend_halflife=a.trend_halflife, gbm_offset=GBM_OFFSET if a.nn_gbm_offset else None, level_halflife=a.level_halflife, year_feature=a.year_feature, trend_mode=a.trend_mode, bands=a.bands, n_seeds=a.seeds, rebalance_level=a.rebalance_level, outlier_mult=a.outlier_mult,
+                                       entity_cols=("customer_id", "address_id") if a.entity else (), cat_encoding=a.cat_encoding, num_encoding=a.num_encoding, cat_te=a.nn_cat_te, trend_scale=a.trend_scale, trend_halflife=a.trend_halflife, gbm_offset=GBM_OFFSET if a.nn_gbm_offset else None, level_halflife=a.level_halflife, year_feature=a.year_feature, seasonality=a.seasonality, extra_features=tuple(c for c in a.extra_features.split(",") if c), trend_mode=a.trend_mode, bands=a.bands, n_seeds=a.seeds, rebalance_level=a.rebalance_level, outlier_mult=a.outlier_mult,
                                        **({"glm_alpha_freq": a.alpha_freq} if a.alpha_freq else {}), **({"glm_alpha_sev": a.alpha_sev} if a.alpha_sev else {}))
     elif a.model == "nn_tweedie":
         from iaa.models.nn_tweedie import NNTweedie

@@ -56,10 +56,10 @@ class FreqSev:
                  recency: float = 0.0, adv_strength: float = 0.0, tail_lambda: float = 0.0, entity_cols=(),
                  cat_encoding: str = "native", num_encoding: str = "native", cat_te: bool = False,
                  trend_scale: float = 1.0, trend_halflife: float | None = None, gbm_offset: dict | None = None,
-                 level_halflife: float | None = None, year_feature: bool = False, trend_mode: str = "pooled"):
+                 level_halflife: float | None = None, year_feature: bool = False, trend_mode: str = "pooled", extra_features=(), seasonality: bool = False):
         assert kind in ("glm", "gbm", "nn", "xgb", "cat")
         c = claims_line[claims_line["row_id"].notna() & (claims_line["status"] != "repudiated")]
-        self.claims = c[["row_id", "peril", "net_cost"]]
+        self.claims = c[["row_id", "peril", "net_cost"] + (["loss_date"] if "loss_date" in c.columns else [])]
         self.kind, self.cap_quantile, self.rebalance = kind, cap_quantile, rebalance
         self.drop_noise, self.extra_drop = drop_noise, tuple(extra_drop)
         self.freq_rounds, self.sev_rounds = freq_rounds, sev_rounds
@@ -79,6 +79,9 @@ class FreqSev:
         self._claims_line = claims_line
         assert trend_mode in ("pooled", "peril")
         self.trend_mode = trend_mode   # pooled = one severity trend per line (peril fixed effects); peril = each peril its own log-linear trend
+        assert not seasonality or "loss_date" in claims_line.columns, "seasonality needs claim loss dates"
+        self.seasonality = seasonality   # frequency offset: share of each row's days in force falling in the months where the peril runs high (winter storm / escape of water)
+        self.extra_features = tuple(extra_features)   # columns normally excluded from the inputs (e.g. exposure_calc, start_month) added back as features
         self.year_feature = year_feature   # policy year as a numeric input: lets the trees learn regime shifts by segment; rows of later years fall on the last year's side of every split
         self.level_halflife = level_halflife   # rebalancing target = recent-weighted trended cost (weight 0.5 ** (years before the last training year / level_halflife)) instead of all years equally
         self.cat_te = cat_te   # kind=nn: also feed the smoothed out-of-fold claim-rate (target) encoding of every categorical as a numeric input
@@ -131,7 +134,7 @@ class FreqSev:
 
     # ---- feature matrices -------------------------------------------------------------------
     def _fit_features(self, train: pd.DataFrame):
-        self.cols_ = feature_columns(train, self.drop_noise, self.extra_drop) + (["year"] if self.year_feature else [])
+        self.cols_ = feature_columns(train, self.drop_noise, self.extra_drop) + (["year"] if self.year_feature else []) + [c for c in self.extra_features if c in train.columns]
         self.num_, self.cat_ = _split_cols(train, self.cols_)
         if self.kind == "glm":
             num = train[self.num_].astype(float)
@@ -317,11 +320,14 @@ class FreqSev:
         level = 0.0
         self.level_by_peril_ = {}
         kept = [p for p in counts.columns if counts[p].sum() >= 20]
+        if self.seasonality:
+            self._fit_season(train, cl, kept)
+            days_tr = self._days_by_month(train)
         if self.kind == "nn" and self.gbm_offset is not None:
             off_f, off_s = self._gbm_offsets(train, kept)
         if self.kind == "nn":   # one multi-head network per stage instead of one model per peril
             val = (pd.util.hash_array(train["row_id" if self.entity_cols else "customer_id"].astype(str).to_numpy()) % 20 == 0)   # entity embeddings need the hold-out customers seen in training
-            cm = np.column_stack([self._c_vec(p, train["year"].to_numpy()) if self.completeness else np.ones(len(train)) for p in kept])
+            cm = np.column_stack([(self._c_vec(p, train["year"].to_numpy()) if self.completeness else np.ones(len(train))) * (self._season_factor(p, train, days_tr) if self.seasonality else 1.0) for p in kept])
             self.fnet_ = _nn().FreqNet(self.enc_, **self._nn_kw(_nn().FreqNet)).fit(X, counts[kept].to_numpy(dtype=float), expo[:, None] * cm, val, w=w_row,
                                                                                                     off=None if self.gbm_offset is None else off_f)
             sev_idx, sev_p, sev_y = [], [], []
@@ -341,7 +347,7 @@ class FreqSev:
                     Xp = X.copy()
                     for c in self.cat_:
                         Xp[c] = self.oofp_[p][c]
-                self.freq_[p] = self._fit_freq(Xp, n, expo * cvec, w_row)
+                self.freq_[p] = self._fit_freq(Xp, n, expo * cvec * (self._season_factor(p, train, days_tr) if self.seasonality else 1.0), w_row)
                 self.sev_[p] = self._fit_sev(Xp, idx, (cp["cost"] * cp["tf"]).clip(lower=1.0).to_numpy(), None if w_row is None else w_row[idx])
                 if self.tail_lambda:
                     self._fit_tail(p, Xp, idx, cp["net_cost"].to_numpy())
@@ -380,6 +386,39 @@ class FreqSev:
                 ls[m, j] = np.log(inner._sev(p, Xs))
         self.gbm_ = FreqSev(self._claims_line, kind="gbm", **self.gbm_offset).fit(train)
         return lf, ls
+
+    @staticmethod
+    def _days_by_month(rows: pd.DataFrame) -> np.ndarray:
+        """(n, 12) days each row is in force in each calendar month (all years pooled)."""
+        ps = rows["period_start"].to_numpy().astype("datetime64[D]")
+        pe = rows["period_end"].to_numpy().astype("datetime64[D]") + np.timedelta64(1, "D")
+        out = np.zeros((len(rows), 12), dtype="float32")
+        for yr in range(int(rows["period_start"].dt.year.min()), int(rows["period_end"].dt.year.max()) + 1):
+            for mth in range(12):
+                a = np.datetime64(f"{yr}-{mth + 1:02d}-01")
+                b = np.datetime64(f"{yr + (mth == 11)}-{(mth + 1) % 12 + 1:02d}-01")
+                out[:, mth] += np.clip((np.minimum(pe, b) - np.maximum(ps, a)).astype("timedelta64[D]").astype(int), 0, None)
+        return out
+
+    def _fit_season(self, train: pd.DataFrame, cl: pd.DataFrame, kept) -> None:
+        """Monthly index per peril: claims (ultimate-equivalent) per day in force in the calendar month, relative to the peril's average, shrunk towards 1 by empirical Bayes."""
+        days = self._days_by_month(train)
+        month_days = days.sum(axis=0).astype(float)
+        self.season_ = {}
+        for p in kept:
+            d = cl[cl["peril"] == p]
+            w = 1.0 / self._c_vec(p, d["year"].to_numpy()) if self.completeness else np.ones(len(d))
+            n = np.bincount(d["loss_date"].dt.month.to_numpy() - 1, weights=w, minlength=12)
+            raw = (n / month_days) / (n.sum() / month_days.sum())
+            se2 = 1.0 / np.maximum(n, 1.0)   # Poisson noise of the relative index
+            tau2 = max(float(np.var(raw) - se2.mean()), 0.0)
+            self.season_[p] = 1.0 + tau2 / (tau2 + se2) * (raw - 1.0)
+
+    def _season_factor(self, p, rows: pd.DataFrame, days: np.ndarray | None = None) -> np.ndarray:
+        if not self.seasonality:
+            return np.ones(len(rows))
+        days = self._days_by_month(rows) if days is None else days
+        return (days @ self.season_[p]) / np.maximum(days.sum(axis=1), 1.0)
 
     def _level_weights(self, years: np.ndarray, ref: int) -> np.ndarray:
         if self.level_halflife is None:
@@ -486,12 +525,13 @@ class FreqSev:
         kp = getattr(self, "kp_", {})
         cols = {}
         Xg = self.gbm_._x(rows) if self.gbm_offset is not None else None
+        days = self._days_by_month(rows) if self.seasonality else None
         for p in self.freq_:
             Xp = self._xp(p, X, rows)
             rate, sev = self._freq_rate(p, Xp), self._sev(p, Xp)
             if Xg is not None:   # the nets return correction factors on top of the inner GBM
                 rate, sev = rate * self.gbm_._freq_rate(p, Xg), sev * self.gbm_._sev(p, Xg)
-            cols[p] = kp.get(p, 1.0) * rate * expo * sev * (1.0 + self.excess_[p] * self._tail_ratio(p, Xp))
+            cols[p] = kp.get(p, 1.0) * rate * expo * self._season_factor(p, rows, days) * sev * (1.0 + self.excess_[p] * self._tail_ratio(p, Xp))
         return pd.DataFrame(cols, index=rows.index)
 
     def _predict_raw(self, rows: pd.DataFrame) -> np.ndarray:

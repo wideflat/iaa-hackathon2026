@@ -70,6 +70,7 @@ def main() -> None:
     ap.add_argument("--yoy", action="store_true", help="add year-on-year change features of the policy inputs (iaa.yoy)")
     ap.add_argument("--extra-features", default="", help="comma-separated normally excluded columns to add as inputs (e.g. exposure_calc,start_month,end_month)")
     ap.add_argument("--seasonality", action="store_true", help="fs: frequency offset for the calendar months a row is in force (winter storm / escape of water)")
+    ap.add_argument("--xgb-params", default="", help="fs_xgb / fs_twx: extra XGBoost parameters for both stages, e.g. colsample_bytree=0.5,reg_lambda=30")
     ap.add_argument("--nn-cat-te", action="store_true", help="fs_nn: also feed target-encoded categoricals (out-of-fold claim rate) as numeric inputs")
     ap.add_argument("--trend-scale", type=float, default=1.0, help="fs: multiply the estimated severity trend")
     ap.add_argument("--trend-halflife", type=float, default=None, help="fs: weight recent claim years more when estimating the severity trend (half-life in years)")
@@ -125,6 +126,9 @@ def main() -> None:
             pf, ps = {}, {}
             if a.lr:
                 pf["eta" if a.model in ("fs_xgb", "fs_twx") else "learning_rate"] = ps["eta" if a.model in ("fs_xgb", "fs_twx") else "learning_rate"] = a.lr
+            for kv in [x for x in a.xgb_params.split(",") if x]:
+                k, v = kv.split("=")
+                pf[k] = ps[k] = float(v)
             if a.depth:
                 pf["max_depth" if a.model in ("fs_xgb", "fs_twx") else "depth"] = ps["max_depth" if a.model in ("fs_xgb", "fs_twx") else "depth"] = a.depth
         nnp = {k: v for k, v in {"epochs": a.nn_epochs, "hidden": tuple(int(x) for x in a.nn_hidden.split(",")) if a.nn_hidden else None,

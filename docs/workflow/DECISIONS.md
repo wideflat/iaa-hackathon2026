@@ -58,6 +58,7 @@ Each decision: what, why (evidence), status. "Reviewed by" is the human who conf
 | D50 | No linear-leaf GBM | RESULTS 40 notes: fold B motor explodes (D2 -166), fold A +0.0003 | Rejected | Project lead |
 | D51 | v10 (Tweedie GBM added to the tree half) replaces v8 as the lead final candidate | RESULTS 41-42: local blend A +0.0008 / B +0.0005 (B CI +0.0001..+0.0008); public 0.12887 vs v8 0.12867; the direct adjusted pure-premium Tweedie model matches the freq-sev GBM alone and is a different family | Adopted; recommended finals v10 and v8 (or v5) | Project lead (approved the build and submission) |
 | D52 | v11 (v10 with raw + repaired nets) not adopted over v10 | Public 0.12876 vs v10 0.12887; local +0.0005 / +0.0001 not significant | Not adopted; v10 stays the lead | Project lead |
+| D53 | No direct Tweedie net in the NN half | RESULTS 44 notes: alone A 0.1390 / B 0.1295, blend -0.0003..-0.0006 (A), -0.0002..-0.0004 (B) | Rejected; code kept (`--model fs_twnn`) | Project lead |
 
 ## Open decisions
 - Names of the team's independent reviewer and approver for the governance log (placeholders in `workflow/AI_USAGE.md`): to be filled in by the project lead.

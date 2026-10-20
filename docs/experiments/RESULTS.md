@@ -378,3 +378,9 @@ New model kind `tw` (`--model fs_tw`): one LightGBM Tweedie(1.5) model on each r
 
 ## 42. v10 submitted (14:30 EDT 2026-10-20)
 `blend_v10_perline.csv` (tree half = mean(freq-sev GBM, mean(Tweedie l4, Tweedie l8)), nets as v8, NN weights 0.7 / 0.4 / 0.3) vs v8: total +0.6% (motor +0.3%, buildings +0.9%, contents +1.3%), rank correlation 0.996-0.999. Submitted with the lead's go-ahead (2nd of the 2026-10-20 UTC day): public **0.12887** = new best (v8 0.12867, v5 0.12790, v9 0.12854). The local blend gain (+0.0008 / +0.0005) and the public gain (+0.0002) point the same way and are all inside the paired noise (0.0003-0.001); the direct Tweedie model is a genuinely different member (D51).
+
+## 43. Blending the finished blends and recombining components (15:10 EDT 2026-10-20)
+OOF proxies for v5 (raw GBM + raw nets), v8 (repaired GBM + repaired TabM + raw PLE), v9, v10 (v8 with the Tweedie half), scored on the repaired y, paired vs the v10 proxy (A 0.1438 / B 0.1357):
+- Averaging the finished blends gives nothing: v8+v10 A -0.0003 / B -0.0002, v5+v8+v10 +0.0000 / -0.0001, v5+v8+v9+v10 -0.0001 / -0.0001. They share almost all their information (rank correlation > 0.995), so the average only moves the Tweedie share.
+- Recombining components helps a little: the same tree half as v10 with the raw-data nets: A +0.0010 (CI -0.0002..+0.0029), B +0.0002 (CI -0.0001..+0.0005); with the mean of raw and repaired nets (**v11**): A +0.0005 (CI -0.0001..+0.0015), B +0.0001 (CI -0.0000..+0.0003); a four-GBM tree half + both net sets: +0.0004 / +0.0001. The repaired TabM is the weak link locally (RESULTS 40), the raw nets are the better ones, while the public score preferred the repaired build (v8 > v5): a mix of both hedges the two readings.
+- `blend_v11_perline.csv` = v10's tree half + mean(raw nets, repaired nets), NN weights 0.7 / 0.4 / 0.3, built from existing files (no refit). Not submitted yet.

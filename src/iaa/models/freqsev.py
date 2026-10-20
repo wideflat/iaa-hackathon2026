@@ -56,7 +56,7 @@ class FreqSev:
                  recency: float = 0.0, adv_strength: float = 0.0, tail_lambda: float = 0.0, entity_cols=(),
                  cat_encoding: str = "native", num_encoding: str = "native", cat_te: bool = False,
                  trend_scale: float = 1.0, trend_halflife: float | None = None, gbm_offset: dict | None = None,
-                 level_halflife: float | None = None, year_feature: bool = False):
+                 level_halflife: float | None = None, year_feature: bool = False, trend_mode: str = "pooled"):
         assert kind in ("glm", "gbm", "nn", "xgb", "cat")
         c = claims_line[claims_line["row_id"].notna() & (claims_line["status"] != "repudiated")]
         self.claims = c[["row_id", "peril", "net_cost"]]
@@ -77,6 +77,8 @@ class FreqSev:
         assert gbm_offset is None or kind == "nn", "gbm_offset is for the NN kind"
         self.gbm_offset = gbm_offset   # kind=nn: FreqSev kwargs of an inner LightGBM model; its cross-fitted per-peril rate and severity become log offsets and the net learns a multiplicative correction
         self._claims_line = claims_line
+        assert trend_mode in ("pooled", "peril")
+        self.trend_mode = trend_mode   # pooled = one severity trend per line (peril fixed effects); peril = each peril its own log-linear trend
         self.year_feature = year_feature   # policy year as a numeric input: lets the trees learn regime shifts by segment; rows of later years fall on the last year's side of every split
         self.level_halflife = level_halflife   # rebalancing target = recent-weighted trended cost (weight 0.5 ** (years before the last training year / level_halflife)) instead of all years equally
         self.cat_te = cat_te   # kind=nn: also feed the smoothed out-of-fold claim-rate (target) encoding of every categorical as a numeric input
@@ -304,7 +306,11 @@ class FreqSev:
         # B) severity trend: projects every claim to the cost level of year `ref`
         self.sev_trend_ = float(np.clip(self.trend_scale * self._estimate_trend(cl, self.trend_halflife), 0.0, 0.2)) if self.trend else 0.0
         self.ref_year_ = ref
-        cl["tf"] = np.exp(self.sev_trend_ * (ref - cl["year"]))
+        if self.trend_mode == "peril" and self.trend:
+            self.sev_trend_by_peril_ = {p: float(np.clip(self.trend_scale * self._estimate_trend(d, self.trend_halflife), 0.0, 0.2)) for p, d in cl.groupby("peril")}
+            cl["tf"] = np.exp(cl["peril"].map(self.sev_trend_by_peril_).to_numpy() * (ref - cl["year"]).to_numpy())
+        else:
+            cl["tf"] = np.exp(self.sev_trend_ * (ref - cl["year"]))
         lw_row = self._level_weights(train["year"].to_numpy(), ref)
         cl["lw"] = self._level_weights(cl["year"].to_numpy(), ref)
         # C) models per peril

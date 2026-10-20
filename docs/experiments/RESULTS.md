@@ -321,3 +321,22 @@ No repair changes the validation score measurably (all intervals include 0; the 
 ## 36. v8: the v5 recipe refit on the repaired data (19:55 EDT 2026-10-19)
 `blend_v8_clean_perline.csv` = target-encoded GBM + mean(TabM, TabM-PLE) (single-seed finals, `scripts/queue_final_clean.sh`), per-line NN weights 0.7 / 0.4 / 0.3, all four data repairs and the expected recoveries on open claims. Submitted 23:52 UTC (19:52 EDT) with the lead's go-ahead: public **0.12867**, a new best (v5 0.12790, +0.00077; 5 of 10 submissions used on the 2025-10-19 UTC day before this one).
 Versus v5 the 2025 predictions are 1.7% lower overall (motor -2.5%, buildings -0.6%, contents -0.8%), rank correlation 0.996-0.998. The change is mostly a motor level correction: the pooled motor severity trend falls from 5.7% to 5.1% a year (open own_damage claims in 2024 no longer carry unbooked recoveries, 4% of that peril's 2024 cost, and the 2022 duplicates no longer lift the 2022 level), and the 2024 level it projects from is lower. Locally the same repairs moved the GBM by -0.0007 / -0.0001 (RESULTS 35): the validation folds (calibration motor 1.04-1.05) could not resolve a level shift of this size, the public score did. Not attributed to a single repair (no ablation submissions, D21).
+
+## 37. Regime breaks, level and trend screens on the repaired data (20:50 EDT 2026-10-20)
+New structural facts (scripts inline, numbers from the repaired claims):
+- **Bodily-injury severity steps down on 2023-01-01**: median 13.4k / 13.2k (2021 / 2022) -> 9.8k / 9.9k (2023 / 2024); the whole distribution moves (5th-90th percentiles -25% to -30%), quarterly medians are flat before and after, closed and open claims alike (so it is not case-reserve development). A pooled log-linear trend cannot represent it.
+- **Claim frequency steps on 2023 too** (ultimate-equivalent, per exposure): own_damage 0.0641 / 0.0645 -> 0.0595 / 0.0598, third_party_prop 0.0437 / 0.0441 -> 0.0419 / 0.0409, bodily_injury -9% over four years, glass +9%, buildings subsidence +45% and fire +23% (steady), contents theft +8%. The model assumes none of it (rate = four-year average, no frequency trend), which is why predicted counts are 3-10% above actual in both backtests (motor fold B 1.03-1.05 for every peril; fold A own_damage 1.105).
+- Severity calibration of the production GBM (`scripts/sev_calibration.py`): bodily injury predicted/actual 1.22 (fold A), 1.05 (fold B); other motor perils 0.85-0.99 (under).
+- Backtest of next-year mean severity per peril (train <= 2022 -> 2023, train <= 2023 -> 2024; claim-weighted mean absolute log error): no trend 0.092 / 0.107, pooled trend 0.050 / 0.051, per-peril trend (clipped to [0, 0.12]) 0.038 / 0.035, shrunk per-peril (negative allowed) 0.046 / 0.032. Per-peril trends cut the error by about a third.
+- Paired noise of the public leaderboard: the standard deviation of the D2 difference between two near-identical models on random one-third customer subsets is 0.0003 on fold-B-like data and 0.0010 on fold-A-like data (one 11.9M claim). A 2.5% motor level shift moves local D2 by about 0.0001, so v8's +0.0008 cannot be attributed to the level change.
+
+Screens, target-encoded GBM on the repaired data (reference `fs_gbm_target_clean_rec` A 0.1369 / B 0.1333; paired bootstrap on the same rows):
+| Run | A | B | Verdict |
+|---|---|---|---|
+| rebalance per peril (all years) | -0.0001 | -0.0000 | neutral |
+| per-peril rebalance to recent-weighted cost, half-life 2 y | -0.0001 | -0.0000 | neutral |
+| same, half-life 1 y | -0.0001 | -0.0000 | neutral |
+| line-level rebalance, half-life 1 y | 0.0000 | +0.0000 | neutral |
+| written_premium and sum_insured divided by their median in the row's own year | +0.0000 (CI -0.0003..+0.0003) | -0.0002 (-0.0006..+0.0002) | rejected |
+| policy year as a numeric input (`--year-feature`) | +0.0003 (-0.0007..+0.0017; motor +0.0010) | +0.0002 (-0.0002..+0.0006; buildings +0.0006) | positive on both folds, not significant |
+Level and mix changes are invisible to the folds, as the sensitivity analysis predicts; they can only be judged by the backtest above and, noisily, by the public score.

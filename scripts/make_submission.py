@@ -36,6 +36,7 @@ def main() -> None:
     ap.add_argument("--trend-halflife", type=float, default=None)
     ap.add_argument("--cat-encoding", default="native", choices=["native", "label", "count", "both", "target", "target_peril"])
     ap.add_argument("--nn-ple", type=int, default=0)
+    ap.add_argument("--trend-mode", default="pooled", choices=["pooled", "peril"], help="severity trend pooled per line or per peril")
     ap.add_argument("--year-feature", action="store_true", help="fs_gbm: add the policy year as a numeric input")
     ap.add_argument("--deflate", default="", help="comma-separated nominal columns to divide by their median in the row's own year")
     ap.add_argument("--level-halflife", type=float, default=None, help="rebalance to the recent-weighted trended cost (half-life in years)")
@@ -62,7 +63,7 @@ def main() -> None:
             p = {"num_leaves": a.leaves} if a.leaves else {}
             model = FreqSev(target.matched_claims(tr, claims, line), kind=a.model[3:], drop_noise=not a.keep_noise, freq_rounds=a.freq_rounds,
                             sev_rounds=a.sev_rounds, params_freq=p, params_sev=p, n_seeds=a.seeds, nn_params={"n_seeds": a.seeds, "threads": 4, **({"tabm_k": a.nn_tabm_k} if a.nn_tabm_k else {}), **({"ple_bins": a.nn_ple} if a.nn_ple else {}), **({"num_transform": a.nn_numtf} if a.nn_numtf else {})},
-                            rebalance_level=a.rebalance_level, outlier_mult=a.outlier_mult, cat_encoding=a.cat_encoding, num_encoding=a.num_encoding, cat_te=a.nn_cat_te, trend_scale=a.trend_scale, trend_halflife=a.trend_halflife, level_halflife=a.level_halflife, year_feature=a.year_feature)
+                            rebalance_level=a.rebalance_level, outlier_mult=a.outlier_mult, cat_encoding=a.cat_encoding, num_encoding=a.num_encoding, cat_te=a.nn_cat_te, trend_scale=a.trend_scale, trend_halflife=a.trend_halflife, level_halflife=a.level_halflife, year_feature=a.year_feature, trend_mode=a.trend_mode)
         else:
             model = MeanRateModel() if a.model == "mean_rate" else LGBMTweedie(drop_noise=not a.keep_noise, n_rounds=a.rounds)
         model.fit(tr)

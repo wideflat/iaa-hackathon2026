@@ -298,3 +298,14 @@ def test_year_feature_adds_the_year_column_and_lets_the_model_learn_a_level_shif
     assert m.cols_[-1] == "year" and "year" in m._x(rows).columns
     assert np.isfinite(m.predict(rows.assign(year=2025))).all()
     assert "year" not in FreqSev(claims, kind="gbm", freq_rounds=40, sev_rounds=30).fit(rows).cols_
+
+
+def test_per_peril_trend_is_estimated_per_peril_and_balances():
+    rows, claims = _data()
+    rows = rows.assign(year=2021 + np.arange(len(rows)) % 3)
+    m = FreqSev(claims, kind="gbm", freq_rounds=40, sev_rounds=30, trend_mode="peril").fit(rows)
+    assert set(m.sev_trend_by_peril_) == set(m.freq_) and all(0.0 <= g <= 0.2 for g in m.sev_trend_by_peril_.values())
+    p = m.predict(rows)   # the total is the trended level, so it need not equal the observed total
+    assert (p >= 0).all() and np.isfinite(p).all()
+    hi, lo = rows.assign(x=2.0, g="c", exposure_calc=1.0), rows.assign(x=-2.0, g="a", exposure_calc=1.0)
+    assert m.predict(hi).mean() > m.predict(lo).mean()

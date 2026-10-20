@@ -361,3 +361,11 @@ def test_adjusted_pure_premium_tweedie_net_balances_and_ranks_risk():
     m = FreqSev(claims, kind="twnn", outlier_mult=5.0, nn_params={"epochs": 4, "hidden": (16, 8), "threads": 2, "tabm_k": 2}).fit(rows)
     assert list(m.expected_by_peril(rows).columns) == ["all"]
     _checks(m, rows)
+
+
+def test_adjusted_pure_premium_xgboost_tweedie_balances_and_ranks_risk():
+    pytest.importorskip("xgboost")
+    rows, claims = _data()
+    m = FreqSev(claims, kind="twx", freq_rounds=40, outlier_mult=5.0, params_freq={"max_depth": 2}).fit(rows)
+    assert list(m.expected_by_peril(rows).columns) == ["all"]
+    _checks(m, rows)

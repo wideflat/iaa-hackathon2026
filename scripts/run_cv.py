@@ -18,7 +18,7 @@ from iaa.models.freqsev import FreqSev  # noqa: E402
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", choices=["mean_rate", "lgbm", "fs_glm", "fs_gbm", "fs_nn", "fs_xgb", "fs_cat", "fs_tw", "fs_twnn", "nn_tweedie"], required=True)
+    ap.add_argument("--model", choices=["mean_rate", "lgbm", "fs_glm", "fs_gbm", "fs_nn", "fs_xgb", "fs_cat", "fs_tw", "fs_twx", "fs_twnn", "nn_tweedie"], required=True)
     ap.add_argument("--folds", default="A,B")
     ap.add_argument("--keep-noise", action="store_true", help="keep suspected noise columns as features")
     ap.add_argument("--drop", default="", help="comma-separated extra columns to drop")
@@ -121,12 +121,12 @@ def main() -> None:
             pf["max_bin"] = ps["max_bin"] = a.max_bin
         if a.min_leaf_freq:
             pf["min_data_in_leaf"] = a.min_leaf_freq
-        if a.model in ("fs_xgb", "fs_cat"):   # LightGBM parameter names do not apply
+        if a.model in ("fs_xgb", "fs_cat", "fs_twx"):   # LightGBM parameter names do not apply
             pf, ps = {}, {}
             if a.lr:
-                pf["eta" if a.model == "fs_xgb" else "learning_rate"] = ps["eta" if a.model == "fs_xgb" else "learning_rate"] = a.lr
+                pf["eta" if a.model in ("fs_xgb", "fs_twx") else "learning_rate"] = ps["eta" if a.model in ("fs_xgb", "fs_twx") else "learning_rate"] = a.lr
             if a.depth:
-                pf["max_depth" if a.model == "fs_xgb" else "depth"] = ps["max_depth" if a.model == "fs_xgb" else "depth"] = a.depth
+                pf["max_depth" if a.model in ("fs_xgb", "fs_twx") else "depth"] = ps["max_depth" if a.model in ("fs_xgb", "fs_twx") else "depth"] = a.depth
         nnp = {k: v for k, v in {"epochs": a.nn_epochs, "hidden": tuple(int(x) for x in a.nn_hidden.split(",")) if a.nn_hidden else None,
                                  "dropout": a.nn_dropout, "lr": a.nn_lr, "wd": a.nn_wd, "n_seeds": a.nn_seeds,
                                  "tabm_k": a.nn_tabm_k, "ple_bins": a.nn_ple, "num_transform": a.nn_numtf, "threads": a.threads or 4}.items() if v is not None}

@@ -57,7 +57,7 @@ class FreqSev:
                  cat_encoding: str = "native", num_encoding: str = "native", cat_te: bool = False,
                  trend_scale: float = 1.0, trend_halflife: float | None = None, gbm_offset: dict | None = None,
                  level_halflife: float | None = None, year_feature: bool = False, trend_mode: str = "pooled", extra_features=(), seasonality: bool = False):
-        assert kind in ("glm", "gbm", "nn", "xgb", "cat", "tw", "twnn")
+        assert kind in ("glm", "gbm", "nn", "xgb", "cat", "tw", "twx", "twnn")
         c = claims_line[claims_line["row_id"].notna() & (claims_line["status"] != "repudiated")]
         self.claims = c[["row_id", "peril", "net_cost"] + (["loss_date"] if "loss_date" in c.columns else [])]
         self.kind, self.cap_quantile, self.rebalance = kind, cap_quantile, rebalance
@@ -341,7 +341,7 @@ class FreqSev:
                 sev_idx.append(idx)
                 sev_p.append(np.full(len(idx), j))
                 sev_y.append((cp["cost"] * cp["tf"]).clip(lower=1.0).to_numpy())
-            elif self.kind in ("tw", "twnn"):
+            elif self.kind in ("tw", "twx", "twnn"):
                 pass   # one Tweedie model on the adjusted pure premium, fitted after the loop
             else:
                 Xp = X
@@ -358,7 +358,7 @@ class FreqSev:
             lp = float((lp_cost * cp["tf"] * cp["lw"] / cc).sum())   # ultimate-equivalent, trended training cost of this peril (recent-weighted if level_halflife)
             self.level_by_peril_[p] = lp
             level += lp
-        if self.kind in ("tw", "twnn"):
+        if self.kind in ("tw", "twx", "twnn"):
             assert self.rebalance_level == "line", "the Tweedie kinds have no peril split"
             cl["c"] = 1.0
             for p in cl["peril"].unique():
@@ -375,6 +375,10 @@ class FreqSev:
                 params.update(self.params_freq)
                 ds = lgb.Dataset(X, label=y_row, weight=w_row, init_score=np.log(expo * self.tw_base_), free_raw_data=False)
                 self.freq_["all"] = [lgb.train({**params, "seed": SEED + i}, ds, num_boost_round=self.freq_rounds) for i in range(self.n_seeds)]
+            elif self.kind == "twx":
+                margin = np.log(expo * self.tw_base_)
+                p_x = {"tweedie_variance_power": 1.5, "min_child_weight": 30.0, **self.params_freq}
+                self.freq_["all"] = [_boosters().XgbStage.fit(X, y_row, margin, "reg:tweedie", p_x, self.freq_rounds, SEED + i, self.threads) for i in range(self.n_seeds)]
             else:
                 self.freq_["all"] = self._fit_tweedie_net(X, y_row, expo, train)
             self.sev_["all"] = None
@@ -567,9 +571,11 @@ class FreqSev:
     def expected_by_peril(self, rows: pd.DataFrame) -> pd.DataFrame:
         X = self._x(rows)
         expo = rows["exposure_calc"].to_numpy()
-        if self.kind in ("tw", "twnn"):   # a single column: the Tweedie models have no peril split
+        if self.kind in ("tw", "twx", "twnn"):   # a single column: the Tweedie models have no peril split
             if self.kind == "tw":
                 raw = np.mean([np.exp(b.predict(X, raw_score=True)) for b in self.freq_["all"]], axis=0)
+            elif self.kind == "twx":
+                raw = np.mean([np.exp(b.predict_raw(X)) for b in self.freq_["all"]], axis=0)
             else:
                 raw = np.exp(np.mean([_nn()._predict(n, X)[:, 0] for n in self.freq_["all"]], axis=0))
             return pd.DataFrame({"all": self.tw_base_ * raw * expo}, index=rows.index)

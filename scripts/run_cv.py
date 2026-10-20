@@ -66,6 +66,8 @@ def main() -> None:
     ap.add_argument("--deflate", default="", help="comma-separated nominal columns to divide by their median in the row's own year (e.g. written_premium,sum_insured)")
     ap.add_argument("--year-feature", action="store_true", help="fs_gbm: add the policy year as a numeric input")
     ap.add_argument("--trend-mode", default="pooled", choices=["pooled", "peril"], help="fs: severity trend pooled per line or per peril")
+    ap.add_argument("--thin-events", action="store_true", help="fs: thin regional claim surges (iaa.events) back to the cell's baseline month for fitting")
+    ap.add_argument("--yoy", action="store_true", help="add year-on-year change features of the policy inputs (iaa.yoy)")
     ap.add_argument("--nn-cat-te", action="store_true", help="fs_nn: also feed target-encoded categoricals (out-of-fold claim rate) as numeric inputs")
     ap.add_argument("--trend-scale", type=float, default=1.0, help="fs: multiply the estimated severity trend")
     ap.add_argument("--trend-halflife", type=float, default=None, help="fs: weight recent claim years more when estimating the severity trend (half-life in years)")
@@ -81,6 +83,9 @@ def main() -> None:
     if a.deflate:
         from iaa.deflate import deflate_frames
         frames = deflate_frames(frames, [c for c in a.deflate.split(",") if c])
+    if a.yoy:
+        from iaa.yoy import add_yoy
+        frames = add_yoy(frames)
     if a.history_extra:
         from iaa.engineered_history import add_history_extra
         frames = add_history_extra(frames, claims)
@@ -98,6 +103,9 @@ def main() -> None:
 
     if a.model.startswith("fs_"):
         matched = {l: target.matched_claims(frames[l][frames[l]["split"] == "train"], claims, l) for l in LINES}
+        if a.thin_events:
+            from iaa.events import thin_for_fitting
+            matched = {l: thin_for_fitting(matched[l], frames[l]) for l in LINES}
         pf, ps = {"num_threads": a.threads}, {"num_threads": a.threads}
         if a.lr:
             pf["learning_rate"] = ps["learning_rate"] = a.lr

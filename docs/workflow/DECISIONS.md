@@ -56,6 +56,7 @@ Each decision: what, why (evidence), status. "Reviewed by" is the human who conf
 | D48 | No seasonal offset, timing or exposure inputs, per-peril trend or year input stacked into the final GBM | RESULTS 40: seasonal offset A 0.0000 / B -0.0002; inputs +0.0009 / +0.0002 and +0.0024 / +0.0003 (heavy-tail row); the stack +0.0006 / +0.0002 does not add up; all inside the validation noise | Rejected as a replacement for v8; code kept (`--seasonality`, `--extra-features`) | Project lead |
 | D49 | Keep the fixed per-line NN weights 0.7 / 0.4 / 0.3; no peril-level blend weights | RESULTS 40 notes: peril weights fitted on one fold lose -0.0002 / -0.0010 on the other; fitted weights are inconsistent between folds | Rejected | Project lead |
 | D50 | No linear-leaf GBM | RESULTS 40 notes: fold B motor explodes (D2 -166), fold A +0.0003 | Rejected | Project lead |
+| D51 | v10 (Tweedie GBM added to the tree half) replaces v8 as the lead final candidate | RESULTS 41-42: local blend A +0.0008 / B +0.0005 (B CI +0.0001..+0.0008); public 0.12887 vs v8 0.12867; the direct adjusted pure-premium Tweedie model matches the freq-sev GBM alone and is a different family | Adopted; recommended finals v10 and v8 (or v5) | Project lead (approved the build and submission) |
 
 ## Open decisions
 - Names of the team's independent reviewer and approver for the governance log (placeholders in `workflow/AI_USAGE.md`): to be filled in by the project lead.

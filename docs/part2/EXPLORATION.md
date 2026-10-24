@@ -43,7 +43,7 @@ Plain-words model of the market: *developed relativities x a frequency multiplie
 6. **Validation upgrade:** use both directions (forward and reverse) for every future decision, plus the paired bootstrap; report the pair. This answers "one fold, many variants".
 7. **Do not spend time on:** more motor feature corrections, region, new-business multiplier, stacking with emerging features, further tuning of the GBM, chasing the public-score gap.
 8. **Submissions:** p2_t1 (0.16077) stays the reference. Next candidate = recommendation 1 + 2 (+3 when ready). Judge it by both-direction fold E; the public score only checks the level.
-9. **For the report (30 points of judging sit on the story):** the structure finding (relativities x peril frequency multipliers x line severity scale + gender), the level-first insight (0.014 vs 0.003), the rejected list with evidence, and the uncertainty table. These are the "adaptation to the emerging market" evidence.
+9. **For the report (the adaptation story is part of the 40% performance criterion and the 15% communication criterion):** the structure finding (relativities x peril frequency multipliers x line severity scale + gender), the level-first insight (0.014 vs 0.003), the rejected list with evidence, and the uncertainty table. These are the "adaptation to the emerging market" evidence.
 
 ## 4. Tools and workflow ideas that came out of this session
 

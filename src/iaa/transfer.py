@@ -101,3 +101,16 @@ def robust_factors(act_n: pd.Series, exp_n: pd.Series, med_em: pd.Series, med_de
     z_s = credibility(act_n, k_sev)
     sev = z_s * ratio + (1.0 - z_s) * s_line
     return pd.DataFrame({"freq": freq, "sev": sev, "cost_factor": freq * sev, "n_claims": act_n})
+
+
+def calibrate_robust(cost_train: pd.DataFrame, count_train: pd.DataFrame, n_by_peril: pd.Series, y_train: pd.Series, n_claims_train: pd.Series, gender_train: pd.Series,
+                     med_em: pd.Series, med_dev: pd.Series, cost_test: pd.DataFrame, gender_test: pd.Series, k_freq: float = 20.0, k_sev: float = 30.0,
+                     k_group: float = 300.0) -> tuple[np.ndarray, dict]:
+    """Final transfer step with the robust level: peril cost factor = frequency factor (counts) x severity factor (medians), a gender factor on top, NO final line closure.
+
+    The closure used before copies the large-loss noise of the calibration years into the level (two-direction test, docs/part2/EXPLORATION.md)."""
+    rf = robust_factors(n_by_peril, count_train.sum(), med_em, med_dev, k_freq, k_sev)
+    base_train = pd.Series(apply_factors(cost_train, rf["cost_factor"]), index=cost_train.index)
+    f_group = group_factors(y_train, base_train, gender_train, n_claims_train, k=k_group)
+    pred = apply_factors(cost_test, rf["cost_factor"]) * gender_test.map(f_group).to_numpy()
+    return pred, {"peril": rf.to_dict("index"), "group": f_group.to_dict(), "train_actual_over_predicted": float(y_train.sum() / base_train.sum())}

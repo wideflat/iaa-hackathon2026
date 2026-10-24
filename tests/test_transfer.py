@@ -124,3 +124,17 @@ def test_robust_factors_ignore_one_huge_claim_and_shrink_small_perils():
     assert f["freq"]["a"] == pytest.approx(2.0, rel=0.05)
     assert f["sev"]["b"] == pytest.approx((5 / 35) * 0.1 + (30 / 35) * ((0.7 * 400 + 0.1 * 5) / 405), rel=1e-9)   # own ratio 0.1 with Z = 5/35, the rest the claim-weighted line ratio
     assert f["cost_factor"].to_numpy() == pytest.approx((f["freq"] * f["sev"]).to_numpy())
+
+
+def test_calibrate_robust_scales_by_counts_and_medians_and_ignores_a_huge_claim():
+    n = 2000
+    idx = pd.RangeIndex(n)
+    cost = pd.DataFrame({"a": np.full(n, 100.0), "b": np.full(n, 10.0)}, index=idx)
+    cnt = pd.DataFrame({"a": np.full(n, 0.1), "b": np.full(n, 0.05)}, index=idx)
+    gender = pd.Series(["M", "F"] * (n // 2), index=idx)
+    n_by = pd.Series({"a": 400.0, "b": 200.0})   # frequency factor 2.0 for a, 2.0 for b
+    y = pd.Series(np.full(n, 1e9 / n), index=idx)  # a single absurd total must not drive the level
+    pred, fac = transfer.calibrate_robust(cost, cnt, n_by, y, pd.Series(1.0, index=idx), gender, pd.Series({"a": 70.0, "b": 70.0}), pd.Series({"a": 100.0, "b": 100.0}), cost, gender,
+                                          k_freq=1.0, k_sev=1e-9, k_group=1e12)
+    assert fac["peril"]["a"]["cost_factor"] == pytest.approx(2.0 * 0.7, rel=0.02)
+    assert pred[0] == pytest.approx(100.0 * 2.0 * 0.7 + 10.0 * 2.0 * 0.7, rel=0.02)

@@ -454,3 +454,18 @@ Final recipe on each base, fold E, 59,202 rows (`scripts/p2_blend.py`, log `p2_b
 Full write-up and recommendations: `docs/part2/EXPLORATION.md`. Scripts: `scripts/p2_explore_ae.py` (A/E by feature level, `docs/part2/ae_by_feature.csv`), `scripts/p2_explore_drift.py`, `scripts/p2_calib2.py`.
 Summary: (1) feature misfit of the developed model in the emerging data is almost entirely motor (gender z 8, occupation chi2 98 on 20 df, age band, voluntary excess, written premium, NCB); the property lines show little. (2) The market differences have a stable structure: peril frequency multipliers (motor +12..+84%, buildings escape of water x0.66, contents escape of water x0.65) and a severity scale per line (median ratio motor ~0.6, buildings ~0.7, contents ~0.75; fire ~1.0). (3) Level calibration tested in both directions: removing the final line closure and using count / median based factors gives +0.0054 (+0.0019..+0.0087) forward and +0.0009 (-0.0023..+0.0044) reverse over closure-only + gender. (4) Extra motor corrections (age band, occupation, excess) help forward (+0.006) but not in the reverse direction (-0.001..+0.001); gender helps in both (+0.0039, +0.0028). (5) Test rows: new-business rows are similar to the new-business rows seen in training (adversarial AUC 0.55-0.61), renewals drift by ageing (0.62-0.69); 53-56% of test rows have exposure 0.75-0.99 (January starts) against 6-8% in training. (6) The public-score gap (0.16077 vs 0.1265) is not explained by new-business vs renewal D2 (0.126 vs 0.119), nor by prediction dispersion (sd of log rate 0.93 both).
 
+## 50. Robust level (count x winsorised-mean factors, no closure) in both directions; candidates t2, t3 (2026-10-24 EDT)
+
+`scripts/p2_calib2.py`, log `p2_calib_*`/stdout. Pooled D2 on the validation year; difference vs the previous recipe (per-line closure + gender) paired on the same rows.
+
+| Severity scale of a peril | Forward 2023 -> 2024 | Reverse 2024 -> 2023 |
+|---|---|---|
+| median ratio | +0.0054 (+0.0019..+0.0087) | +0.0009 (-0.0023..+0.0044) |
+| winsorised mean, 95% | +0.0023 (-0.0011..+0.0053) | +0.0009 (-0.0009..+0.0026) |
+| **winsorised mean, 99% (chosen: closest to the mean, no tuning on the max)** | **+0.0024 (-0.0010..+0.0054)** | **+0.0014 (-0.0004..+0.0031)** |
+
+Median-based factors under-predict the calibration rows of contents by 10-20% (the emerging claim distribution has a heavier tail than the developed one), which is why the winsorised mean is used. With the closure the same factors are worse (forward -0.0031). Base with the TabM nets 50/50 (same recipe, both directions): D2 0.1288 forward / 0.1210 reverse against 0.1281 / 0.1176 for the GBM base, i.e. +0.0007 / +0.0034.
+
+Candidate files (all validated against the sample submission): `submissions/p2_t2_robust_gbm.csv` (GBM base, robust level, gender; sha256 48a794a4da428ca4...; mean per row motor 489, buildings 433, contents 89) and `submissions/p2_t3_robust_gbm_tabm.csv` (50/50 GBM + TabM; sha256 113e521a4e5d013b...; 528 / 472 / 93). p2_t1 for comparison: 471 / 462 / 98.
+Risk found on the way: the net and the GBM agree on expected claim COUNTS for the test rows (ratio 0.93-1.04) but the nets give 8-12% higher cost on the test population, and the level of a single-seed net relative to the GBM moves by +-5% between cut-offs (motor train rows A 1.083, B 0.988, C 0.975). The factors are fitted on cut-offs A and B and applied at C, so this noise enters the level. Mitigation: average more nets (TabM-PLE running) before relying on the net half.
+

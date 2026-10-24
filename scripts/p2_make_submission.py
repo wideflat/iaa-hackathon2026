@@ -30,11 +30,17 @@ def base_costs(model: str, tag: str, line: str) -> pd.DataFrame:
     return d[[c for c in d.columns if c.startswith("dev_") and c != "dev_year"]].rename(columns=lambda c: c.removeprefix("dev_"))
 
 
-def mixed_costs(models: dict, tag: str, line: str) -> pd.DataFrame:
-    """Weighted arithmetic mean of the per-peril costs of several bases (weights of the line, summing to 1)."""
+def base_counts(model: str, tag: str, line: str) -> pd.DataFrame:
+    stem = "dev_pred2" if model == "gbm" else f"dev_pred2_{model}"
+    d = pd.read_parquet(pc.P2 / f"{stem}_{tag}_{line}.parquet").set_index("row_id")
+    return d[[c for c in d.columns if c.startswith("devn_")]].rename(columns=lambda c: c.removeprefix("devn_"))
+
+
+def mixed_costs(models: dict, tag: str, line: str, counts: bool = False) -> pd.DataFrame:
+    """Weighted arithmetic mean of the per-peril costs (or expected claim counts) of several bases (weights of the line, summing to 1)."""
     out = None
     for m, w in models.items():
-        c = base_costs(m, tag, line) * w
+        c = (base_counts if counts else base_costs)(m, tag, line) * w
         out = c if out is None else out + c
     return out
 
@@ -46,11 +52,16 @@ def main() -> None:
     ap.add_argument("--k-peril", type=float, default=300.0)
     ap.add_argument("--k-gender", type=float, default=300.0)
     ap.add_argument("--no-gender", action="store_true")
+    ap.add_argument("--level", default="closure", choices=["closure", "robust"], help="closure: per-peril cost factors + line closure (p2_t1); robust: count x median factors, no closure")
+    ap.add_argument("--sev-location", default="w99", choices=["median", "w99"], help="severity scale of a peril: ratio of medians, or of the claim means winsorised at the 99% quantile of each market")
+    ap.add_argument("--k-freq", type=float, default=20.0)
+    ap.add_argument("--k-sev", type=float, default=30.0)
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     share = {kv.split("=")[0]: float(kv.split("=")[1]) for kv in a.nn_share.split(",") if kv}
     nets = [m for m in a.nn_models.split(",") if m]
     claims = data.load_claims(pc.EM_DIR, "emerging")
+    dev_claims = data.load_claims(ROOT / "data" / "part2" / "developed", "developed")
     em = cache.load_frames(market="emerging", data_dir=pc.EM_DIR)
     sample = data.load_sample_submission(pc.EM_DIR)
     parts, factors, summary = [], {}, []
@@ -72,7 +83,22 @@ def main() -> None:
         g_train = rows["gender"] if not a.no_gender else pd.Series("all", index=rows.index)
         g_test = test["gender"] if not a.no_gender else pd.Series("all", index=test.index)
         pred_test = cost["C"].loc[test["row_id"]].set_axis(test.index)
-        pred, fac = transfer.calibrate_and_apply(pred_train, act, n_by, rows["y"], rows["n_claims"], g_train, pred_test, g_test, a.k_peril, a.k_gender)
+        if a.level == "closure":
+            pred, fac = transfer.calibrate_and_apply(pred_train, act, n_by, rows["y"], rows["n_claims"], g_train, pred_test, g_test, a.k_peril, a.k_gender)
+        else:
+            cnt = {tag: mixed_costs(models, tag, line, counts=True) for tag in ("A", "B")}
+            cnt_train = pd.concat([cnt["A"].loc[rows.loc[rows["year"] == 2023, "row_id"]], cnt["B"].loc[rows.loc[rows["year"] == 2024, "row_id"]]]).loc[rows["row_id"]].set_axis(rows.index)
+            cnt_train = cnt_train * pc.completeness(line, perils, rows["year"]).to_numpy()
+            dc = dev_claims[(dev_claims["line"] == line) & (dev_claims["status"] != "repudiated") & dev_claims["loss_date"].dt.year.isin([2023, 2024])]
+            dnet = target.claim_net_cost(dc)
+            if a.sev_location == "median":
+                dmed = dnet.groupby(dc["peril"]).median().reindex(perils)
+                emed = matched.groupby("peril")["net_cost"].median().reindex(perils).fillna(dmed)
+            else:
+                dmed = dnet.groupby(dc["peril"]).apply(lambda x: x.clip(upper=x.quantile(0.99)).mean()).reindex(perils)
+                emed = matched.groupby("peril")["net_cost"].apply(lambda x: x.clip(upper=x.quantile(0.99)).mean()).reindex(perils).fillna(dmed)
+            pred, fac = transfer.calibrate_robust(pred_train, cnt_train, n_by, rows["y"], rows["n_claims"], g_train, emed, dmed, pred_test, g_test, a.k_freq, a.k_sev, a.k_gender)
+            fac["closure"] = fac["train_actual_over_predicted"]
         factors[line] = fac
         parts.append(pd.DataFrame({"row_id": test["row_id"], "prediction": pred}))
         summary.append({"line": line, "test_rows": len(test), "train_actual_per_exposure": rows["y"].sum() / rows["exposure_calc"].sum(),

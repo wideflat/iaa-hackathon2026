@@ -16,6 +16,8 @@ import os
 import numpy as np
 import pandas as pd
 
+from .config import MARKET
+
 ALL_FIXES = ("duplicates", "placeholders", "sum_insured", "construction")
 
 
@@ -33,8 +35,11 @@ _CLAIM_CONTENT = ["policy_id", "line", "peril", "loss_date", "report_date", "sta
                   "recoveries", "repairer_id", "third_party_id"]
 _UNIT_ERROR_FACTOR = 1000.0
 _UNIT_ERROR_MEDIAN_MULTIPLE = 20.0   # clean sum_insured never exceeds ~3x the median; corrupted values are >100x
-_EXPECTED_DUPLICATES = (550, 650)    # sanity band for the number of duplicate claims dropped (604 in the competition data)
-_EXPECTED_PLACEHOLDERS = (200, 300)  # 252 in the competition data
+# Sanity bands for the number of repairs. Developed market: 604 duplicates, 252 placeholder loss dates (the planted defects).
+# Emerging market: neither defect is present (0 and 0 measured, docs/part2/DATA_REVIEW.md), so any appearance fails fast.
+_BANDS = {"developed": {"duplicates": (550, 650), "placeholders": (200, 300)}, "emerging": {"duplicates": (0, 0), "placeholders": (0, 0)}}
+# Emerging construction codes -> the developed vocabulary (BRK/STN are certain; WOD = timber = developed w; MIX is a guess, tested in docs/part2).
+_EMERGING_CONSTRUCTION = {"brk": "brick", "stn": "stone", "wod": "w", "mix": "non_standard"}
 
 
 def drop_duplicate_claims(claims: pd.DataFrame, expected: tuple[int, int]) -> pd.DataFrame:
@@ -63,13 +68,13 @@ def fix_placeholder_loss_dates(claims: pd.DataFrame, first_start: pd.Series, exp
     return out
 
 
-def clean_claims(claims: pd.DataFrame, first_start: pd.Series, expected_duplicates=_EXPECTED_DUPLICATES, expected_placeholders=_EXPECTED_PLACEHOLDERS) -> pd.DataFrame:
-    on = active_fixes()
-    out = drop_duplicate_claims(claims, expected_duplicates) if "duplicates" in on else claims
-    return fix_placeholder_loss_dates(out, first_start, expected_placeholders) if "placeholders" in on else out
+def clean_claims(claims: pd.DataFrame, first_start: pd.Series, market: str = MARKET) -> pd.DataFrame:
+    on, bands = active_fixes(), _BANDS[market]
+    out = drop_duplicate_claims(claims, bands["duplicates"]) if "duplicates" in on else claims
+    return fix_placeholder_loss_dates(out, first_start, bands["placeholders"]) if "placeholders" in on else out
 
 
-def clean_policies(df: pd.DataFrame, line: str) -> pd.DataFrame:
+def clean_policies(df: pd.DataFrame, line: str, market: str = MARKET) -> pd.DataFrame:
     out, on = df.copy(), active_fixes()
     if "sum_insured" in out and "sum_insured" in on:
         bad = out["sum_insured"] > _UNIT_ERROR_MEDIAN_MULTIPLE * out["sum_insured"].median()
@@ -78,4 +83,8 @@ def clean_policies(df: pd.DataFrame, line: str) -> pd.DataFrame:
         assert out["sum_insured"].max() < 10.0 * out["sum_insured"].median(), "sum_insured still has outliers after the unit fix"
     if "construction_type" in out and "construction" in on:
         out["construction_type"] = out["construction_type"].str.lower().replace({"t": "w"})
+        if market == "emerging":
+            known = out["construction_type"].dropna()
+            assert set(known) <= set(_EMERGING_CONSTRUCTION), f"unknown emerging construction codes: {set(known) - set(_EMERGING_CONSTRUCTION)}"
+            out["construction_type"] = out["construction_type"].map(_EMERGING_CONSTRUCTION)
     return out

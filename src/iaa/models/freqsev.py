@@ -56,7 +56,8 @@ class FreqSev:
                  recency: float = 0.0, adv_strength: float = 0.0, tail_lambda: float = 0.0, entity_cols=(),
                  cat_encoding: str = "native", num_encoding: str = "native", cat_te: bool = False,
                  trend_scale: float = 1.0, trend_halflife: float | None = None, gbm_offset: dict | None = None,
-                 level_halflife: float | None = None, year_feature: bool = False, trend_mode: str = "pooled", extra_features=(), seasonality: bool = False):
+                 level_halflife: float | None = None, year_feature: bool = False, trend_mode: str = "pooled", extra_features=(), seasonality: bool = False,
+                 completeness_table: dict | None = None):
         assert kind in ("glm", "gbm", "nn", "xgb", "cat", "tw", "twx", "twnn")
         c = claims_line[claims_line["row_id"].notna() & (claims_line["status"] != "repudiated")]
         self.claims = c[["row_id", "peril", "net_cost"] + (["loss_date"] if "loss_date" in c.columns else [])]
@@ -95,7 +96,8 @@ class FreqSev:
         self.nn_params = nn_params or {}   # kind='nn': epochs, hidden, dropout, lr, n_seeds... (see models/nn.py)
         self.sev_trend_ = 0.0
         has_dates = {"loss_date", "report_date"} <= set(claims_line.columns)
-        self.c_by_year = self._completeness_table(claims_line) if (completeness and has_dates) else {}
+        # completeness_table: {peril: {year: reported share}} borrowed from another portfolio (emerging market: two accident years are too few for a triangle)
+        self.c_by_year = completeness_table if (completeness and completeness_table is not None) else (self._completeness_table(claims_line) if (completeness and has_dates) else {})
 
     @staticmethod
     def _completeness_table(claims_line: pd.DataFrame) -> dict:

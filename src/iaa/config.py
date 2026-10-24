@@ -13,6 +13,7 @@ MARKET = os.environ.get("IAA_MARKET", "developed")
 assert MARKET in ("developed", "emerging"), f"IAA_MARKET must be developed or emerging, got {MARKET}"
 
 COMPETITION = "iaa-ai-assisted-hackathon-2026-part-1"
+PART2_COMPETITION = "iaa-ai-assisted-hackathon-2026-part-2"   # emerging-market test rows only; closes 2026-10-31 03:59 UTC
 
 LINES = ("motor", "buildings", "contents")
 

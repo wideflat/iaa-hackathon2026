@@ -1,6 +1,18 @@
 # Handoff (maintained by hand; refresh START HERE at every milestone with the `record-progress` skill)
 
-## START HERE (2026-10-18, ~14:10 UTC)
+## START HERE (Part 2, 12:44 EDT 2026-10-24)
+
+**Part 1 is finished: private rank 3 of 54 (0.13864; `docs/experiments/PART1_FINAL.md`). Part 2 (emerging market) closes 2026-10-30 23:59 EDT; nothing submitted to the Part 2 Kaggle competition yet (ask the project lead first).**
+- Read `docs/part2/PART2_STRATEGY.md` (plan, criteria, tools, timeline), `docs/part2/DATA_REVIEW.md` (what differs), `docs/part2/EVIDENCE_MAP.md`.
+- Result so far (RESULTS 45-46, D56-D59): fold E (emerging train 2023 -> validate 2024) pooled D2 emerging-only GBM 0.1110, developed model + level calibration 0.1243, + gender factor **0.1265**. Candidate file `submissions/p2_t1_gbm.csv` (+ `.factors.json`, `.summary.csv`) built by `scripts/p2_make_submission.py`, validated, **not submitted**.
+- Running in the background: `bash scripts/queue_p2_nn.sh` (TabM and TabM-PLE nets on the developed book, tags B, C, A; logs `artifacts/p2_dev_nn_*.log`; files `artifacts/p2/dev_pred2_nn_*`). Resumable: relaunch with `nohup bash scripts/queue_p2_nn.sh > artifacts/queue_p2_nn.log 2>&1 &` if `pgrep -af "^python scripts/p2_dev"` is empty. When done: add the NN half to fold E (`p2_calib.py` style), then `p2_make_submission.py --nn-share motor=0.7,buildings=0.4,contents=0.3`.
+- Pipeline: `scripts/p2_build_frames.py` (frames for both markets) -> `scripts/p2_dev_predictions.py` (developed model scores emerging rows; tags A/B/C = cut-offs 2022/2023/2024) -> `scripts/p2_cv.py`, `scripts/p2_calib.py` (fold E) -> `scripts/p2_make_submission.py`. Env: `IAA_MARKET=emerging`, data in `data/part2/{developed,emerging}` (gitignored; `scripts/download_part2.py`).
+- To do: model card, `scripts/reproduce_part2.sh`, data-contract tests, scenarios (buildings level, new-business relativity, trend), second-opinion run with another model family, report (5 pages) + video script (5 min), office-premium exhibit for the 20 reference policies (`src/iaa/office_premium.py`, needs the final predictions), final submission form (link not yet given).
+- Submit with `python scripts/submit.py <csv> -m "..." --part2 [--confirm]`; list with `python scripts/check_submissions.py --part2` (auth error possible; the Kaggle page shows the score).
+
+## Older notes (Part 1)
+
+### (2026-10-18, ~14:10 UTC)
 
 ### State
 - Branch `dev` (pushed through 5a9d006 + uncommitted hook/handoff files). Default branch on GitHub should become `main` (only the user can; I offered to fast-forward `main` to `dev`, awaiting OK).

@@ -1,4 +1,6 @@
-# IAA AI-Assisted Hackathon 2026 - Part 1 (Kaggle)
+# IAA AI-Assisted Hackathon 2026 - Part 1 (Kaggle, finished: private rank 3) and Part 2 (emerging market, closes 2026-10-30 23:59 EDT)
+
+Part 2: emerging-market test rows only on Kaggle (`iaa-ai-assisted-hackathon-2026-part-2`); plan in `docs/part2/PART2_STRATEGY.md`, data differences in `docs/part2/DATA_REVIEW.md`. Switch the market with `IAA_MARKET=emerging IAA_DATA_DIR=data/part2/emerging`; Part 2 scripts are `scripts/p2_*.py`; fold E (train 2023 -> validate 2024) is the emerging validation.
 
 Predict the expected ultimate claim cost per 2025 policy row (motor / buildings / contents); score = pooled Tweedie D2 (p=1.5); judged 40% performance, 25% AI use, 20% trust/validation, 15% communication. Index of everything: `docs/README.md`.
 

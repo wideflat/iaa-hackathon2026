@@ -1,6 +1,6 @@
 # Documentation index
 
-Project: IAA AI-Assisted Actuarial Hackathon 2026, Part 1 (Kaggle). Task: predict the expected ultimate claim cost of each 2025 motor, buildings and contents policy row, scored by pooled Tweedie D2 (power 1.5).
+Project: IAA AI-Assisted Actuarial Hackathon 2026, Part 1 (Kaggle; finished, private rank 3) and Part 2 (emerging market; closes 2026-10-30 23:59 EDT). Task: predict the expected ultimate claim cost of each 2025 motor, buildings and contents policy row, scored by pooled Tweedie D2 (power 1.5).
 
 | Folder | Read this for | Files |
 |---|---|---|
@@ -9,6 +9,7 @@ Project: IAA AI-Assisted Actuarial Hackathon 2026, Part 1 (Kaggle). Task: predic
 | `methodology/` | How we define the target, validate, and model | `TARGET_DEFINITION.md`, `VALIDATION.md`, `MODELLING.md` |
 | `experiments/` | Every result we have: comparisons, public leaderboard, level probes | `RESULTS.md` (curated), `EXPERIMENT_LOG.md` (generated from `experiments/log.jsonl`) |
 | `research/` | Research syntheses (sources mostly seen as search summaries; each note says what was read in full): loss development; similar Kaggle competitions, top solutions and strategy | `loss_development_report.md`, `kaggle_competitions_strategy_report.md`, `notes/`, `strategy_notes/` |
+| `part2/` | Part 2 (emerging market): data review, strategy and criteria plan, evidence map | `DATA_REVIEW.md`, `PART2_STRATEGY.md`, `EVIDENCE_MAP.md` |
 | `workflow/` | How the work was done: chronology, decisions, AI usage, plan | `DEVELOPMENT_LOG.md`, `DECISIONS.md`, `AI_USAGE.md`, `ROADMAP.md` |
 
 Suggested reading order for a reviewer: `competition/OVERVIEW.md` -> `data/DATA_QUALITY.md` -> `methodology/VALIDATION.md` -> `methodology/MODELLING.md` -> `experiments/RESULTS.md` -> `workflow/DECISIONS.md`.

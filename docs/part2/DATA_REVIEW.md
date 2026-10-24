@@ -44,7 +44,7 @@ buildings storm 466, escape_of_water 268, accidental_damage 122, flood 81, fire 
 | Item | Developed | Emerging | Treatment (`src/iaa/market.py`) |
 |---|---|---|---|
 | Age | exact `driver_age` / `policyholder_age`, `date_of_birth` | bands 17-24, 25-34, 35-49, 50-64, 65+ (`driver_age_band`, `policyholder_age_band`) | shared `age_band` (developed cut at the band edges); exact ages only in developed-only models |
-| Gender | absent | M/F, allowed for pricing in the emerging market (competition text) | emerging-only models; governance decision recorded (D56) |
+| Gender | absent | M/F, allowed for pricing in the emerging market (competition text) | emerging-only models; governance decision recorded (D57) |
 | Credit band, mileage, telematics (opt-in, score) | present | absent (telematics not offered) | dropped from the shared feature space |
 | Occupation | 20 clean values | free text: case variants, trailing blanks, `Self-employed <occupation>` prefix (≈ 60 distinct strings, 20 after normalisation, 8.8% self-employed) | `normalise_occupation` -> 20 base occupations + `self_employed` flag |
 | Construction type | brick, stone, timber (W/T) and non_standard (+ case variants fixed in Part 1) | local codes BRK 70%, WOD 12%, MIX 10%, STN 8% | map BRK->brick, STN->stone, WOD->timber, MIX->non_standard (MIX is an assumption: "mixed or non-standard"; sensitivity tested) |

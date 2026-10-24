@@ -16,7 +16,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from iaa import data  # noqa: E402
-from iaa.config import COMPETITION  # noqa: E402
+from iaa.config import COMPETITION, PART2_COMPETITION, REPO_ROOT  # noqa: E402
 from iaa.submission import validate_submission  # noqa: E402
 
 
@@ -25,10 +25,13 @@ def main() -> None:
     ap.add_argument("csv")
     ap.add_argument("-m", "--message", required=True, help="submission description (what it is, CV score)")
     ap.add_argument("--confirm", action="store_true", help="actually submit (uses one of the daily submissions)")
+    ap.add_argument("--part2", action="store_true", help="Part 2 competition (emerging-market test rows) instead of Part 1")
     a = ap.parse_args()
+    competition = PART2_COMPETITION if a.part2 else COMPETITION
+    sample_dir = REPO_ROOT / "data" / "part2" / "emerging" if a.part2 else None
 
     sub = pd.read_csv(a.csv, dtype={"row_id": str})
-    validate_submission(sub, data.load_sample_submission())
+    validate_submission(sub, data.load_sample_submission(sample_dir))
     print(f"format OK: {len(sub)} rows, mean prediction {sub['prediction'].mean():.2f}, min {sub['prediction'].min():.4f}")
 
     from kaggle.api.kaggle_api_extended import KaggleApi
@@ -38,7 +41,7 @@ def main() -> None:
     if not a.confirm:
         with KaggleApi.build_kaggle_client_with_params(args=[], api_token=token) as k:
             r = ApiStartSubmissionUploadRequest()
-            r.competition_name, r.file_name = COMPETITION, os.path.basename(a.csv)
+            r.competition_name, r.file_name = competition, os.path.basename(a.csv)
             r.content_length, r.last_modified_epoch_seconds = os.path.getsize(a.csv), int(os.path.getmtime(a.csv))
             resp = k.competitions.competition_api_client.start_submission_upload(r)
         print("dry run OK: upload slot granted =", bool(resp.create_url), "- NOT submitted (add --confirm)")
@@ -47,7 +50,7 @@ def main() -> None:
     api = KaggleApi()
     api.config_values[api.CONFIG_NAME_TOKEN] = token
     api._authenticated = True
-    resp = api.competition_submit(a.csv, a.message, COMPETITION)
+    resp = api.competition_submit(a.csv, a.message, competition)
     print("submitted:", resp.message)
 
 

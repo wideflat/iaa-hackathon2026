@@ -415,3 +415,22 @@ Setup: `scripts/p2_dev_predictions.py` trains the Part 1 recipe (frequency x sev
 Paired bootstrap on the same rows (customer clusters): `dev_cal` - `em_gbm` +0.0133 (95% +0.0058..+0.0207); `dev_raw` - `em_gbm` +0.0145 (+0.0072..+0.0221); `em_stack` - `em_gbm` +0.0039 (+0.0004..+0.0079); the blends sit between and never beat `dev_cal` alone. Per line `dev_cal` - `em_gbm`: motor +0.0069 (+0.0011..+0.0122), buildings +0.0172 (-0.0018..+0.0376), contents +0.0257 (+0.0115..+0.0392). An emerging-only GLM is far worse (motor -0.021, contents -0.079 vs `em_gbm`).
 
 Findings: (1) with two years and ~1,000 claims in each property line the emerging book cannot estimate its own relativities; the developed model's relativities transfer. (2) The developed model is 30% too expensive in motor (calibration factor 0.70; claim frequency +34% but severity -42%, DATA_REVIEW section 2) and the factors differ by peril (bodily injury 0.64, glass / hail 0.90, theft 0.86). (3) Buildings level is not stable between the two emerging years: raw calibration (predicted / actual) is 1.51 in 2024 after a factor fitted on 2023: fire had 49 claims / 3.2M in 2023 and 21 / 1.1M in 2024, subsidence 32 vs 20; with this noise the buildings D2 has se 0.03 and the line is decided by credibility, not by the two-year level. (4) The calibration shows new-business rows 0.90 times the renewal rows (actual / predicted 0.97 vs 1.08, motor 2024, 3.9k new-business rows): weak evidence that the developed new-business uplift is a little high; to be re-estimated with both years and shrunk (next).
+
+## 46. Part 2 fold E: calibration variants, new-business check, severity trend, gender (2026-10-24 EDT)
+
+All on the 59,202 emerging 2024 rows, developed model B (2021-23) scored with the developed completeness, calibration fitted on the emerging 2023 rows only (`scripts/p2_calib.py`, log names `p2_calib_foldE`, `p2_calib_foldE_v2`). Every variant is renormalised so that the calibration rows' predicted total equals their actual total.
+
+| Variant | Pooled D2 (se 0.012) | note |
+|---|---|---|
+| developed model, line level only (credibility k = infinity) | 0.1239 | the reference for what calibration can add |
+| per-peril cost factor k = 30 / 100 / 300 / 1000 | 0.1219 / 0.1233 / 0.1239 / 0.1240 | peril factors add nothing over the line level (k = 30 is worse, paired -0.0014, CI -0.0023..-0.0001) |
+| frequency / severity split factors (k_freq 20-50, k_sev 100-inf) | 0.1213-0.1225 | worse than the cost factors (-0.0008..-0.0020 paired): not adopted |
+| + new-business multiplier (k = 100 / 400) | 0.1213 / 0.1225 | worse (-0.0020, -0.0008): the multiplier estimated on 2023 (motor 1.57!) does not hold in 2024 |
+| **per-peril k = 300 + gender factor (k = 100 / 300)** | **0.1265 / 0.1264** | paired +0.0032 (95% +0.0013..+0.0055) over cost_k100; motor 0.0900, buildings 0.0649, contents 0.0979 |
+
+Gender (emerging only, allowed for pricing there by the competition's data page): male / female actual-to-developed-prediction ratio is stable across the two emerging years: motor frequency x1.29 (2023) and x1.34 (2024), cost x1.25 / x1.39; buildings frequency x1.13 / x1.11; contents x0.95 / x0.93. Region (E01-E06) and the other emerging features in a residual offset GBM do not help (region -0.0035, region + gender + age band -0.0013, all emerging features -0.0054; paired CIs include 0), gender alone +0.0031 (+0.0011..+0.0052).
+
+New-business relativity: the actual-to-developed-prediction frequency ratio of new-business rows to renewal rows (customer-cluster bootstrap) is motor 1.15 (0.98..1.28, 2023) and 1.02 (0.90..1.12, 2024), buildings 1.15 (0.82..1.54) and 0.71 (0.48..0.98), contents 1.14 (0.76..1.51) and 1.34 (1.03..1.63): around 1 within the noise (315 / 382 new-business motor claims, 37-65 per property year). The developed uplift (motor +45%) holds in the emerging book; the 76% new-business share of the 2025 test is carried by the developed relativity, not by an emerging estimate.
+
+Severity trend 2023 to 2024 (peril fixed effects, claims capped at the 99.9% quantile): emerging motor 4.3% (5-95% bootstrap 0.3..10.3%), buildings 6.9% (0..12%), contents 0.3% (0..11.7%) against developed 6.8% / 10.2% / 5.7% for the same two years; every emerging interval contains the developed value, so the developed trend in the model (5.1% / 6.6% / 4.3% projected to 2025) is kept.
+

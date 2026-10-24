@@ -9,11 +9,12 @@ from pathlib import Path
 import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from iaa.config import COMPETITION  # noqa: E402
+from iaa.config import COMPETITION, PART2_COMPETITION  # noqa: E402
 
 
 def main() -> int:
-    r = requests.get(f"https://www.kaggle.com/api/v1/competitions/submissions/list/{COMPETITION}", params={"pageSize": 50}, timeout=60)
+    competition = PART2_COMPETITION if "--part2" in sys.argv else COMPETITION
+    r = requests.get(f"https://www.kaggle.com/api/v1/competitions/submissions/list/{competition}", params={"pageSize": 50}, timeout=60)
     r.raise_for_status()
     pending = 0
     for s in r.json():

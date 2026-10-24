@@ -83,3 +83,33 @@ def test_split_factors_keep_the_observed_line_total():
     total = (f["freq"] * f["sev"] * exp_c).sum()
     assert total == pytest.approx(act_c.sum(), rel=0.15)   # shrinkage moves perils, the line stays close to the observed total
     assert (f[["freq", "sev"]] > 0).all().all()
+
+
+def test_group_factors_recover_ratio_and_preserve_total():
+    idx = range(6)
+    pred = pd.Series([1.0] * 6, index=idx)
+    actual = pd.Series([1.5, 1.5, 1.5, 0.5, 0.5, 0.5], index=idx)
+    g = pd.Series(["M"] * 3 + ["F"] * 3, index=idx)
+    n = pd.Series([1e6] * 6, index=idx)
+    f = transfer.group_factors(actual, pred, g, n, k=1.0)
+    assert f["M"] / f["F"] == pytest.approx(3.0, rel=1e-3)
+    assert (pred.groupby(g).sum() * f).sum() == pytest.approx(pred.sum())
+
+
+def test_group_factors_without_claims_are_all_one():
+    idx = range(4)
+    f = transfer.group_factors(pd.Series([3.0, 3.0, 1.0, 1.0], index=idx), pd.Series([1.0] * 4, index=idx), pd.Series(list("MMFF"), index=idx), pd.Series([0.0] * 4, index=idx), k=100.0)
+    assert f.tolist() == pytest.approx([1.0, 1.0])
+
+
+def test_calibrate_and_apply_recovers_a_known_level_and_group_effect():
+    rng = np.random.default_rng(0)
+    n = 4000
+    idx = pd.RangeIndex(n)
+    pred = pd.DataFrame({"a": rng.uniform(50, 150, n), "b": rng.uniform(5, 15, n)}, index=idx)
+    gender = pd.Series(rng.choice(["M", "F"], n), index=idx)
+    truth = pred * 0.6 * np.where(gender == "M", 1.2, 0.8)[:, None]
+    act = truth.copy()
+    out, fac = transfer.calibrate_and_apply(pred, act, pd.Series({"a": 1e6, "b": 1e6}), truth.sum(axis=1), pd.Series(1e3, index=idx), gender, pred, gender, k_peril=1.0, k_group=1.0)
+    assert out == pytest.approx(truth.sum(axis=1).to_numpy(), rel=0.02)
+    assert fac["group"]["M"] / fac["group"]["F"] == pytest.approx(1.5, rel=0.02)

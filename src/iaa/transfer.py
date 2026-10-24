@@ -56,3 +56,31 @@ def split_factors(actual_n: pd.Series, expected_n: pd.Series, actual_cost: pd.Se
     z_s = credibility(actual_n, k_sev)
     s = (z_s * s_own.fillna(s_line) + (1.0 - z_s) * s_line)
     return pd.DataFrame({"freq": f, "sev": s, "n_claims": actual_n})
+
+
+def group_factors(actual: pd.Series, predicted: pd.Series, groups: pd.Series, n_claims: pd.Series, k: float) -> pd.Series:
+    """Multiplicative factor per level of a rating factor that exists in one market only (e.g. gender in the emerging market).
+
+    ratio(level) = sum actual / sum predicted over the rows of the level, credibility-weighted towards 1 on the log scale
+    (Z = claims / (claims + k)), then divided by the exposure-free weighted mean (weights = predicted) so the factors leave the
+    predicted total unchanged."""
+    assert actual.index.equals(predicted.index) and actual.index.equals(groups.index) and actual.index.equals(n_claims.index)
+    ratio = actual.groupby(groups).sum() / predicted.groupby(groups).sum()
+    z = credibility(n_claims.groupby(groups).sum().astype(float), k)
+    raw = np.exp(z * np.log(ratio))
+    w = predicted.groupby(groups).sum()
+    return raw / float((raw * w).sum() / w.sum())
+
+
+def calibrate_and_apply(pred_train: pd.DataFrame, act_by_peril: pd.DataFrame, n_by_peril: pd.Series, y_train: pd.Series, n_claims_train: pd.Series,
+                        gender_train: pd.Series, pred_test: pd.DataFrame, gender_test: pd.Series, k_peril: float = 300.0, k_group: float = 300.0) -> tuple[np.ndarray, dict]:
+    """Final transfer step for one line: peril factors -> line closure -> group (gender) factors, fitted on the emerging training rows and applied to the test rows.
+
+    pred_train / pred_test: developed-model expected cost per peril (training rows at the as-valued basis, i.e. already multiplied by the completeness
+    of their accident year; test rows on the ultimate basis). act_by_peril: actual net cost per row x peril of the training rows. Returns (prediction, factors)."""
+    f_peril = calibration_factors(act_by_peril, pred_train, n_by_peril, k=k_peril)
+    base_train = pd.Series(apply_factors(pred_train, f_peril), index=pred_train.index)
+    closure = float(y_train.sum() / base_train.sum())
+    f_group = group_factors(y_train, base_train * closure, gender_train, n_claims_train, k=k_group)
+    pred = apply_factors(pred_test, f_peril) * closure * gender_test.map(f_group).to_numpy()
+    return pred, {"peril": f_peril.to_dict(), "closure": closure, "group": f_group.to_dict()}

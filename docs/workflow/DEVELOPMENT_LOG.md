@@ -34,3 +34,9 @@ Written for reproducibility and review: what was done, what was found, what was 
 
 ## Where things stand
 See `ROADMAP.md`. Open items: fix the GLM, frequency completeness adjustment for 2024, per-line level calibration, blend, hyperparameter tuning on the folds, final-submission selection, video/report, Part 2 readiness.
+
+## 2026-10-24 (EDT): Part 2 starts
+- Part 1 closed out (private rank 3, `docs/experiments/PART1_FINAL.md`). Part 2 data downloaded (`scripts/download_part2.py`): `developed/` is byte-identical to Part 1; `emerging/` has two training years, 76% new business in the 2025 test.
+- Reviewed the emerging tables (`docs/part2/DATA_REVIEW.md`): levels differ (motor frequency +34%, severity -42%), the Part 1 planted defects are absent but sum_insured x1000, free-text occupation, local construction codes, pre-inception claims and the customer-service-contacts leak are present.
+- Built the market layer (`IAA_MARKET`, parameterised cleaning bands, fold E, `market.py`, `transfer.py`, `office_premium.py`), trained the developed model on the shared features and scored the emerging rows; transfer + calibration beats an emerging-only model by +0.0133 pooled D2 (95% +0.0058..+0.0207) on fold E; gender factor +0.0032 more (RESULTS 45-46, D56-D59).
+- First candidate file built and validated, not submitted. NN half of the base running in the background.

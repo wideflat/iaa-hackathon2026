@@ -29,6 +29,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--tags", default="A,B,C")
     ap.add_argument("--lines", default=",".join(LINES))
+    ap.add_argument("--model", default="gbm", choices=["gbm", "nn_tabm", "nn_tabm_ple"], help="gbm = LightGBM (Part 1 tree half); nn_* = the TabM nets of the Part 1 NN half")
     a = ap.parse_args()
     out_dir = ARTIFACTS_DIR / "p2"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -40,13 +41,18 @@ def main() -> None:
         d_train = d[d["split"] == "train"]
         matched = target.matched_claims(d_train, claims, line)
         for tag in a.tags.split(","):
-            path = out_dir / f"dev_pred2_{tag}_{line}.parquet"   # costs and counts; dev_pred_ = first run (costs only)
-            old_path = out_dir / f"dev_pred_{tag}_{line}.parquet"
+            stem = "dev_pred2" if a.model == "gbm" else f"dev_pred2_{a.model}"
+            path = out_dir / f"{stem}_{tag}_{line}.parquet"   # costs and counts; dev_pred_ = first run of the GBM (costs only)
+            old_path = out_dir / f"dev_pred_{tag}_{line}.parquet" if a.model == "gbm" else out_dir / "does_not_exist.parquet"
             if path.exists():
                 continue
             train = d_train[d_train["year"] <= LAST_TRAIN_YEAR[tag]]
-            model = FreqSev(matched, kind="gbm", cat_encoding="target", outlier_mult=5.0, freq_rounds=350, sev_rounds=300, threads=THREADS,
-                            params_freq={"num_threads": THREADS, "num_leaves": 4}, params_sev={"num_threads": THREADS, "num_leaves": 4}).fit(train)
+            if a.model == "gbm":
+                model = FreqSev(matched, kind="gbm", cat_encoding="target", outlier_mult=5.0, freq_rounds=350, sev_rounds=300, threads=THREADS,
+                                params_freq={"num_threads": THREADS, "num_leaves": 4}, params_sev={"num_threads": THREADS, "num_leaves": 4}).fit(train)
+            else:   # as scripts/run_cv.py --model fs_nn --outlier-mult 5 --nn-tabm-k 4 [--nn-ple 8]
+                nnp = {"tabm_k": 4, "threads": THREADS} | ({"ple_bins": 8} if a.model == "nn_tabm_ple" else {})
+                model = FreqSev(matched, kind="nn", outlier_mult=5.0, threads=THREADS, nn_params=nnp).fit(train)
             by = model.k_ * model.expected_by_peril(e)
             cnt = model.expected_counts(e)
             sev_ratio = (by / cnt.where(cnt > 0)).fillna(0.0)   # mean cost per claim incl. excess load and rebalancing

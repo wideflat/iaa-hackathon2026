@@ -440,3 +440,7 @@ Severity trend 2023 to 2024 (peril fixed effects, claims capped at the 99.9% qua
 |---|---|---|---|---|---|
 | 2026-10-24 17:05 | `submissions/p2_t1_gbm.csv` (p2_t1) | a915f87e69dc8d99 | 0.1265 (se 0.012) | **0.16077** | developed LightGBM on shared features + per-line closure, peril factors k = 300, gender factor k = 300; submitted at the project lead's request; first Part 2 submission. The public D2 (0.16077) is higher than the fold E value (0.1265); not explained yet. Possible reasons, untested: different population (2025 test rows, 76% new business) and more claims per row in the new-business mix. |
 
+
+## 48. Part 2 fold E: GBM vs TabM base, interim (motor and buildings only; 2026-10-24 EDT)
+
+Final recipe (peril factors k = 300, line closure, gender factor) on top of each base; 40,468 emerging 2024 motor + buildings rows; `scripts/p2_blend.py`, log name `p2_blend_foldE_tabm_mb`. GBM 0.0803 (motor 0.0897, buildings 0.0629); TabM alone 0.0826 (0.0900, 0.0682); 50/50 0.0823 (0.0911, 0.0660); Part 1 weights (0.7 / 0.4 / 0.3 on the net) 0.0820. Paired vs GBM: nets +0.0023 (95% -0.0026..+0.0073), 50/50 +0.0020 (-0.0003..+0.0044), Part 1 weights +0.0017 (-0.0010..+0.0042). Same sign and size as Part 1 (+0.004) but the intervals include 0. Contents and the TabM-PLE nets are still training (`scripts/queue_p2_nn.sh`, restarts kill it; resumable); not adopted until all three lines and both nets are in.

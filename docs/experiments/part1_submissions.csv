@@ -1,0 +1,22 @@
+when (EDT),submission,public,private
+10-17 22:58,GBM freq x sev v1,0.12153,0.13363
+10-17 23:03,level probe x1.10,0.12429,0.13482
+10-17 23:03,level probe x0.90,0.11554,0.12941
+10-17 23:36,GBM + severity trend + completeness,0.12455,0.13333
+10-18 00:12,GLM freq x sev,0.12133,0.13193
+10-18 10:08,GBM + CANN NN 50/50,0.12587,0.1374
+10-18 18:01,GBM + TabM 50/50,0.12679,0.13782
+10-18 18:03,GBM leaves 4 (alone),0.12548,0.13457
+10-18 18:03,TabM (alone),0.12346,0.13627
+10-18 19:55,GBM + TabM per-line weights (v3),0.12718,0.1383
+10-18 21:12,GBM + TabM/PLE per-line (v4),0.12779,0.13864
+10-18 21:56,GBM target-encoded (alone),0.1272,0.1361
+10-18 22:28,v5: target GBM + TabM/PLE,0.1279,0.13859
+10-19 00:20,v6: v5 + 2025 inflation uplift,0.12761,0.13768
+10-19 16:33,v7: v5 with 3-seed nets,0.12785,0.1384
+10-19 19:52,v8: v5 on repaired data,0.12867,0.13879
+10-20 07:51,v9: v8 + per-peril trend/year GBM,0.12854,0.13906
+10-20 14:26,v10: v8 + Tweedie GBM in tree half (SELECTED),0.12887,0.13864
+10-20 14:51,v11: v10 + raw/repaired net mix,0.12876,0.13868
+10-20 17:01,XGBoost depth 3 (alone),0.12732,0.13796
+10-20 18:49,v12: v10 with XGBoost d3,0.12863,0.13899

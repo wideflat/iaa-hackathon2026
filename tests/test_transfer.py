@@ -113,3 +113,14 @@ def test_calibrate_and_apply_recovers_a_known_level_and_group_effect():
     out, fac = transfer.calibrate_and_apply(pred, act, pd.Series({"a": 1e6, "b": 1e6}), truth.sum(axis=1), pd.Series(1e3, index=idx), gender, pred, gender, k_peril=1.0, k_group=1.0)
     assert out == pytest.approx(truth.sum(axis=1).to_numpy(), rel=0.02)
     assert fac["group"]["M"] / fac["group"]["F"] == pytest.approx(1.5, rel=0.02)
+
+
+def test_robust_factors_ignore_one_huge_claim_and_shrink_small_perils():
+    act_n = pd.Series({"a": 400.0, "b": 5.0})
+    exp_n = pd.Series({"a": 200.0, "b": 5.0})
+    med_em = pd.Series({"a": 70.0, "b": 10.0})
+    med_dev = pd.Series({"a": 100.0, "b": 100.0})
+    f = transfer.robust_factors(act_n, exp_n, med_em, med_dev, k_freq=20.0, k_sev=30.0)
+    assert f["freq"]["a"] == pytest.approx(2.0, rel=0.05)
+    assert f["sev"]["b"] == pytest.approx((5 / 35) * 0.1 + (30 / 35) * ((0.7 * 400 + 0.1 * 5) / 405), rel=1e-9)   # own ratio 0.1 with Z = 5/35, the rest the claim-weighted line ratio
+    assert f["cost_factor"].to_numpy() == pytest.approx((f["freq"] * f["sev"]).to_numpy())

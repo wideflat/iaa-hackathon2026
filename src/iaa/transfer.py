@@ -84,3 +84,20 @@ def calibrate_and_apply(pred_train: pd.DataFrame, act_by_peril: pd.DataFrame, n_
     f_group = group_factors(y_train, base_train * closure, gender_train, n_claims_train, k=k_group)
     pred = apply_factors(pred_test, f_peril) * closure * gender_test.map(f_group).to_numpy()
     return pred, {"peril": f_peril.to_dict(), "closure": closure, "group": f_group.to_dict()}
+
+
+def robust_factors(act_n: pd.Series, exp_n: pd.Series, med_em: pd.Series, med_dev: pd.Series, k_freq: float = 20.0, k_sev: float = 30.0) -> pd.DataFrame:
+    """Frequency factor and severity factor per peril that do not depend on a few large claims.
+
+    freq_p: actual claim count / developed expected count, shrunk towards the line ratio (Poisson credibility, k_freq claims).
+    sev_p: ratio of the emerging to the developed MEDIAN claim cost of the peril (robust to large losses), shrunk towards the claim-weighted line ratio of the
+    medians with Z = n / (n + k_sev). The cost factor of a peril is freq_p x sev_p; expected developed cost already carries the developed severity trend and excess load."""
+    assert act_n.index.equals(exp_n.index) and act_n.index.equals(med_em.index) and act_n.index.equals(med_dev.index)
+    f_line = float(act_n.sum() / exp_n.sum())
+    z_f = credibility(act_n, k_freq)
+    freq = z_f * (act_n / exp_n) + (1.0 - z_f) * f_line
+    ratio = med_em / med_dev
+    s_line = float((ratio * act_n).sum() / act_n.sum())
+    z_s = credibility(act_n, k_sev)
+    sev = z_s * ratio + (1.0 - z_s) * s_line
+    return pd.DataFrame({"freq": freq, "sev": sev, "cost_factor": freq * sev, "n_claims": act_n})

@@ -91,6 +91,8 @@ def main() -> None:
         for k, p in P.items():
             r = score_report(V.assign(pred=p), n_boot=0)
             print(f"  {k:28s} D2={r['d2_pooled']:.4f} " + " ".join(f"{l}={r[f'd2_{l}']:.4f}/cal{r[f'calibration_{l}']:.2f}" for l in LINES), flush=True)
+        pd.DataFrame({"row_id": V["row_id"], "customer_id": V["customer_id"], "line": V["line"], "y": V["y"], "pred": P["robustw99_noclose+gender"], "pred_closure": P["closure_only+gender"]}).to_parquet(
+            pc.P2 / f"p2_calib2_{name.split()[0]}_nn{a.nn_weight}_oof.parquet")   # for the scenario analysis
         for k in ("cost_k300+gender", "robust_fs_noclose+gender", "robustw95_noclose+gender", "robustw99_noclose+gender"):
             d = bootstrap_d2_diff(V["y"], P[k], P["closure_only+gender"], V["customer_id"])
             print(f"  {k} - closure_only+gender: {d['diff']:+.4f} (95% {d['lo']:+.4f}..{d['hi']:+.4f})")

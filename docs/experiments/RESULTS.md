@@ -469,3 +469,16 @@ Median-based factors under-predict the calibration rows of contents by 10-20% (t
 Candidate files (all validated against the sample submission): `submissions/p2_t2_robust_gbm.csv` (GBM base, robust level, gender; sha256 48a794a4da428ca4...; mean per row motor 489, buildings 433, contents 89) and `submissions/p2_t3_robust_gbm_tabm.csv` (50/50 GBM + TabM; sha256 113e521a4e5d013b...; 528 / 472 / 93). p2_t1 for comparison: 471 / 462 / 98.
 Risk found on the way: the net and the GBM agree on expected claim COUNTS for the test rows (ratio 0.93-1.04) but the nets give 8-12% higher cost on the test population, and the level of a single-seed net relative to the GBM moves by +-5% between cut-offs (motor train rows A 1.083, B 0.988, C 0.975). The factors are fitted on cut-offs A and B and applied at C, so this noise enters the level. Mitigation: average more nets (TabM-PLE running) before relying on the net half.
 
+## 51. Scenario sensitivity (2026-10-24 EDT)
+
+`scripts/p2_scenarios.py`, base = GBM + TabM 50/50, robust level, gender; pooled D2 base 0.1288 forward / 0.1210 reverse (`docs/part2/scenarios_foldE.csv`). Change of pooled D2 when the level of a line, or of the new-business rows, is scaled on the validation rows:
+
+| Scenario | Forward 2023 -> 2024 | Reverse 2024 -> 2023 |
+|---|---|---|
+| buildings x0.8 / x1.2 | +0.0069 / -0.0086 | -0.0112 / +0.0057 |
+| motor x0.8 / x1.2 | -0.0045 / -0.0018 | +0.0006 / -0.0059 |
+| contents x0.8 / x1.2 | -0.0018 / -0.0004 | -0.0016 / -0.0004 |
+| new-business rows x0.8 / x1.2 | +0.0003 / -0.0015 | -0.0036 / +0.0018 |
+
+The buildings level is the only large uncertainty and it points in opposite directions in the two years; motor and contents are near their optimum; the new-business relativity matters little for D2 at +-20%. On the 2025 test predictions of t3: motor +-20% changes the predicted total by +-12.2%, buildings +-6.3%, contents +-1.6%, new-business rows +-10% by +-8.0%; motor is 60.8% of the predicted total, buildings 31.4%, contents 7.8%, new business 80.2%.
+

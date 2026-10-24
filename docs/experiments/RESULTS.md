@@ -438,5 +438,5 @@ Severity trend 2023 to 2024 (peril fixed effects, claims capped at the 99.9% qua
 
 | Date (EDT) | File | sha256 (first 16) | Local fold E pooled D2 | Public score | Note |
 |---|---|---|---|---|---|
-| 2026-10-24 17:05 | `submissions/p2_t1_gbm.csv` (p2_t1) | a915f87e69dc8d99 | 0.1265 (se 0.012) | **0.16077** | developed LightGBM on shared features + per-line closure, peril factors k = 300, gender factor k = 300; submitted at the project lead's request; first Part 2 submission. Public D2 is higher than the fold E value because the public rows are the 2025 test rows (76% new business), a different population from the 2024 validation rows. |
+| 2026-10-24 17:05 | `submissions/p2_t1_gbm.csv` (p2_t1) | a915f87e69dc8d99 | 0.1265 (se 0.012) | **0.16077** | developed LightGBM on shared features + per-line closure, peril factors k = 300, gender factor k = 300; submitted at the project lead's request; first Part 2 submission. The public D2 (0.16077) is higher than the fold E value (0.1265); not explained yet. Possible reasons, untested: different population (2025 test rows, 76% new business) and more claims per row in the new-business mix. |
 

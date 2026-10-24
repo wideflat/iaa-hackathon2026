@@ -33,3 +33,26 @@ def apply_factors(predicted: pd.DataFrame, factors: pd.Series) -> np.ndarray:
 def geometric_blend(a: np.ndarray, b: np.ndarray, weight_a: float) -> np.ndarray:
     assert 0.0 <= weight_a <= 1.0
     return np.exp(weight_a * np.log(np.maximum(a, 1e-9)) + (1.0 - weight_a) * np.log(np.maximum(b, 1e-9)))
+
+
+def credibility(n: pd.Series | float, k: float) -> pd.Series | float:
+    """Z = n / (n + k): the weight a segment's own evidence gets (k = the number of claims worth as much as the prior)."""
+    return n / (n + k)
+
+
+def split_factors(actual_n: pd.Series, expected_n: pd.Series, actual_cost: pd.Series, expected_cost: pd.Series, k_freq: float, k_sev: float) -> pd.DataFrame:
+    """Per-peril frequency and severity factors, each shrunk towards the all-peril value of its own kind.
+
+    Inputs are totals per peril over the calibration rows (actual claims / cost vs the developed model's expected claims / cost).
+    freq = actual_n / expected_n; the cost ratio is freq x sev, so sev = (actual_cost / expected_cost) / freq.
+    Frequency is Poisson (credibility Z = n / (n + k_freq)); severity is noisier (k_sev larger). The line-level severity factor is the pooled
+    ratio after the frequency factors are applied; shrinkage keeps the line total close to, not exactly at, the observed total (a final line rebalance can close the gap)."""
+    assert actual_n.index.equals(expected_n.index) and actual_cost.index.equals(expected_cost.index) and actual_n.index.equals(actual_cost.index)
+    f_line = float(actual_n.sum() / expected_n.sum())
+    f_own = actual_n / expected_n
+    f = credibility(actual_n, k_freq) * f_own + (1.0 - credibility(actual_n, k_freq)) * f_line
+    s_line = float(actual_cost.sum() / (f * expected_cost).sum())
+    s_own = (actual_cost / expected_cost) / f_own.replace(0.0, np.nan)
+    z_s = credibility(actual_n, k_sev)
+    s = (z_s * s_own.fillna(s_line) + (1.0 - z_s) * s_line)
+    return pd.DataFrame({"freq": f, "sev": s, "n_claims": actual_n})

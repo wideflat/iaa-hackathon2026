@@ -3,7 +3,7 @@
   python scripts/p2_dev_predictions.py --tags A,B,C
 
 Tag A = developed 2021-22 (level of 2023), B = 2021-23 (level of 2024), C = 2021-24 (level of 2025). Each (tag, line) is saved once to
-artifacts/p2/dev_pred_<tag>_<line>.parquet: per-peril expected cost of every emerging row on the ultimate basis at the tag's level, incl. the
+artifacts/p2/dev_pred2_<tag>_<line>.parquet: per-peril expected cost (dev_<peril>) and expected claim count (devn_<peril>) of every emerging row on the ultimate basis at the tag's level, incl. the
 model's rebalancing factor. Resumable: finished files are skipped. The completeness table of the developed claims (to correct the immature
 emerging 2024 year) is saved per line as artifacts/p2/dev_completeness_<line>.json.
 """
@@ -14,6 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
+import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 from iaa import cache, data, market, target  # noqa: E402
 from iaa.config import ARTIFACTS_DIR, LINES  # noqa: E402
@@ -39,14 +40,23 @@ def main() -> None:
         d_train = d[d["split"] == "train"]
         matched = target.matched_claims(d_train, claims, line)
         for tag in a.tags.split(","):
-            path = out_dir / f"dev_pred_{tag}_{line}.parquet"
+            path = out_dir / f"dev_pred2_{tag}_{line}.parquet"   # costs and counts; dev_pred_ = first run (costs only)
+            old_path = out_dir / f"dev_pred_{tag}_{line}.parquet"
             if path.exists():
                 continue
             train = d_train[d_train["year"] <= LAST_TRAIN_YEAR[tag]]
             model = FreqSev(matched, kind="gbm", cat_encoding="target", outlier_mult=5.0, freq_rounds=350, sev_rounds=300, threads=THREADS,
                             params_freq={"num_threads": THREADS, "num_leaves": 4}, params_sev={"num_threads": THREADS, "num_leaves": 4}).fit(train)
             by = model.k_ * model.expected_by_peril(e)
-            pd.concat([e[["row_id", "year", "split"]], by.add_prefix("dev_")], axis=1).to_parquet(path)
+            cnt = model.expected_counts(e)
+            sev_ratio = (by / cnt.where(cnt > 0)).fillna(0.0)   # mean cost per claim incl. excess load and rebalancing
+            assert np.allclose((cnt * sev_ratio).to_numpy(), by.to_numpy(), rtol=1e-6), "counts x severity must reproduce the cost"
+            out = pd.concat([e[["row_id", "year", "split"]], by.add_prefix("dev_"), cnt.add_prefix("devn_")], axis=1)
+            if old_path.exists():   # reproducibility check against the first run (same seeds, same data): costs must be identical
+                old = pd.read_parquet(old_path)
+                assert np.allclose(old[by.add_prefix("dev_").columns].to_numpy(), out[by.add_prefix("dev_").columns].to_numpy(), rtol=1e-6), f"{tag} {line}: rerun differs from the first run"
+                print(f"{line} tag {tag}: reproduces the first run", flush=True)
+            out.to_parquet(path)
             print(f"{line} tag {tag}: trained on {len(train)} rows, k={model.k_:.3f}, trend={model.sev_trend_:.3f}; emerging mean dev cost/row {by.sum(axis=1).mean():.1f}", flush=True)
             (out_dir / f"dev_completeness_{line}.json").write_text(json.dumps({p: {str(y): v for y, v in t.items()} for p, t in model.c_by_year.items()}))
 

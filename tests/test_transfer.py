@@ -57,3 +57,29 @@ def test_age_band_developed_cut_points_match_emerging_labels():
 def test_emerging_age_band_rejects_unknown_labels():
     with pytest.raises(AssertionError):
         market.age_band(pd.DataFrame({"driver_age_band": ["17-24", "99+"]}), "motor", "emerging")
+
+
+def test_credibility_weights():
+    assert transfer.credibility(100.0, 100.0) == pytest.approx(0.5)
+    assert transfer.credibility(0.0, 50.0) == 0.0
+
+
+def test_split_factors_recover_known_freq_and_sev_scale_with_ample_claims():
+    exp_n = pd.Series({"a": 1000.0, "b": 2000.0})
+    exp_c = pd.Series({"a": 1000.0 * 50.0, "b": 2000.0 * 10.0})
+    act_n = exp_n * pd.Series({"a": 1.5, "b": 0.8})
+    act_c = exp_c * pd.Series({"a": 1.5 * 0.7, "b": 0.8 * 0.7})   # severity 0.7 everywhere
+    f = transfer.split_factors(act_n, exp_n, act_c, exp_c, k_freq=1.0, k_sev=1.0)
+    assert f["freq"]["a"] == pytest.approx(1.5, rel=0.01) and f["freq"]["b"] == pytest.approx(0.8, rel=0.01)
+    assert f["sev"]["a"] == pytest.approx(0.7, rel=0.01) and f["sev"]["b"] == pytest.approx(0.7, rel=0.01)
+
+
+def test_split_factors_keep_the_observed_line_total():
+    exp_n = pd.Series({"a": 100.0, "b": 30.0, "c": 5.0})
+    exp_c = pd.Series({"a": 5000.0, "b": 9000.0, "c": 2000.0})
+    act_n = pd.Series({"a": 90.0, "b": 45.0, "c": 2.0})
+    act_c = pd.Series({"a": 3500.0, "b": 8000.0, "c": 900.0})
+    f = transfer.split_factors(act_n, exp_n, act_c, exp_c, k_freq=20.0, k_sev=100.0)
+    total = (f["freq"] * f["sev"] * exp_c).sum()
+    assert total == pytest.approx(act_c.sum(), rel=0.15)   # shrinkage moves perils, the line stays close to the observed total
+    assert (f[["freq", "sev"]] > 0).all().all()

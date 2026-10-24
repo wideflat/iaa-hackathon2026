@@ -61,6 +61,7 @@ Each decision: what, why (evidence), status. "Reviewed by" is the human who conf
 | D53 | No direct Tweedie net in the NN half | RESULTS 44 notes: alone A 0.1390 / B 0.1295, blend -0.0003..-0.0006 (A), -0.0002..-0.0004 (B) | Rejected; code kept (`--model fs_twnn`) | Project lead |
 | D54 | No CatBoost (ordered target statistics) in the blend; XGBoost depth 3 is the only second tree library kept as a candidate | RESULTS 44 notes: CatBoost depth 4 A 0.1163 / B 0.1191 against 0.1389 / 0.1346 for XGBoost depth 3; 5x slower; XGBoost screens (depth 2-5, sampling, lambda, gamma, min child weight) leave the defaults optimal | Rejected; `fs_xgb` depth 3 and v12 remain candidates | Project lead |
 | D55 | v12 (XGBoost depth 3 in the tree half) not adopted over v10 | Public 0.12863 vs v10 0.12887; local +0.0003 / +0.0002 not significant | Not adopted; v10 stays the lead | Project lead |
+| D56 | Part 2 base = developed-market model on shared features + per-peril level calibration on the emerging book; emerging-only models are demoted to challengers | RESULTS 45: fold E pooled D2 0.1243 (`dev_cal`) vs 0.1110 (emerging-only GBM), paired +0.0133 (95% +0.0058..+0.0207); positive in all three lines; stacking and blends never beat `dev_cal` alone | Adopted as the Part 2 base; credibility constants and the new-business factor still to be tuned on both emerging years | Project lead |
 
 ## Open decisions
 - Names of the team's independent reviewer and approver for the governance log (placeholders in `workflow/AI_USAGE.md`): to be filled in by the project lead.

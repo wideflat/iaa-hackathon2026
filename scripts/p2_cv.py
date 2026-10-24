@@ -49,6 +49,7 @@ def main() -> None:
     ap.add_argument("--freq-rounds", type=int, default=200)
     ap.add_argument("--sev-rounds", type=int, default=150)
     ap.add_argument("--k", type=float, default=100.0, help="credibility constant of the peril-level calibration")
+    ap.add_argument("--lines", default=",".join(LINES))
     ap.add_argument("--name", default="p2_foldE")
     a = ap.parse_args()
     variants = a.variants.split(",")
@@ -57,7 +58,7 @@ def main() -> None:
     fold = FOLDS["E"]
     preds: dict[str, list] = {v: [] for v in variants}
     valid_parts, factor_rows = [], []
-    for line in LINES:
+    for line in a.lines.split(","):
         e = market.to_common(em[line], line, "emerging")
         rows = e[e["split"] == "train"]
         matched = target.matched_claims(rows, claims, line)
@@ -112,7 +113,7 @@ def main() -> None:
         rep = score_report(valid_all.assign(pred=p), n_boot=200)
         results[v] = rep
         print(f"{v:22s} D2={rep['d2_pooled']:.4f} (se {rep['d2_pooled_boot']['se']:.4f}) cap250k={rep['d2_pooled_cap250k']:.4f} "
-              + " ".join(f"{l}={rep[f'd2_{l}']:.4f}/cal{rep[f'calibration_{l}']:.2f}" for l in LINES), flush=True)
+              + " ".join(f"{l}={rep[f'd2_{l}']:.4f}/cal{rep[f'calibration_{l}']:.2f}" for l in a.lines.split(",")), flush=True)
     ref = "em_gbm" if "em_gbm" in P else next(iter(P))
     for v, p in P.items():
         if v != ref:

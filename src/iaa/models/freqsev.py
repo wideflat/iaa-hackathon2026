@@ -593,6 +593,17 @@ class FreqSev:
             cols[p] = kp.get(p, 1.0) * rate * expo * self._season_factor(p, rows, days) * sev * (1.0 + self.excess_[p] * self._tail_ratio(p, Xp))
         return pd.DataFrame(cols, index=rows.index)
 
+    def expected_counts(self, rows: pd.DataFrame) -> pd.DataFrame:
+        """Expected ultimate claim count per peril (frequency x exposure x seasonality, before severity); frequency x severity kinds only.
+
+        expected_by_peril(rows)[p] == k-free identity: counts[p] x sev_p x (1 + excess_p) (tail ratio 1, no inner GBM offset)."""
+        assert self.kind in ("gbm", "glm", "xgb", "cat", "nn") and self.gbm_offset is None and self.tail_lambda == 0, "expected_counts needs a plain frequency x severity model"
+        X = self._x(rows)
+        expo = rows["exposure_calc"].to_numpy()
+        kp = getattr(self, "kp_", {})
+        days = self._days_by_month(rows) if self.seasonality else None
+        return pd.DataFrame({p: kp.get(p, 1.0) * self._freq_rate(p, self._xp(p, X, rows)) * expo * self._season_factor(p, rows, days) for p in self.freq_}, index=rows.index)
+
     def _predict_raw(self, rows: pd.DataFrame) -> np.ndarray:
         return self.expected_by_peril(rows).sum(axis=1).to_numpy()
 

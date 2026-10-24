@@ -434,3 +434,9 @@ New-business relativity: the actual-to-developed-prediction frequency ratio of n
 
 Severity trend 2023 to 2024 (peril fixed effects, claims capped at the 99.9% quantile): emerging motor 4.3% (5-95% bootstrap 0.3..10.3%), buildings 6.9% (0..12%), contents 0.3% (0..11.7%) against developed 6.8% / 10.2% / 5.7% for the same two years; every emerging interval contains the developed value, so the developed trend in the model (5.1% / 6.6% / 4.3% projected to 2025) is kept.
 
+## 47. Part 2 submissions (Kaggle, emerging test rows only)
+
+| Date (EDT) | File | sha256 (first 16) | Local fold E pooled D2 | Public score | Note |
+|---|---|---|---|---|---|
+| 2026-10-24 17:05 | `submissions/p2_t1_gbm.csv` (p2_t1) | a915f87e69dc8d99 | 0.1265 (se 0.012) | **0.16077** | developed LightGBM on shared features + per-line closure, peril factors k = 300, gender factor k = 300; submitted at the project lead's request; first Part 2 submission. Public D2 is higher than the fold E value because the public rows are the 2025 test rows (76% new business), a different population from the 2024 validation rows. |
+

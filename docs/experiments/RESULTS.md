@@ -534,3 +534,7 @@ All nine TabM-PLE fits (three lines x cut-offs A, B, C) are in. Two-direction te
 
 Averaged nets 50/50 vs GBM only: +0.0008 forward, +0.0044 reverse (paired vs the closure recipe +0.0009 / +0.0015, intervals include 0). Chosen: 50% nets, both nets averaged (no tuning on the maximum; 70% is no better). Candidate `submissions/p2_t4_robust_gbm_2nets.csv` (sha256 9bffbfe583d20340...; mean per row motor 505, buildings 480, contents 92; total mean 367.6): level between t2 (GBM only: 489 / 433 / 89) and t3 (TabM only: 528 / 472 / 93), as expected when the net's level noise is averaged out; row ranking agrees with t3 (Spearman 0.996-0.998). Not yet submitted.
 
+## 57. p2_t4 submitted (2026-10-24 22:33 EDT)
+
+`submissions/p2_t4_robust_gbm_2nets.csv` (sha256 9bffbfe583d20340...), GBM + (TabM, TabM-PLE) 50/50, robust level, gender, submitted at the project lead's request. Public **0.16336** against p2_t3 0.16360 (-0.00024), p2_t2 0.16314, p2_t1 0.16077. The three robust-level files t2, t3, t4 lie within 0.0005 of each other, which is inside the noise of public differences (Part 1: 0.0003-0.001); the local ordering (t4 best by +0.0001 forward / +0.0010 reverse over t3) is likewise within noise. The only separation visible is the level method (t1 vs t2/t3/t4, +0.0024 / +0.0028 / +0.0026). Submissions on the 2026-10-25 UTC day: t2, t3, t4 (3 of 10); total Part 2: 4.
+

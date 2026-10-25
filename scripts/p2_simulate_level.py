@@ -26,7 +26,7 @@ import p2_make_submission as ms  # noqa: E402
 DEV_DIR = ROOT / "data" / "part2" / "developed"
 TAG = {2023: "A", 2024: "B"}
 MODELS = {"hist1": 0.5, "nn_tabm_hist1": 0.25, "nn_tabm_ple_hist1": 0.25}   # the t7 base (tree half without the Tweedie part: that part only reshapes relativities)
-ESTIMATORS = [("closure", None, None)] + [(f"robust kf={kf:g} ks={ks:g}", kf, ks) for kf in (20, 100, 400, 5000) for ks in (30, 300)]
+ESTIMATORS = [("closure", None, None, False)] + [(f"robust kf={kf:g} ks={ks:g}", kf, ks, False) for kf in (20, 100, 400, 5000) for ks in (30, 300)] + [(f"robust kf={kf:g} ks=30 sizematch", kf, 30, True) for kf in (20, 400)]
 
 
 def bregman(mu: np.ndarray, m: np.ndarray) -> float:
@@ -89,10 +89,11 @@ def main() -> None:
             # developed winsorised means of the calibration year's pools are the denominator of the severity factor (as in p2_calib2)
             dcy = dev_claims[(dev_claims["line"] == line) & (dev_claims["status"] != "repudiated") & (dev_claims["loss_date"].dt.year == cal_y)]
             dcost_y = target.claim_net_cost(dcy)
-            dw = pd.Series({p: winsor_mean(dcost_y[dcy["peril"] == p].to_numpy()) for p in perils})
+            pools_y = {p: dcost_y[dcy["peril"] == p].to_numpy() for p in perils}
+            dw = pd.Series({p: winsor_mean(pools_y[p]) for p in perils})
             for scen in ("A", "B", "C"):
-                reg = {name: [] for name, _, _ in ESTIMATORS}
-                bias = {name: [] for name, _, _ in ESTIMATORS}
+                reg = {name: [] for name, _, _, _ in ESTIMATORS}
+                bias = {name: [] for name, _, _, _ in ESTIMATORS}
                 for _ in range(a.sims):
                     if scen == "A":
                         tf = pd.Series(line_f, index=perils); ts = pd.Series(line_s, index=perils)
@@ -101,24 +102,25 @@ def main() -> None:
                     else:
                         tf = pd.Series({p: line_f * np.exp(rng.normal(0, 0.25)) for p in perils}); ts = pd.Series({p: line_s * np.exp(rng.normal(0, 0.25)) for p in perils})
                     n_by = pd.Series({p: float(rng.poisson(en[p] * tf[p])) for p in perils})
-                    costs = {p: rng.choice(pools[p], int(n_by[p])) * ts[p] for p in perils}
+                    costs = {p: rng.choice(pools_y[p], int(n_by[p])) * ts[p] for p in perils}   # claims of the SAME developed year the severity factor is measured against (a pool of all years is cheaper through the trend and biases every estimator low)
                     ew = pd.Series({p: (winsor_mean(costs[p]) if n_by[p] > 0 else dw[p]) for p in perils})
                     total_cost = float(sum(c.sum() for c in costs.values()))
+                    dw_sm = pd.Series({p: float(np.mean([winsor_mean(rng.choice(pools_y[p], max(int(n_by[p]), 1))) for _ in range(30)])) for p in perils})   # developed winsorised mean at the size of this book's claim sample
                     mu = ev @ (tf * ts).to_numpy()
-                    for name, kf, ks in ESTIMATORS:
+                    for name, kf, ks, sm in ESTIMATORS:
                         if kf is None:
                             f = pd.Series(total_cost / float(ec.to_numpy().sum()), index=perils)
                         else:
-                            f = transfer.robust_factors(n_by, en, ew, dw, kf, ks)["cost_factor"]
+                            f = transfer.robust_factors(n_by, en, ew, dw_sm if sm else dw, kf, ks)["cost_factor"]
                         m = ev @ f.to_numpy()
                         reg[name].append(bregman(mu, m) / null_dev)
                         bias[name].append(float(np.log(m.sum() / mu.sum())))
-                for name, _, _ in ESTIMATORS:
+                for name, _, _, _ in ESTIMATORS:
                     out.append({"line": line, "direction": f"{cal_y}->{val_y}", "scenario": scen, "estimator": name, "regret_d2": float(np.mean(reg[name])), "regret_sd": float(np.std(reg[name])),
                                 "log_bias": float(np.mean(bias[name])), "log_bias_sd": float(np.std(bias[name])), "null_dev": null_dev})
             print(line, cal_y, "->", val_y, "done", flush=True)
     df = pd.DataFrame(out)
-    df.to_csv(ROOT / "artifacts" / "p2_simulation_level.csv", index=False)
+    df.to_csv(ROOT / "artifacts" / "p2_simulation_level_sizematch.csv" if a.sims != 400 else ROOT / "artifacts" / "p2_simulation_level.csv", index=False)
     pd.set_option("display.width", 220)
     print("\nMean regret in D2 points by scenario, estimator and line (average of the two directions); pooled = sum of the lines' regret over the sum of their null deviances")
     for scen in ("A", "B", "C"):

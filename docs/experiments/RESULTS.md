@@ -588,3 +588,15 @@ Tweedie part vs the same base without it (paired): 25%: +0.0023 (+0.0009..+0.003
 **t4 vs t6 recipe on the new-business subset** (the 2025 test is 76% new business, the validation years 12-15%): forward new business 0.1267 -> 0.1301, renewals 0.1243 -> 0.1293, reweighted to 76% new business 0.1341 -> 0.1379; reverse new business 0.1234 -> 0.1216 (5,974 rows, history unknown in 2023 so only the nets / Tweedie part differ), renewals 0.1213 -> 0.1234, reweighted 0.1239 -> 0.1230. The history gain sits in the renewals; on a new-business-heavy book the expected gain of t6 over t4 is smaller (about +0.0015 averaged over the two directions) than the +0.0032 average of the full-sample test, which fits the small public gain (+0.0011 over t4).
 **Noise fields** (previous insurer, campaign, segment, branch, email domain): same levels in both markets (40 / 15 / 12 / 25 / 5); not tested further (excluded in Part 1 without loss, and no count-based screen was run).
 
+## 64. Three seeds per model (2026-10-25 EDT)
+
+Part 1's final used 3-seed nets. Part 2: LightGBM frequency x severity with history and both direct Tweedie GBMs trained with 3 bagging seeds (helper `p2-gbm-s3`) and TabM with history trained with 3 nets averaged (helper `p2-tabm-s3`); TabM-PLE 3 seeds was stopped before it finished. Two-direction test of the t6 recipe, pooled D2 forward / reverse:
+
+| Base | Forward | Reverse |
+|---|---|---|
+| t6: single seeds | 0.1336 | 0.1237 |
+| 3-seed GBM and Tweedie, single-seed nets | 0.1334 | 0.1234 |
+| 3-seed GBM, Tweedie and TabM, single-seed TabM-PLE | 0.1333 | 0.1233 |
+
+Averaging seeds does not improve validation (-0.0002 / -0.0003 and -0.0003 / -0.0004): the validation noise is far larger than the seed noise, and the bagging seeds of a 4-leaf GBM barely differ. t6 stays (D71). Compute spent: about 9 helper-hours.
+

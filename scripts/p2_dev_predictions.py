@@ -45,6 +45,7 @@ def main() -> None:
     ap.add_argument("--sev-rounds", type=int, default=300)
     ap.add_argument("--lr", type=float, default=0.05)
     ap.add_argument("--min-leaf-freq", type=int, default=300)
+    ap.add_argument("--adv", type=float, default=0.0, help="gbm: domain-shift weights of strength s (odds^s that a developed row looks like an emerging row; features only, no labels)")
     ap.add_argument("--variant", default="", help="suffix of the output files when --drop or --mix-as is used")
     ap.add_argument("--mix-as", default="", help="buildings only: comma-separated developed levels (w, brick, stone) to read the emerging code MIX as; one extra file per level, the model is trained once")
     ap.add_argument("--model", default="gbm", choices=["gbm", "nn_tabm", "nn_tabm_ple"], help="gbm = LightGBM (Part 1 tree half); nn_* = the TabM nets of the Part 1 NN half")
@@ -71,7 +72,7 @@ def main() -> None:
             train = d_train[d_train["year"] <= LAST_TRAIN_YEAR[tag]]
             if a.model == "gbm":
                 model = FreqSev(matched, kind="gbm", cat_encoding="target", outlier_mult=5.0, freq_rounds=a.freq_rounds, sev_rounds=a.sev_rounds, threads=THREADS,
-                                params_freq={"num_threads": THREADS, "num_leaves": a.leaves, "learning_rate": a.lr, "min_data_in_leaf": a.min_leaf_freq}, params_sev={"num_threads": THREADS, "num_leaves": a.leaves, "learning_rate": a.lr}, extra_drop=tuple(c for c in a.drop.split(",") if c)).fit(train)
+                                params_freq={"num_threads": THREADS, "num_leaves": a.leaves, "learning_rate": a.lr, "min_data_in_leaf": a.min_leaf_freq}, params_sev={"num_threads": THREADS, "num_leaves": a.leaves, "learning_rate": a.lr}, extra_drop=tuple(c for c in a.drop.split(",") if c), adv_strength=a.adv).fit(train, target=e if a.adv else None)
             else:   # as scripts/run_cv.py --model fs_nn --outlier-mult 5 --nn-tabm-k 4 [--nn-ple 8]
                 nnp = {"tabm_k": 4, "threads": THREADS} | ({"ple_bins": 8} if a.model == "nn_tabm_ple" else {})
                 model = FreqSev(matched, kind="nn", outlier_mult=5.0, threads=THREADS, nn_params=nnp, extra_drop=tuple(c for c in a.drop.split(",") if c)).fit(train)

@@ -538,3 +538,7 @@ Averaged nets 50/50 vs GBM only: +0.0008 forward, +0.0044 reverse (paired vs the
 
 `submissions/p2_t4_robust_gbm_2nets.csv` (sha256 9bffbfe583d20340...), GBM + (TabM, TabM-PLE) 50/50, robust level, gender, submitted at the project lead's request. Public **0.16336** against p2_t3 0.16360 (-0.00024), p2_t2 0.16314, p2_t1 0.16077. The three robust-level files t2, t3, t4 lie within 0.0005 of each other, which is inside the noise of public differences (Part 1: 0.0003-0.001); the local ordering (t4 best by +0.0001 forward / +0.0010 reverse over t3) is likewise within noise. The only separation visible is the level method (t1 vs t2/t3/t4, +0.0024 / +0.0028 / +0.0026). Submissions on the 2026-10-25 UTC day: t2, t3, t4 (3 of 10); total Part 2: 4.
 
+## 58. Part 2: extra motor corrections on top of gender, both directions (2026-10-25 EDT)
+
+`scripts/p2_calib2.py --extra`, base GBM + (TabM, TabM-PLE) 50/50, robust level, gender; paired difference to the same recipe, pooled D2, forward / reverse: gender x age band +0.0001 / -0.0001; gender x cover type -0.0003 / -0.0005; no-claims bonus bands -0.0015 / -0.0017; age band -> identical to gender x age band; voluntary excess -0.0018 / -0.0011; occupation -0.0008 / -0.0003; gender x age band x cover type -0.0003 / -0.0003. None helps: the gender factor stays flat per line (D57), and the reviewer's age-dependent gender effect (M/F 1.70 at 17-24, 1.08 at 35-49) does not improve the validation score. A domain-shift weighted developed GBM (`--adv 0.5`, variant `adv05`) is still training.
+

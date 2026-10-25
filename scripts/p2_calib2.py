@@ -16,7 +16,7 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 from iaa import cache, data, market, target, transfer  # noqa: E402
 from iaa.config import LINES  # noqa: E402
-from iaa.metrics import bootstrap_d2_diff, score_report  # noqa: E402
+from iaa.metrics import bootstrap_d2_diff, d2_tweedie, score_report  # noqa: E402
 import p2_calib as pc  # noqa: E402
 import p2_make_submission as ms  # noqa: E402
 import argparse  # noqa: E402
@@ -29,6 +29,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--nn-weight", type=float, default=0.0, help="weight of the nets in the base (0 = GBM only)")
     ap.add_argument("--nn-models", default="nn_tabm")
+    ap.add_argument("--extra", default="", help="semicolon-separated extra factor specs applied after the robust level: 'gender+age_band' (replaces the gender factor), or 'age_band', 'ncb', 'voluntary_excess', 'occupation', ... added on top of gender")
     ap.add_argument("--gbm-name", default="gbm", help="name of the tree base: gbm, or a variant stem written by p2_dev_predictions --variant")
     a = ap.parse_args()
     nets = [m for m in a.nn_models.split(",") if m]
@@ -72,6 +73,21 @@ def main() -> None:
                 "cost_k300": (pd.Series(transfer.apply_factors(ec, f_cost), index=cal.index), pd.Series(transfer.apply_factors(ev, f_cost), index=val.index)),
                 "robust_fs": (pd.Series(transfer.apply_factors(ec, rf["cost_factor"]), index=cal.index), pd.Series(transfer.apply_factors(ev, rf["cost_factor"]), index=val.index)),
             }
+            def labels(d, cols):
+                parts = [(pd.cut(d["ncb_years"], [-1, 0, 1, 2, 5, 8, 11, 100]).astype(object) if c == "ncb" else d[c].astype(object)).where(lambda x: x.notna(), "NA").astype(str) for c in cols]
+                out = parts[0]
+                for q in parts[1:]:
+                    out = out + "|" + q
+                return out
+            for spec in [x for x in a.extra.split(";") if x]:
+                rfw = loc[0.99]
+                ptr0 = pd.Series(transfer.apply_factors(ec, rfw["cost_factor"]), index=cal.index)
+                pva0 = pd.Series(transfer.apply_factors(ev, rfw["cost_factor"]), index=val.index)
+                base_cols = spec.split("+") if "gender" in spec.split("+") else ["gender"] + spec.split("+")
+                base_cols = [c for c in base_cols if (c == "ncb" and "ncb_years" in cal.columns) or c in cal.columns]   # a factor that does not exist in this line is left out (gender only)
+                g_cal, g_val = labels(cal, base_cols), labels(val, base_cols)
+                gf = transfer.group_factors(cal["y"], ptr0, g_cal, cal["n_claims"], 300.0)
+                preds.setdefault(f"extra[{spec}]", []).append(pva0.to_numpy() * g_val.map(gf).fillna(1.0).to_numpy())
             for q, rfq in loc.items():
                 variants[f"robustw{int(q * 100)}"] = (pd.Series(transfer.apply_factors(ec, rfq["cost_factor"]), index=cal.index), pd.Series(transfer.apply_factors(ev, rfq["cost_factor"]), index=val.index))
             for v, (ptr, pva) in variants.items():
@@ -94,6 +110,9 @@ def main() -> None:
             print(f"  {k:28s} D2={r['d2_pooled']:.4f} " + " ".join(f"{l}={r[f'd2_{l}']:.4f}/cal{r[f'calibration_{l}']:.2f}" for l in LINES), flush=True)
         pd.DataFrame({"row_id": V["row_id"], "customer_id": V["customer_id"], "line": V["line"], "y": V["y"], "pred": P["robustw99_noclose+gender"], "pred_closure": P["closure_only+gender"]}).to_parquet(
             pc.P2 / f"p2_calib2_{name.split()[0]}_{a.gbm_name}_nn{a.nn_weight}_oof.parquet")   # for the scenario analysis
+        for k in [x for x in P if x.startswith("extra[")]:
+            d = bootstrap_d2_diff(V["y"], P[k], P["robustw99_noclose+gender"], V["customer_id"])
+            print(f"  {k} - robustw99_noclose+gender: {d['diff']:+.4f} (95% {d['lo']:+.4f}..{d['hi']:+.4f})  D2 {d2_tweedie(V['y'], P[k]):.4f}")
         for k in ("cost_k300+gender", "robust_fs_noclose+gender", "robustw95_noclose+gender", "robustw99_noclose+gender"):
             d = bootstrap_d2_diff(V["y"], P[k], P["closure_only+gender"], V["customer_id"])
             print(f"  {k} - closure_only+gender: {d['diff']:+.4f} (95% {d['lo']:+.4f}..{d['hi']:+.4f})")

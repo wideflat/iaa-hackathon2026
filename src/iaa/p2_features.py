@@ -55,17 +55,20 @@ def add_features(df: pd.DataFrame, line: str, sets: tuple, held: pd.DataFrame | 
     return out
 
 
-def customer_prev_year_claims(claims: pd.DataFrame, rows_all: pd.DataFrame) -> pd.DataFrame:
+def customer_prev_year_claims(claims: pd.DataFrame, rows_all: pd.DataFrame, by_line: bool = False) -> pd.DataFrame:
     """(customer_id, year) -> claims of the customer over ALL lines with a loss in year-1 that were reported by 31 December of year-1.
 
     rows_all: policy_id, customer_id, period_start, period_end of every policy row of every line of ONE market (a claim is attached to the customer of the row whose
     period contains its loss date). A window of exactly one year is used because the emerging book starts in 2023: all-time counts would mean a different thing in the two markets."""
-    c = claims[claims["status"] != "repudiated"][["claim_id", "policy_id", "loss_date", "report_date"]].merge(rows_all[["policy_id", "customer_id", "period_start", "period_end"]], on="policy_id")
+    c = claims[claims["status"] != "repudiated"][["claim_id", "policy_id", "line", "loss_date", "report_date"]].merge(rows_all[["policy_id", "customer_id", "period_start", "period_end"]], on="policy_id")
     c = c[(c["loss_date"] >= c["period_start"]) & (c["loss_date"] <= c["period_end"])].drop_duplicates("claim_id")
     c = c.assign(loss_year=c["loss_date"].dt.year)
     c = c[c["report_date"] <= pd.to_datetime(c["loss_year"].astype(str) + "-12-31")]
     n = c.groupby(["customer_id", "loss_year"]).size().rename("cust_prev_year_claims").reset_index()
-    return n.assign(year=n["loss_year"] + 1)[["customer_id", "year", "cust_prev_year_claims"]]
+    if by_line:   # the customer's claims of the previous year on each line separately
+        per = c.groupby(["customer_id", "loss_year", "line"]).size().unstack(fill_value=0).reindex(columns=["motor", "buildings", "contents"], fill_value=0).add_prefix("cust_prev_").add_suffix("_claims").reset_index()
+        n = n.merge(per, on=["customer_id", "loss_year"], how="left")
+    return n.assign(year=n["loss_year"] + 1).drop(columns="loss_year")[["customer_id", "year"] + [c_ for c_ in n.columns if c_.startswith("cust_prev")]]
 
 
 HIST1_COLS = ("hist_n_last_year", "addr_n_last_year", "cust_prev_year_claims")
@@ -76,7 +79,8 @@ def add_history1(df: pd.DataFrame, raw: pd.DataFrame, cust_prev: pd.DataFrame, f
 
     Rows of `first_year` (the first year of the market's data) have an UNKNOWN history, not an empty one: their values are set to missing, which the developed model has seen on its own first year (2021)."""
     out = df.merge(raw[["row_id", "hist_n_last_year", "addr_n_last_year"]], on="row_id", how="left").merge(cust_prev, on=["customer_id", "year"], how="left")
-    out["cust_prev_year_claims"] = out["cust_prev_year_claims"].fillna(0.0)
+    extra = [c for c in cust_prev.columns if c.startswith("cust_prev_") and c != "cust_prev_year_claims"]
+    out[["cust_prev_year_claims"] + extra] = out[["cust_prev_year_claims"] + extra].fillna(0.0)
     first = out["year"] == first_year
-    out.loc[first, list(HIST1_COLS)] = np.nan
+    out.loc[first, list(HIST1_COLS) + extra] = np.nan
     return out

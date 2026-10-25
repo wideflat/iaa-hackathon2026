@@ -58,13 +58,13 @@ def main() -> None:
     claims = data.load_claims(DIRS["developed"], "developed")
     dev, em = cache.load_frames(market="developed", data_dir=DIRS["developed"]), cache.load_frames(market="emerging", data_dir=DIRS["emerging"])
     fsets_all = tuple(x for x in a.features.split(",") if x)
-    fsets = tuple(x for x in fsets_all if x != "hist1")
+    fsets = tuple(x for x in fsets_all if x not in ("hist1", "hist2"))
     hist1 = {}
-    if "hist1" in fsets_all:   # one-year claim history, first year of each market unknown (iaa.p2_features.add_history1)
+    if "hist1" in fsets_all or "hist2" in fsets_all:   # one-year claim history, first year of each market unknown (iaa.p2_features.add_history1)
         em_claims = data.load_claims(DIRS["emerging"], "emerging")
         for mk, fr, cl, first in (("developed", dev, claims, 2021), ("emerging", em, em_claims, 2023)):
             rows_all = pd.concat([f[["policy_id", "customer_id", "period_start", "period_end"]] for f in fr.values()], ignore_index=True)
-            hist1[mk] = (p2_features.customer_prev_year_claims(cl, rows_all), first)
+            hist1[mk] = (p2_features.customer_prev_year_claims(cl, rows_all, by_line="hist2" in fsets_all), first)
     held = {"developed": p2_features.lines_held(dev), "emerging": p2_features.lines_held(em)} if "xline" in fsets else {}
     for line in a.lines.split(","):
         d = market.to_common(dev[line], line, "developed")

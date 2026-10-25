@@ -78,6 +78,7 @@ Each decision: what, why (evidence), status. "Reviewed by" is the human who conf
 | D70 | No weather-slope correction | RESULTS 63: hail-slope correction +0.0000 forward, -0.0011 reverse; the developed model follows the yearly weather movement (A/E 0.99 / 1.01) | Rejected | Project lead |
 | D71 | No multi-seed refit of the base: t6 stays the candidate | RESULTS 64: 3-seed GBM / Tweedie / TabM score -0.0002..-0.0004 in both directions against single seeds | Rejected for the score (it could only be defended as variance insurance, which fold E cannot show) | Project lead |
 | D72 | Buildings peril-level frequency factors are shrunk hard towards the line value (credibility constant 400 claims instead of 20); other lines unchanged; no post-hoc spread, exposure or shrink corrections | RESULTS 65: +0.0061 forward / +0.0034 reverse over t6 from buildings alone; the peril ratios of buildings swing between the two emerging years (fire 2.32 / 0.84); post-hoc corrections fail in one direction | Adopted as candidate t7 (public 0.16474, best); supersedes D69 as the current best | Project lead |
+| D73 | Blend weights stay at net 0.5 / Tweedie 0.25 for every line | RESULTS 66: flat surface (sum of the two directions 0.2638-0.2674 over 16 cells; best cell +0.0006 over t7); per-line optima disagree between directions | No per-line tuning | Project lead |
 
 ## Open decisions
 - Names of the team's independent reviewer and approver for the governance log (placeholders in `workflow/AI_USAGE.md`): to be filled in by the project lead.

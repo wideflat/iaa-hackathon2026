@@ -542,3 +542,7 @@ Averaged nets 50/50 vs GBM only: +0.0008 forward, +0.0044 reverse (paired vs the
 
 `scripts/p2_calib2.py --extra`, base GBM + (TabM, TabM-PLE) 50/50, robust level, gender; paired difference to the same recipe, pooled D2, forward / reverse: gender x age band +0.0001 / -0.0001; gender x cover type -0.0003 / -0.0005; no-claims bonus bands -0.0015 / -0.0017; age band -> identical to gender x age band; voluntary excess -0.0018 / -0.0011; occupation -0.0008 / -0.0003; gender x age band x cover type -0.0003 / -0.0003. None helps: the gender factor stays flat per line (D57), and the reviewer's age-dependent gender effect (M/F 1.70 at 17-24, 1.08 at 35-49) does not improve the validation score. A domain-shift weighted developed GBM (`--adv 0.5`, variant `adv05`) is still training.
 
+## 59. Domain-shift weighted developed GBM (2026-10-25 EDT)
+
+`--adv 0.5` (developed rows weighted by the odds that they look like emerging rows, features only; the Part 1 mechanism), GBM-only base, robust level, gender: pooled D2 forward 0.1280 / reverse 0.1159 against 0.1281 / 0.1176 for the unweighted GBM: -0.0001 / -0.0017. Contents calibration moves from 0.97 to 1.19 forward, i.e. the weighting shifts the level of the line it distorts most. No gain in either direction: rejected (D67), as in Part 1.
+

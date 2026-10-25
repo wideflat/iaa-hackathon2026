@@ -72,6 +72,7 @@ Each decision: what, why (evidence), status. "Reviewed by" is the human who conf
 | D64 | No engineered feature sets and no GBM setting changes in the Part 2 base | RESULTS 55: lines held, market-relative scale, percentile ranks, 8 leaves, slower learning, larger minimum leaf: none has both directions >= 0 with a sum > +0.002; gains forward and losses in reverse sit in buildings (validation noise) | Rejected; base stays LightGBM leaves 4 on the shared features | Project lead |
 | D65 | Final base = GBM 50% + average of TabM and TabM-PLE 50% (per line), robust level, gender | RESULTS 56: +0.0008 forward / +0.0044 reverse over GBM only; two nets halve the level noise of a single net (t4 level sits between t2 and t3); 70% nets not better | Adopted as candidate t4; replaces D61's "waits for TabM-PLE" | Project lead |
 | D66 | No further emerging-only corrections (gender x age, no-claims bonus, excess, occupation, cover type) | RESULTS 58: all <= +0.0001 or negative in both directions on top of the final base | Rejected; gender stays one flat factor per line | Project lead |
+| D67 | No domain-shift weights in the developed model | RESULTS 59: -0.0001 forward, -0.0017 reverse; contents level distorted | Rejected | Project lead |
 
 ## Open decisions
 - Names of the team's independent reviewer and approver for the governance log (placeholders in `workflow/AI_USAGE.md`): to be filled in by the project lead.

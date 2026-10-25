@@ -21,7 +21,7 @@ The shake-up is mostly real sampling noise inside a very tight pack, not a gener
 **5. Our own 21 submissions show the same thing in miniature.** Over all 21 the two scores correlate 0.94 (Spearman 0.92), driven by the big differences (level probes x0.9 / x1.1, the GLM, the first GBM). In the last 12 submissions, whose public scores differ by only 0.0017 (0.12718-0.12887), the correlation drops to 0.69 (Spearman 0.77): inside that range public order is mostly noise. We selected v10 because it had the best public score (0.12887); its private score was 0.13864 (rank 3), whereas v9 (public 0.12854) scored 0.13906 and would have been 2nd. Selecting by public among near-equal candidates cost about 0.0004.
 
 ## Was there real volatility in the scores?
-Yes, in the sense that differences below about 0.0015 between teams are within the public-to-private noise, so ranks 3 to 25 were largely a lottery relative to the public board. The first two places (0.13923 and 0.13875) are separated from rank 3 by only 0.0005-0.0006, which is also inside that noise: the final order near the top should be read as "a group of equally good solutions", not as a clean ranking.
+Yes, in the sense that differences below about 0.0015 between teams are within the public-to-private noise, so ranks 3 to 25 were largely a lottery relative to the public board. The top four private scores (0.13923, 0.13875, 0.13864, 0.13864) lie within 0.0006 of each other, which is also inside that noise: the final order near the top should be read as "a group of equally good solutions", not as a clean ranking.
 
 ## Caveats
 * Only the final selected submission of each team is visible, so the analysis cannot see how many candidates each team really chose between.

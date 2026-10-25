@@ -504,3 +504,19 @@ Developed GBM refits (helper sessions, `scripts/p2_dev_predictions.py`), then `s
 
 Conclusions: no reading of MIX beats non-standard (all three are -0.0010 / -0.0004..-0.0010); the premium-free base is not better in both directions. Both rejected (D63). The A/E signal that MIX is under-predicted (+26%) is therefore not a mapping problem; it is a level difference of that segment that the data cannot resolve (173 claims).
 
+## 55. Engineered feature sets and GBM settings on the developed base (2026-10-25 EDT)
+
+Same test as RESULTS 54 (robust level, winsorised 99%, no closure, gender; GBM-only base; developed GBM trained up to 2022 and 2023 on the shared features plus the set). Baseline 0.1281 forward / 0.1176 reverse. Difference to baseline, forward / reverse (pooled D2):
+
+| Variant | Forward | Reverse | Sum | Where it moves |
+|---|---|---|---|---|
+| `xline` (lines held, bundle flag) | -0.0001 | +0.0002 | +0.0001 | nowhere |
+| `mktnorm` (premium and sum insured / median of line, market, year) | +0.0037 | -0.0018 | +0.0019 | buildings +0.0127 forward, -0.0044 reverse; motor and contents within +-0.0007 |
+| `pct` (percentile ranks of the same two) | +0.0037 | -0.0019 | +0.0018 | same as mktnorm |
+| `l8` (8 leaves) | +0.0022 | -0.0020 | +0.0002 | buildings forward, contents -0.0075 reverse |
+| `slow` (lr 0.03, 600 / 500 rounds) | +0.0015 | -0.0007 | +0.0008 | |
+| `minleaf1000` | -0.0005 | -0.0003 | -0.0008 | |
+| `ratios` | not finished | | | |
+
+Every variant that gains forward loses in reverse, and the movement is in buildings (about 1,000 claims, the line whose level moves 1.5x between the two years): validation noise, not signal. On motor and contents alone no variant moves more than +-0.0008. Adoption rule (both directions >= 0 and a clearly positive sum, > +0.002) is met by none. The developed base is at its ceiling relative to what fold E can resolve; the remaining engineering effort is better spent on the level and on averaging bases (nets) than on features or tree settings (D64).
+

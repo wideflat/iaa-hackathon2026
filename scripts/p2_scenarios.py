@@ -25,13 +25,13 @@ SCALES = (0.8, 0.9, 1.1, 1.2)
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--candidate", default="submissions/p2_t3_robust_gbm_tabm.csv")
-    ap.add_argument("--nn-weight", default="0.5")
+    ap.add_argument("--base", default="gbm_nn0.5", help="suffix of the oof file written by p2_calib2.py (e.g. hist1_nn0.5_tw_nn_tabm_hist1,nn_tabm_ple_hist1)")
     a = ap.parse_args()
     em = cache.load_frames(market="emerging", data_dir=pc.EM_DIR)
     meta = pd.concat([f[["row_id", "new_business", "exposure_calc"]] for f in em.values()])
     rows = []
     for direction in ("forward", "reverse"):
-        o = pd.read_parquet(pc.P2 / f"p2_calib2_{direction}_gbm_nn{a.nn_weight}_oof.parquet").merge(meta, on="row_id")
+        o = pd.read_parquet(pc.P2 / f"p2_calib2_{direction}_{a.base}_oof.parquet").merge(meta, on="row_id")
         base = d2_tweedie(o["y"], o["pred"])
         for line in ("motor", "buildings", "contents"):
             for sc in SCALES:

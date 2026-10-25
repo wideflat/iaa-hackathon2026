@@ -32,6 +32,7 @@ def main() -> None:
     ap.add_argument("--extra", default="", help="semicolon-separated extra factor specs applied after the robust level: 'gender+age_band' (replaces the gender factor), or 'age_band', 'ncb', 'voluntary_excess', 'occupation', ... added on top of gender")
     ap.add_argument("--tw-names", default="", help="direct Tweedie GBM variants (stems written by p2_dev_predictions --model tw --variant), averaged; blended into the tree base")
     ap.add_argument("--tw-share", type=float, default=0.5, help="weight of the Tweedie part in the blended tree base (Part 1 tree half: 0.5)")
+    ap.add_argument("--weather-slope", action="store_true", help="per-peril hail slope correction (glass_hail in motor, storm in buildings): the response of the developed model to hail days is re-estimated on the calibration year, centred within each year")
     ap.add_argument("--gbm-name", default="gbm", help="name of the tree base: gbm, or a variant stem written by p2_dev_predictions --variant")
     a = ap.parse_args()
     nets = [m for m in a.nn_models.split(",") if m]
@@ -56,6 +57,23 @@ def main() -> None:
             ev = cost_v.loc[val["row_id"]].set_axis(val.index) * comp(val)
             m = target.matched_claims(rows, em_claims, line)
             m = m[m["row_id"].notna() & (m["status"] != "repudiated") & m["row_id"].isin(cal["row_id"])]
+            if a.weather_slope and line in ("motor", "buildings"):
+                wp = "glass_hail" if line == "motor" else "storm"
+                nrow = m[m["peril"] == wp].groupby("row_id").size().reindex(cal["row_id"], fill_value=0).to_numpy()
+                h_c = cal["hail_days"].to_numpy() - cal["hail_days"].mean()
+                e_c = ec[wp].to_numpy()
+                from scipy.optimize import minimize_scalar
+                def nll(b):   # Poisson likelihood of the peril's counts with the expected cost as relative rate, profile over the level
+                    mu = e_c * np.exp(b * h_c)
+                    mu = mu * nrow.sum() / mu.sum()
+                    return float((mu - nrow * np.log(mu + 1e-12)).sum())
+                beta = float(minimize_scalar(nll, bounds=(0.0, 0.06), method="bounded").x)
+                print(f"{name} {line}: {wp} hail slope {beta:+.4f} per day (clipped to 0..0.06)", flush=True)
+                for frame, dfs in ((cal, (ec, en)), (val, (ev,))):
+                    f_ = np.exp(beta * (frame["hail_days"].to_numpy() - frame["hail_days"].mean()))
+                    f_ = f_ / np.average(f_, weights=dfs[0][wp].to_numpy())   # keeps the peril's total of the year
+                    for df_ in dfs:
+                        df_[wp] = df_[wp] * f_
             act_rows = m.groupby(["row_id", "peril"])["net_cost"].sum().unstack(fill_value=0.0).reindex(index=cal["row_id"], columns=perils, fill_value=0.0).set_axis(cal.index)
             n_by = m.groupby("peril").size().reindex(perils, fill_value=0).astype(float)
             # medians: emerging claims of the calibration year vs developed claims of the same year
@@ -120,8 +138,9 @@ def main() -> None:
         for k, p in P.items():
             r = score_report(V.assign(pred=p), n_boot=0)
             print(f"  {k:28s} D2={r['d2_pooled']:.4f} " + " ".join(f"{l}={r[f'd2_{l}']:.4f}/cal{r[f'calibration_{l}']:.2f}" for l in LINES), flush=True)
-        pd.DataFrame({"row_id": V["row_id"], "customer_id": V["customer_id"], "line": V["line"], "y": V["y"], "pred": P["robustw99_noclose+gender"], "pred_closure": P["closure_only+gender"]}).to_parquet(
-            pc.P2 / f"p2_calib2_{name.split()[0]}_{a.gbm_name}_nn{a.nn_weight}_oof.parquet")   # for the scenario analysis
+        main_key = "robustw99_tw_noclose+gender" if "robustw99_tw_noclose+gender" in P else "robustw99_noclose+gender"
+        pd.DataFrame({"row_id": V["row_id"], "customer_id": V["customer_id"], "line": V["line"], "y": V["y"], "pred": P[main_key], "pred_closure": P["closure_only+gender"]}).to_parquet(
+            pc.P2 / f"p2_calib2_{name.split()[0]}_{a.gbm_name}_nn{a.nn_weight}{'_tw' if a.tw_names else ''}{'_' + a.nn_models if a.nn_weight > 0 and a.nn_models != 'nn_tabm' else ''}_oof.parquet")   # for the scenario analysis
         if "robustw99_tw_noclose+gender" in P:
             d = bootstrap_d2_diff(V["y"], P["robustw99_tw_noclose+gender"], P["robustw99_noclose+gender"], V["customer_id"])
             print(f"  with Tweedie part - without: {d['diff']:+.4f} (95% {d['lo']:+.4f}..{d['hi']:+.4f})")

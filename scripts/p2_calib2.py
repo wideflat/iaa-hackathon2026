@@ -30,6 +30,8 @@ def main() -> None:
     ap.add_argument("--nn-weight", type=float, default=0.0, help="weight of the nets in the base (0 = GBM only)")
     ap.add_argument("--nn-models", default="nn_tabm")
     ap.add_argument("--extra", default="", help="semicolon-separated extra factor specs applied after the robust level: 'gender+age_band' (replaces the gender factor), or 'age_band', 'ncb', 'voluntary_excess', 'occupation', ... added on top of gender")
+    ap.add_argument("--tw-names", default="", help="direct Tweedie GBM variants (stems written by p2_dev_predictions --model tw --variant), averaged; blended into the tree base")
+    ap.add_argument("--tw-share", type=float, default=0.5, help="weight of the Tweedie part in the blended tree base (Part 1 tree half: 0.5)")
     ap.add_argument("--gbm-name", default="gbm", help="name of the tree base: gbm, or a variant stem written by p2_dev_predictions --variant")
     a = ap.parse_args()
     nets = [m for m in a.nn_models.split(",") if m]
@@ -90,6 +92,16 @@ def main() -> None:
                 preds.setdefault(f"extra[{spec}]", []).append(pva0.to_numpy() * g_val.map(gf).fillna(1.0).to_numpy())
             for q, rfq in loc.items():
                 variants[f"robustw{int(q * 100)}"] = (pd.Series(transfer.apply_factors(ec, rfq["cost_factor"]), index=cal.index), pd.Series(transfer.apply_factors(ev, rfq["cost_factor"]), index=val.index))
+            if a.tw_names:   # direct Tweedie GBM: relativity only; its level follows the robust frequency x severity level on the calibration rows
+                tws = [x for x in a.tw_names.split(",") if x]
+                def tw_cost(tag, rows_):
+                    return sum(ms.base_costs(f"tw_{t}", tag, line)["all"] for t in tws).loc[rows_["row_id"]].set_axis(rows_.index) / len(tws)
+                crow_c = ec.sum(axis=1) / cost_c.loc[cal["row_id"]].set_axis(cal.index).sum(axis=1)   # share reported by the valuation date, row specific (from the frequency x severity model)
+                crow_v = ev.sum(axis=1) / cost_v.loc[val["row_id"]].set_axis(val.index).sum(axis=1)
+                tw_c, tw_v = tw_cost(TAG[cal_y], cal) * crow_c, tw_cost(TAG[val_y], val) * crow_v
+                fs_c, fs_v = variants["robustw99"]
+                scale = float(fs_c.sum() / tw_c.sum())
+                variants["robustw99_tw"] = ((1 - a.tw_share) * fs_c + a.tw_share * scale * tw_c, (1 - a.tw_share) * fs_v + a.tw_share * scale * tw_v)
             for v, (ptr, pva) in variants.items():
                 c = float(cal["y"].sum() / ptr.sum())
                 for tag, closure in (("", True), ("_noclose", False)):
@@ -110,6 +122,9 @@ def main() -> None:
             print(f"  {k:28s} D2={r['d2_pooled']:.4f} " + " ".join(f"{l}={r[f'd2_{l}']:.4f}/cal{r[f'calibration_{l}']:.2f}" for l in LINES), flush=True)
         pd.DataFrame({"row_id": V["row_id"], "customer_id": V["customer_id"], "line": V["line"], "y": V["y"], "pred": P["robustw99_noclose+gender"], "pred_closure": P["closure_only+gender"]}).to_parquet(
             pc.P2 / f"p2_calib2_{name.split()[0]}_{a.gbm_name}_nn{a.nn_weight}_oof.parquet")   # for the scenario analysis
+        if "robustw99_tw_noclose+gender" in P:
+            d = bootstrap_d2_diff(V["y"], P["robustw99_tw_noclose+gender"], P["robustw99_noclose+gender"], V["customer_id"])
+            print(f"  with Tweedie part - without: {d['diff']:+.4f} (95% {d['lo']:+.4f}..{d['hi']:+.4f})")
         for k in [x for x in P if x.startswith("extra[")]:
             d = bootstrap_d2_diff(V["y"], P[k], P["robustw99_noclose+gender"], V["customer_id"])
             print(f"  {k} - robustw99_noclose+gender: {d['diff']:+.4f} (95% {d['lo']:+.4f}..{d['hi']:+.4f})  D2 {d2_tweedie(V['y'], P[k]):.4f}")

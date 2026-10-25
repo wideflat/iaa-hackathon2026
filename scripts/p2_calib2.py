@@ -39,6 +39,7 @@ def main() -> None:
     ap.add_argument("--glm-share", type=float, default=0.0, help="weight of the developed-market GLM (stem glm_hist1) in the frequency x severity base; the other bases are scaled by 1 - share")
     ap.add_argument("--pool-stem", default="", help="pooled GBM variant (p2_dev_predictions --pool): forward uses tag PF for both years, reverse tag PR; replaces the base models")
     ap.add_argument("--force-tag", default="", help="score calibration and validation rows with this developed cut-off tag (e.g. B) in both directions: the control of the pooled runs, which also see developed 2023")
+    ap.add_argument("--shared-freq", action="store_true", help="frequency prior of a peril name present in several lines = its pooled actual / expected ratio over the lines of the calibration year (transfer.shared_peril_prior)")
     a = ap.parse_args()
     nets = [m for m in a.nn_models.split(",") if m]
     models = ({a.gbm_name: 1.0 - a.nn_weight} | {m: a.nn_weight / len(nets) for m in nets}) if a.nn_weight > 0 else {a.gbm_name: 1.0}
@@ -55,6 +56,20 @@ def main() -> None:
     em = cache.load_frames(market="emerging", data_dir=pc.EM_DIR)
     for name, cal_y, val_y in (("forward 2023->2024", 2023, 2024), ("reverse 2024->2023", 2024, 2023)):
         parts, preds = [], {}
+        prior = None
+        if a.shared_freq:   # pre-pass over the lines: calibration-year claim counts and developed expected counts by peril
+            act_l, exp_l = {}, {}
+            for line_ in LINES:
+                e_ = market.to_common(em[line_], line_, "emerging")
+                rows_ = e_[e_["split"] == "train"]
+                cal_ = rows_[rows_["year"] == cal_y]
+                _, cnt_ = load(("PF" if cal_y == 2023 else "PR") if a.pool_stem else (a.force_tag or TAG[cal_y]), line_)
+                comp_ = pc.completeness(line_, list(cnt_.columns), cal_["year"].reset_index(drop=True)).set_axis(cal_.index)
+                en_ = (cnt_.loc[cal_["row_id"]].set_axis(cal_.index) * comp_).sum()
+                m_ = target.matched_claims(rows_, em_claims, line_)
+                m_ = m_[m_["row_id"].notna() & (m_["status"] != "repudiated") & m_["row_id"].isin(cal_["row_id"])]
+                act_l[line_], exp_l[line_] = m_.groupby("peril").size().reindex(en_.index, fill_value=0).astype(float), en_
+            prior = transfer.shared_peril_prior(act_l, exp_l)
         tag_of = (lambda y: "PF" if cal_y == 2023 else "PR") if a.pool_stem else ((lambda y: a.force_tag) if a.force_tag else (lambda y: TAG[y]))   # noqa: E731
         for line in LINES:
             e = market.to_common(em[line], line, "emerging").assign(gender=em[line]["gender"])
@@ -91,13 +106,13 @@ def main() -> None:
             dc = dev_claims[(dev_claims["line"] == line) & (dev_claims["status"] != "repudiated") & (dev_claims["loss_date"].dt.year == cal_y)]
             dmed = target.claim_net_cost(dc).groupby(dc["peril"]).median().reindex(perils)
             emed = m.groupby("peril")["net_cost"].median().reindex(perils).fillna(dmed)
-            rf = transfer.robust_factors(n_by, en.sum(), emed, dmed, transfer.line_value(a.k_freq, line), transfer.line_value(a.k_sev, line))
+            rf = transfer.robust_factors(n_by, en.sum(), emed, dmed, transfer.line_value(a.k_freq, line), transfer.line_value(a.k_sev, line), None if prior is None else prior[line])
             dcost = target.claim_net_cost(dc)
             loc = {}
             for q in (0.95, 0.99):   # winsorised mean: every claim capped at the quantile of its own market and peril
                 dw = dcost.groupby(dc["peril"]).apply(lambda x: x.clip(upper=x.quantile(q)).mean()).reindex(perils)
                 ew = m.groupby("peril")["net_cost"].apply(lambda x: x.clip(upper=x.quantile(q)).mean()).reindex(perils).fillna(dw)
-                loc[q] = transfer.robust_factors(n_by, en.sum(), ew, dw, transfer.line_value(a.k_freq, line), transfer.line_value(a.k_sev, line))
+                loc[q] = transfer.robust_factors(n_by, en.sum(), ew, dw, transfer.line_value(a.k_freq, line), transfer.line_value(a.k_sev, line), None if prior is None else prior[line])
             f_cost = transfer.calibration_factors(act_rows, ec, n_by, k=300)
             variants = {
                 "closure_only": (ec.sum(axis=1), ev.sum(axis=1)),

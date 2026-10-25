@@ -86,16 +86,20 @@ def calibrate_and_apply(pred_train: pd.DataFrame, act_by_peril: pd.DataFrame, n_
     return pred, {"peril": f_peril.to_dict(), "closure": closure, "group": f_group.to_dict()}
 
 
-def robust_factors(act_n: pd.Series, exp_n: pd.Series, med_em: pd.Series, med_dev: pd.Series, k_freq: float = 20.0, k_sev: float = 30.0) -> pd.DataFrame:
+def robust_factors(act_n: pd.Series, exp_n: pd.Series, med_em: pd.Series, med_dev: pd.Series, k_freq: float = 20.0, k_sev: float = 30.0,
+                   freq_prior: pd.Series | None = None) -> pd.DataFrame:
     """Frequency factor and severity factor per peril that do not depend on a few large claims.
 
-    freq_p: actual claim count / developed expected count, shrunk towards the line ratio (Poisson credibility, k_freq claims).
+    freq_p: actual claim count / developed expected count, shrunk towards the line ratio (Poisson credibility, k_freq claims), or towards `freq_prior` (one prior ratio per peril, e.g. the ratio
+    of the same peril pooled over the lines) when it is given.
     sev_p: ratio of the emerging to the developed MEDIAN claim cost of the peril (robust to large losses), shrunk towards the claim-weighted line ratio of the
     medians with Z = n / (n + k_sev). The cost factor of a peril is freq_p x sev_p; expected developed cost already carries the developed severity trend and excess load."""
     assert act_n.index.equals(exp_n.index) and act_n.index.equals(med_em.index) and act_n.index.equals(med_dev.index)
     f_line = float(act_n.sum() / exp_n.sum())
     z_f = credibility(act_n, k_freq)
-    freq = z_f * (act_n / exp_n) + (1.0 - z_f) * f_line
+    prior = pd.Series(f_line, index=act_n.index) if freq_prior is None else freq_prior.reindex(act_n.index)
+    assert prior.notna().all(), "freq_prior must cover every peril"
+    freq = z_f * (act_n / exp_n) + (1.0 - z_f) * prior
     ratio = med_em / med_dev
     s_line = float((ratio * act_n).sum() / act_n.sum())
     z_s = credibility(act_n, k_sev)
@@ -132,3 +136,17 @@ def line_value(spec: str, line: str) -> float:
     d = {kv.split("=")[0]: float(kv.split("=")[1]) for kv in spec.split(",")}
     assert line in d, f"no value for {line} in {spec!r}"
     return d[line]
+
+
+def shared_peril_prior(act: dict, exp: dict) -> dict:
+    """Prior frequency ratio per (line, peril): the pooled actual / expected ratio of the peril NAME over all lines that have it when it occurs in more than one line,
+    otherwise the line's own ratio. `act` and `exp` map line -> Series of claim counts / expected counts by peril."""
+    names: dict = {}
+    for line in act:
+        for p in act[line].index:
+            names.setdefault(p, []).append(line)
+    out = {}
+    for line in act:
+        line_ratio = float(act[line].sum() / exp[line].sum())
+        out[line] = pd.Series({p: (float(sum(act[l][p] for l in names[p]) / sum(exp[l][p] for l in names[p])) if len(names[p]) > 1 else line_ratio) for p in act[line].index})
+    return out

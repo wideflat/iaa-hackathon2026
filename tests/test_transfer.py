@@ -159,3 +159,21 @@ def test_line_value_parses_a_constant_or_a_per_line_spec():
     assert transfer.line_value("motor=60,buildings=400,contents=20", "buildings") == 400.0
     with pytest.raises(AssertionError):
         transfer.line_value("motor=60", "contents")
+
+
+def test_shared_peril_prior_pools_names_over_lines_and_keeps_unique_perils_at_line_ratio():
+    act = {"a": pd.Series({"theft": 30.0, "fire": 10.0}), "b": pd.Series({"theft": 10.0, "flood": 20.0})}
+    exp = {"a": pd.Series({"theft": 20.0, "fire": 10.0}), "b": pd.Series({"theft": 10.0, "flood": 20.0})}
+    prior = transfer.shared_peril_prior(act, exp)
+    assert prior["a"]["theft"] == pytest.approx(40.0 / 30.0) and prior["b"]["theft"] == pytest.approx(40.0 / 30.0)   # pooled over both lines
+    assert prior["a"]["fire"] == pytest.approx(40.0 / 30.0)   # unique peril: line ratio (40 / 30)
+    assert prior["b"]["flood"] == pytest.approx(30.0 / 30.0)
+
+
+def test_robust_factors_freq_prior_replaces_the_line_ratio_in_the_shrinkage():
+    act, exp = pd.Series({"x": 0.0, "y": 100.0}), pd.Series({"x": 50.0, "y": 100.0})
+    med = pd.Series({"x": 1.0, "y": 1.0})
+    f0 = transfer.robust_factors(act, exp, med, med, k_freq=1e9)   # no weight on the data: factor = prior
+    f1 = transfer.robust_factors(act, exp, med, med, k_freq=1e9, freq_prior=pd.Series({"x": 2.0, "y": 0.5}))
+    assert f0["freq"].tolist() == pytest.approx([100.0 / 150.0] * 2, rel=1e-6)
+    assert f1["freq"].tolist() == pytest.approx([2.0, 0.5], rel=1e-6)

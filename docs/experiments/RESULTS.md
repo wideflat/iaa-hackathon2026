@@ -482,3 +482,7 @@ Risk found on the way: the net and the GBM agree on expected claim COUNTS for th
 
 The buildings level is the only large uncertainty and it points in opposite directions in the two years; motor and contents are near their optimum; the new-business relativity matters little for D2 at +-20%. On the 2025 test predictions of t3: motor +-20% changes the predicted total by +-12.2%, buildings +-6.3%, contents +-1.6%, new-business rows +-10% by +-8.0%; motor is 60.8% of the predicted total, buildings 31.4%, contents 7.8%, new business 80.2%.
 
+## 52. p2_t2 submitted (2026-10-24 20:28 EDT)
+
+`submissions/p2_t2_robust_gbm.csv` (sha256 48a794a4da428ca4...), GBM base + robust level + gender, submitted at the project lead's request. Public **0.16314** against p2_t1 0.16077 (+0.00237). Local two-direction difference of the level method was +0.0024 forward / +0.0014 reverse, so the public gain has the same sign and size; both are inside the Part 1 noise of paired public differences (0.0003-0.001 SD for similar files, larger here because the files differ by 4-9% in level per line), so it is a consistent signal, not a proof. Submissions used on 2026-10-24 EDT / 2026-10-25 UTC: p2_t1 (21:05 UTC Oct 24), p2_t2 (00:28 UTC Oct 25).
+

@@ -25,7 +25,24 @@ DEV_DIR = ROOT / "data" / "part2" / "developed"
 TAG = {2023: "A", 2024: "B"}
 
 
+class _Tee:
+    """Mirror stdout into docs/experiments/raw/p2/calib2_runs.log (committed): every run keeps its full printed table next to its command line."""
+    def __init__(self, path: Path, header: str):
+        self.out, self.f = sys.stdout, open(path, "a")
+        self.f.write(f"\n##### {header}\n")
+
+    def write(self, text):
+        self.out.write(text)
+        self.f.write(text)
+
+    def flush(self):
+        self.out.flush()
+        self.f.flush()
+
+
 def main() -> None:
+    import datetime
+    sys.stdout = _Tee(ROOT / "docs" / "experiments" / "raw" / "p2" / "calib2_runs.log", f"{datetime.datetime.now().astimezone().strftime('%Y-%m-%d %H:%M %Z')} python scripts/p2_calib2.py {' '.join(sys.argv[1:])}")
     ap = argparse.ArgumentParser()
     ap.add_argument("--nn-weight", type=float, default=0.0, help="weight of the nets in the base (0 = GBM only)")
     ap.add_argument("--nn-models", default="nn_tabm")

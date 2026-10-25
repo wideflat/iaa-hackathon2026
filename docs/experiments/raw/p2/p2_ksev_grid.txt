@@ -1,0 +1,45 @@
+== k_sev motor=10
+=== forward 2023->2024: 59202 validation rows
+  robustw99_tw_noclose+gender  D2=0.1397 motor=0.0942/cal1.02 buildings=0.0978/cal1.35 contents=0.1058/cal1.02
+=== reverse 2024->2023: 50094 validation rows
+  robustw99_tw_noclose+gender  D2=0.1271 motor=0.0470/cal1.15 buildings=0.0823/cal0.70 contents=0.1150/cal0.86
+== k_sev motor=100
+=== forward 2023->2024: 59202 validation rows
+  robustw99_tw_noclose+gender  D2=0.1397 motor=0.0942/cal1.02 buildings=0.0978/cal1.35 contents=0.1058/cal1.02
+=== reverse 2024->2023: 50094 validation rows
+  robustw99_tw_noclose+gender  D2=0.1272 motor=0.0472/cal1.15 buildings=0.0823/cal0.70 contents=0.1150/cal0.86
+== k_sev motor=300
+=== forward 2023->2024: 59202 validation rows
+  robustw99_tw_noclose+gender  D2=0.1397 motor=0.0943/cal1.02 buildings=0.0978/cal1.35 contents=0.1058/cal1.02
+=== reverse 2024->2023: 50094 validation rows
+  robustw99_tw_noclose+gender  D2=0.1272 motor=0.0473/cal1.15 buildings=0.0823/cal0.70 contents=0.1150/cal0.86
+== k_sev buildings=10
+=== forward 2023->2024: 59202 validation rows
+  robustw99_tw_noclose+gender  D2=0.1384 motor=0.0942/cal1.02 buildings=0.0934/cal1.41 contents=0.1058/cal1.02
+=== reverse 2024->2023: 50094 validation rows
+  robustw99_tw_noclose+gender  D2=0.1277 motor=0.0470/cal1.15 buildings=0.0841/cal0.72 contents=0.1150/cal0.86
+== k_sev buildings=100
+=== forward 2023->2024: 59202 validation rows
+  robustw99_tw_noclose+gender  D2=0.1413 motor=0.0942/cal1.02 buildings=0.1032/cal1.27 contents=0.1058/cal1.02
+=== reverse 2024->2023: 50094 validation rows
+  robustw99_tw_noclose+gender  D2=0.1265 motor=0.0470/cal1.15 buildings=0.0804/cal0.68 contents=0.1150/cal0.86
+== k_sev buildings=300
+=== forward 2023->2024: 59202 validation rows
+  robustw99_tw_noclose+gender  D2=0.1421 motor=0.0942/cal1.02 buildings=0.1060/cal1.23 contents=0.1058/cal1.02
+=== reverse 2024->2023: 50094 validation rows
+  robustw99_tw_noclose+gender  D2=0.1262 motor=0.0470/cal1.15 buildings=0.0797/cal0.67 contents=0.1150/cal0.86
+== k_sev contents=10
+=== forward 2023->2024: 59202 validation rows
+  robustw99_tw_noclose+gender  D2=0.1397 motor=0.0942/cal1.02 buildings=0.0978/cal1.35 contents=0.1058/cal1.02
+=== reverse 2024->2023: 50094 validation rows
+  robustw99_tw_noclose+gender  D2=0.1272 motor=0.0470/cal1.15 buildings=0.0823/cal0.70 contents=0.1157/cal0.87
+== k_sev contents=100
+=== forward 2023->2024: 59202 validation rows
+  robustw99_tw_noclose+gender  D2=0.1397 motor=0.0942/cal1.02 buildings=0.0978/cal1.35 contents=0.1058/cal1.02
+=== reverse 2024->2023: 50094 validation rows
+  robustw99_tw_noclose+gender  D2=0.1270 motor=0.0470/cal1.15 buildings=0.0823/cal0.70 contents=0.1142/cal0.85
+== k_sev contents=300
+=== forward 2023->2024: 59202 validation rows
+  robustw99_tw_noclose+gender  D2=0.1397 motor=0.0942/cal1.02 buildings=0.0978/cal1.35 contents=0.1058/cal1.02
+=== reverse 2024->2023: 50094 validation rows
+  robustw99_tw_noclose+gender  D2=0.1269 motor=0.0470/cal1.15 buildings=0.0823/cal0.70 contents=0.1137/cal0.85

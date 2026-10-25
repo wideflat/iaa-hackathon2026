@@ -22,6 +22,7 @@ At every milestone (a result, a decision, a submission, a bug caught) do the mat
 - decision or rejected idea -> `docs/workflow/DECISIONS.md` (one row, with the evidence)
 - narrative / bug caught by a check -> `docs/workflow/DEVELOPMENT_LOG.md`; AI errors caught -> `docs/workflow/AI_USAGE.md`
 - submission made -> row in RESULTS.md with the public score once `scripts/check_submissions.py` shows it
+- raw output of a run (grid, table, log; small text/CSV only) -> `docs/experiments/raw/<part>/` with `git add -f`, because `artifacts/` is gitignored and does not survive the container; never commit competition rows or large parquet files
 The skill `record-progress` runs this sweep (hooks cannot call skills or the model, so run it yourself before long waits and before stopping).
 
 ## Long runs and sandbox restarts

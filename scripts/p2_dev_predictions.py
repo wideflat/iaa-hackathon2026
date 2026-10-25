@@ -28,6 +28,8 @@ THREADS = 4
 def score(model, e: pd.DataFrame):
     """(frame with per-peril cost dev_<p> and count devn_<p> for every row of e, cost frame). Counts x severity must reproduce the cost."""
     by = model.k_ * model.expected_by_peril(e)
+    if model.kind == "tw":   # no peril split and no claim count: one cost column
+        return pd.concat([e[["row_id", "year", "split"]], by.add_prefix("dev_")], axis=1), by
     cnt = model.expected_counts(e)
     sev_ratio = (by / cnt.where(cnt > 0)).fillna(0.0)   # mean cost per claim incl. excess load and rebalancing
     assert np.allclose((cnt * sev_ratio).to_numpy(), by.to_numpy(), rtol=1e-6), "counts x severity must reproduce the cost"
@@ -48,17 +50,27 @@ def main() -> None:
     ap.add_argument("--adv", type=float, default=0.0, help="gbm: domain-shift weights of strength s (odds^s that a developed row looks like an emerging row; features only, no labels)")
     ap.add_argument("--variant", default="", help="suffix of the output files when --drop or --mix-as is used")
     ap.add_argument("--mix-as", default="", help="buildings only: comma-separated developed levels (w, brick, stone) to read the emerging code MIX as; one extra file per level, the model is trained once")
-    ap.add_argument("--model", default="gbm", choices=["gbm", "nn_tabm", "nn_tabm_ple"], help="gbm = LightGBM (Part 1 tree half); nn_* = the TabM nets of the Part 1 NN half")
+    ap.add_argument("--model", default="gbm", choices=["gbm", "tw", "nn_tabm", "nn_tabm_ple"], help="gbm = LightGBM frequency x severity (Part 1 tree half); tw = direct pure-premium Tweedie LightGBM (--leaves 4 --freq-rounds 350, or 8 / 300; one column dev_all); nn_* = the TabM nets of the Part 1 NN half")
     a = ap.parse_args()
     out_dir = ARTIFACTS_DIR / "p2"
     out_dir.mkdir(parents=True, exist_ok=True)
     claims = data.load_claims(DIRS["developed"], "developed")
     dev, em = cache.load_frames(market="developed", data_dir=DIRS["developed"]), cache.load_frames(market="emerging", data_dir=DIRS["emerging"])
-    fsets = tuple(x for x in a.features.split(",") if x)
+    fsets_all = tuple(x for x in a.features.split(",") if x)
+    fsets = tuple(x for x in fsets_all if x != "hist1")
+    hist1 = {}
+    if "hist1" in fsets_all:   # one-year claim history, first year of each market unknown (iaa.p2_features.add_history1)
+        em_claims = data.load_claims(DIRS["emerging"], "emerging")
+        for mk, fr, cl, first in (("developed", dev, claims, 2021), ("emerging", em, em_claims, 2023)):
+            rows_all = pd.concat([f[["policy_id", "customer_id", "period_start", "period_end"]] for f in fr.values()], ignore_index=True)
+            hist1[mk] = (p2_features.customer_prev_year_claims(cl, rows_all), first)
     held = {"developed": p2_features.lines_held(dev), "emerging": p2_features.lines_held(em)} if "xline" in fsets else {}
     for line in a.lines.split(","):
         d = market.to_common(dev[line], line, "developed")
         e = market.to_common(em[line], line, "emerging")
+        if hist1:
+            d = p2_features.add_history1(d, dev[line], hist1["developed"][0], hist1["developed"][1])
+            e = p2_features.add_history1(e, em[line], hist1["emerging"][0], hist1["emerging"][1])
         if fsets:
             d, e = p2_features.add_features(d, line, fsets, held.get("developed")), p2_features.add_features(e, line, fsets, held.get("emerging"))
         d_train = d[d["split"] == "train"]
@@ -73,6 +85,9 @@ def main() -> None:
             if a.model == "gbm":
                 model = FreqSev(matched, kind="gbm", cat_encoding="target", outlier_mult=5.0, freq_rounds=a.freq_rounds, sev_rounds=a.sev_rounds, threads=THREADS,
                                 params_freq={"num_threads": THREADS, "num_leaves": a.leaves, "learning_rate": a.lr, "min_data_in_leaf": a.min_leaf_freq}, params_sev={"num_threads": THREADS, "num_leaves": a.leaves, "learning_rate": a.lr}, extra_drop=tuple(c for c in a.drop.split(",") if c), adv_strength=a.adv).fit(train, target=e if a.adv else None)
+            elif a.model == "tw":   # as scripts/make_submission.py --model fs_tw --leaves L --freq-rounds R --outlier-mult 5 --cat-encoding target
+                model = FreqSev(matched, kind="tw", cat_encoding="target", outlier_mult=5.0, freq_rounds=a.freq_rounds, sev_rounds=a.sev_rounds, threads=THREADS,
+                                params_freq={"num_threads": THREADS, "num_leaves": a.leaves}, params_sev={"num_threads": THREADS, "num_leaves": a.leaves}, extra_drop=tuple(c for c in a.drop.split(",") if c)).fit(train)
             else:   # as scripts/run_cv.py --model fs_nn --outlier-mult 5 --nn-tabm-k 4 [--nn-ple 8]
                 nnp = {"tabm_k": 4, "threads": THREADS} | ({"ple_bins": 8} if a.model == "nn_tabm_ple" else {})
                 model = FreqSev(matched, kind="nn", outlier_mult=5.0, threads=THREADS, nn_params=nnp, extra_drop=tuple(c for c in a.drop.split(",") if c)).fit(train)

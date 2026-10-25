@@ -53,3 +53,30 @@ def add_features(df: pd.DataFrame, line: str, sets: tuple, held: pd.DataFrame | 
             out[f"{c}_pct"] = out.groupby("year")[c].rank(pct=True).astype("float32")
         out = out.drop(columns=present)
     return out
+
+
+def customer_prev_year_claims(claims: pd.DataFrame, rows_all: pd.DataFrame) -> pd.DataFrame:
+    """(customer_id, year) -> claims of the customer over ALL lines with a loss in year-1 that were reported by 31 December of year-1.
+
+    rows_all: policy_id, customer_id, period_start, period_end of every policy row of every line of ONE market (a claim is attached to the customer of the row whose
+    period contains its loss date). A window of exactly one year is used because the emerging book starts in 2023: all-time counts would mean a different thing in the two markets."""
+    c = claims[claims["status"] != "repudiated"][["claim_id", "policy_id", "loss_date", "report_date"]].merge(rows_all[["policy_id", "customer_id", "period_start", "period_end"]], on="policy_id")
+    c = c[(c["loss_date"] >= c["period_start"]) & (c["loss_date"] <= c["period_end"])].drop_duplicates("claim_id")
+    c = c.assign(loss_year=c["loss_date"].dt.year)
+    c = c[c["report_date"] <= pd.to_datetime(c["loss_year"].astype(str) + "-12-31")]
+    n = c.groupby(["customer_id", "loss_year"]).size().rename("cust_prev_year_claims").reset_index()
+    return n.assign(year=n["loss_year"] + 1)[["customer_id", "year", "cust_prev_year_claims"]]
+
+
+HIST1_COLS = ("hist_n_last_year", "addr_n_last_year", "cust_prev_year_claims")
+
+
+def add_history1(df: pd.DataFrame, raw: pd.DataFrame, cust_prev: pd.DataFrame, first_year: int) -> pd.DataFrame:
+    """One-year claim-history inputs, defined identically in both markets: the policy's own claims of the previous year (this line), the claims at the same address, the customer's claims over all lines.
+
+    Rows of `first_year` (the first year of the market's data) have an UNKNOWN history, not an empty one: their values are set to missing, which the developed model has seen on its own first year (2021)."""
+    out = df.merge(raw[["row_id", "hist_n_last_year", "addr_n_last_year"]], on="row_id", how="left").merge(cust_prev, on=["customer_id", "year"], how="left")
+    out["cust_prev_year_claims"] = out["cust_prev_year_claims"].fillna(0.0)
+    first = out["year"] == first_year
+    out.loc[first, list(HIST1_COLS)] = np.nan
+    return out

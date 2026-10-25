@@ -45,3 +45,22 @@ def test_unknown_set_and_missing_held_table_fail():
         pf.add_features(_frame(), "motor", ("bogus",))
     with pytest.raises(AssertionError):
         pf.add_features(_frame(), "motor", ("xline",))
+
+
+def test_customer_prev_year_claims_counts_known_claims_across_lines_and_shifts_the_year():
+    d = pd.Timestamp
+    rows = pd.DataFrame({"policy_id": ["M1", "B1"], "customer_id": ["C1", "C1"], "period_start": [d("2023-01-01")] * 2, "period_end": [d("2023-12-31")] * 2})
+    claims = pd.DataFrame({"claim_id": ["a", "b", "c", "d"], "policy_id": ["M1", "B1", "M1", "M1"], "status": ["closed", "open", "repudiated", "closed"],
+                           "loss_date": [d("2023-03-01"), d("2023-12-20"), d("2023-05-01"), d("2023-11-01")], "report_date": [d("2023-03-05"), d("2024-01-10"), d("2023-05-02"), d("2023-11-05")]})
+    out = pf.customer_prev_year_claims(claims, rows)
+    # a and d count (reported by 31 Dec 2023); b was reported in 2024 (not known); c is repudiated
+    assert out.to_dict("records") == [{"customer_id": "C1", "year": 2024, "cust_prev_year_claims": 2}]
+
+
+def test_add_history1_marks_the_first_year_as_unknown_not_zero():
+    df = pd.DataFrame({"row_id": ["R1", "R2"], "customer_id": ["C1", "C1"], "year": [2023, 2024]})
+    raw = pd.DataFrame({"row_id": ["R1", "R2"], "hist_n_last_year": [0.0, 1.0], "addr_n_last_year": [0.0, 0.0]})
+    cp = pd.DataFrame({"customer_id": ["C1"], "year": [2024], "cust_prev_year_claims": [2]})
+    out = pf.add_history1(df, raw, cp, first_year=2023)
+    assert out.loc[0, list(pf.HIST1_COLS)].isna().all()
+    assert out.loc[1, "hist_n_last_year"] == 1.0 and out.loc[1, "cust_prev_year_claims"] == 2

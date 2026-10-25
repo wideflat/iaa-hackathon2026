@@ -138,3 +138,17 @@ def test_calibrate_robust_scales_by_counts_and_medians_and_ignores_a_huge_claim(
                                           k_freq=1.0, k_sev=1e-9, k_group=1e12)
     assert fac["peril"]["a"]["cost_factor"] == pytest.approx(2.0 * 0.7, rel=0.02)
     assert pred[0] == pytest.approx(100.0 * 2.0 * 0.7 + 10.0 * 2.0 * 0.7, rel=0.02)
+
+
+def test_calibrate_robust_with_a_tweedie_part_keeps_the_robust_level_and_reorders_by_the_tweedie_relativity():
+    n = 1000
+    idx = pd.RangeIndex(n)
+    cost = pd.DataFrame({"a": np.full(n, 100.0)}, index=idx)
+    cnt = pd.DataFrame({"a": np.full(n, 0.1)}, index=idx)
+    gender = pd.Series("M", index=idx)
+    tw = pd.Series(np.where(idx < n // 2, 50.0, 150.0), index=idx)   # same total as the cost column, different relativities
+    args = (cost, cnt, pd.Series({"a": 100.0}), pd.Series(100.0, index=idx), pd.Series(1.0, index=idx), gender, pd.Series({"a": 100.0}), pd.Series({"a": 100.0}), cost, gender)
+    base, _ = transfer.calibrate_robust(*args, k_freq=1.0, k_sev=1.0, k_group=1e12)
+    mixed, fac = transfer.calibrate_robust(*args, k_freq=1.0, k_sev=1.0, k_group=1e12, tw_train=tw * 3.0, tw_test=tw * 3.0, tw_share=0.5)
+    assert mixed.sum() == pytest.approx(base.sum(), rel=1e-9)            # the level is the robust one
+    assert mixed[0] < mixed[-1] and fac["tw_scale"] == pytest.approx(1.0 / 3.0)

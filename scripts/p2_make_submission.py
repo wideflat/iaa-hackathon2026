@@ -52,6 +52,8 @@ def main() -> None:
     ap.add_argument("--k-peril", type=float, default=300.0)
     ap.add_argument("--k-gender", type=float, default=300.0)
     ap.add_argument("--no-gender", action="store_true")
+    ap.add_argument("--tw-names", default="", help="direct Tweedie GBM variants (averaged) blended into the base, e.g. twl4,twl8")
+    ap.add_argument("--tw-share", type=float, default=0.25, help="weight of the Tweedie part in the total base (Part 1: tree half 50/50 x tree weight 50% = 25%)")
     ap.add_argument("--gbm-name", default="gbm", help="name of the tree base: gbm, or a variant stem such as hist1")
     ap.add_argument("--level", default="closure", choices=["closure", "robust"], help="closure: per-peril cost factors + line closure (p2_t1); robust: count x median factors, no closure")
     ap.add_argument("--sev-location", default="w99", choices=["median", "w99"], help="severity scale of a peril: ratio of medians, or of the claim means winsorised at the 99% quantile of each market")
@@ -98,7 +100,15 @@ def main() -> None:
             else:
                 dmed = dnet.groupby(dc["peril"]).apply(lambda x: x.clip(upper=x.quantile(0.99)).mean()).reindex(perils)
                 emed = matched.groupby("peril")["net_cost"].apply(lambda x: x.clip(upper=x.quantile(0.99)).mean()).reindex(perils).fillna(dmed)
-            pred, fac = transfer.calibrate_robust(pred_train, cnt_train, n_by, rows["y"], rows["n_claims"], g_train, emed, dmed, pred_test, g_test, a.k_freq, a.k_sev, a.k_gender)
+            tw_kw = {}
+            if a.tw_names:
+                tws = [x for x in a.tw_names.split(",") if x]
+                raw_train = pd.concat([cost["A"].loc[rows.loc[rows["year"] == 2023, "row_id"]], cost["B"].loc[rows.loc[rows["year"] == 2024, "row_id"]]]).loc[rows["row_id"]].set_axis(rows.index)
+                crow = pred_train.sum(axis=1) / raw_train.sum(axis=1)   # share reported by the valuation date, row specific
+                twc = lambda tag: sum(base_costs(f"tw_{t}", tag, line)["all"] for t in tws) / len(tws)   # noqa: E731
+                tw_raw = pd.concat([twc("A").loc[rows.loc[rows["year"] == 2023, "row_id"]], twc("B").loc[rows.loc[rows["year"] == 2024, "row_id"]]]).loc[rows["row_id"]].set_axis(rows.index)
+                tw_kw = dict(tw_train=tw_raw * crow, tw_test=twc("C").loc[test["row_id"]].set_axis(test.index), tw_share=a.tw_share)
+            pred, fac = transfer.calibrate_robust(pred_train, cnt_train, n_by, rows["y"], rows["n_claims"], g_train, emed, dmed, pred_test, g_test, a.k_freq, a.k_sev, a.k_gender, **tw_kw)
             fac["closure"] = fac["train_actual_over_predicted"]
         factors[line] = fac
         parts.append(pd.DataFrame({"row_id": test["row_id"], "prediction": pred}))

@@ -105,12 +105,21 @@ def robust_factors(act_n: pd.Series, exp_n: pd.Series, med_em: pd.Series, med_de
 
 def calibrate_robust(cost_train: pd.DataFrame, count_train: pd.DataFrame, n_by_peril: pd.Series, y_train: pd.Series, n_claims_train: pd.Series, gender_train: pd.Series,
                      med_em: pd.Series, med_dev: pd.Series, cost_test: pd.DataFrame, gender_test: pd.Series, k_freq: float = 20.0, k_sev: float = 30.0,
-                     k_group: float = 300.0) -> tuple[np.ndarray, dict]:
+                     k_group: float = 300.0, tw_train: pd.Series | None = None, tw_test: pd.Series | None = None, tw_share: float = 0.0) -> tuple[np.ndarray, dict]:
     """Final transfer step with the robust level: peril cost factor = frequency factor (counts) x severity factor (medians), a gender factor on top, NO final line closure.
 
     The closure used before copies the large-loss noise of the calibration years into the level (two-direction test, docs/part2/EXPLORATION.md)."""
     rf = robust_factors(n_by_peril, count_train.sum(), med_em, med_dev, k_freq, k_sev)
-    base_train = pd.Series(apply_factors(cost_train, rf["cost_factor"]), index=cost_train.index)
+    fs_train = pd.Series(apply_factors(cost_train, rf["cost_factor"]), index=cost_train.index)
+    fs_test = apply_factors(cost_test, rf["cost_factor"])
+    scale = 1.0
+    if tw_share > 0:   # direct Tweedie GBM: relativity only, its level follows the robust level on the calibration rows
+        assert tw_train is not None and tw_test is not None
+        scale = float(fs_train.sum() / tw_train.sum())
+        base_train = (1.0 - tw_share) * fs_train + tw_share * scale * tw_train
+        base_test = (1.0 - tw_share) * fs_test + tw_share * scale * tw_test.to_numpy()
+    else:
+        base_train, base_test = fs_train, fs_test
     f_group = group_factors(y_train, base_train, gender_train, n_claims_train, k=k_group)
-    pred = apply_factors(cost_test, rf["cost_factor"]) * gender_test.map(f_group).to_numpy()
-    return pred, {"peril": rf.to_dict("index"), "group": f_group.to_dict(), "train_actual_over_predicted": float(y_train.sum() / base_train.sum())}
+    pred = base_test * gender_test.map(f_group).to_numpy()
+    return pred, {"peril": rf.to_dict("index"), "group": f_group.to_dict(), "train_actual_over_predicted": float(y_train.sum() / base_train.sum()), "tw_scale": scale}

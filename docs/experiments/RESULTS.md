@@ -490,3 +490,17 @@ The buildings level is the only large uncertainty and it points in opposite dire
 
 `submissions/p2_t3_robust_gbm_tabm.csv` (sha256 113e521a4e5d013b...), GBM + TabM 50/50 base + robust level + gender, submitted at the project lead's request. Public **0.16360** vs p2_t2 0.16314 (+0.00046) and p2_t1 0.16077. Local difference net base vs GBM base under the same level method: +0.0007 forward / +0.0034 reverse. The public gain is inside the noise (a +8% level difference between the two files moves it little); the ordering t1 < t2 < t3 agrees with the local ordering. Submissions so far on the 2026-10-25 UTC day: t2, t3 (2 of 10).
 
+## 54. Premium-free base and the MIX construction reading (2026-10-25 EDT)
+
+Developed GBM refits (helper sessions, `scripts/p2_dev_predictions.py`), then `scripts/p2_calib2.py --gbm-name <variant>` (robust level, winsorised 99%, no closure, gender; GBM-only base). Pooled D2 forward 2023 -> 2024 / reverse 2024 -> 2023:
+
+| Variant | Forward | Reverse | Note |
+|---|---|---|---|
+| baseline GBM (MIX read as non_standard) | 0.1281 | 0.1176 | |
+| without `written_premium` and `discount_applied` (`nopremium`) | 0.1297 (+0.0016) | 0.1159 (-0.0017) | forward gain comes from buildings (+0.005), reverse loss from contents and motor: opposite signs |
+| MIX read as `w` (timber) | 0.1271 | 0.1171 | buildings only changes |
+| MIX read as `brick` | 0.1270 | 0.1166 | |
+| MIX read as `stone` | 0.1270 | 0.1172 | |
+
+Conclusions: no reading of MIX beats non-standard (all three are -0.0010 / -0.0004..-0.0010); the premium-free base is not better in both directions. Both rejected (D63). The A/E signal that MIX is under-predicted (+26%) is therefore not a mapping problem; it is a level difference of that segment that the data cannot resolve (173 claims).
+

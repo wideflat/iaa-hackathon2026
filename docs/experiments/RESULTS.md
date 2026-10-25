@@ -561,3 +561,7 @@ Two-direction test (robust level, winsorised 99%, no closure, gender), pooled D2
 
 All three lines are better in both directions with history (the first time any change is non-negative everywhere). Adopted for the tree half (D68). The nets with history inputs are being trained (helpers); the Tweedie GBM part is being trained (helper).
 
+## 61. p2_t5a submitted (2026-10-25 01:34 EDT)
+
+`submissions/p2_t5a_hist1_gbm_2nets.csv` (sha256 81a7da62e28934e4...): GBM with one-year claim history + (TabM, TabM-PLE) without history 50/50, robust level, gender. Submitted under the standing approval (local validation better than t4 in both directions: +0.0014 forward, +0.0011 reverse). Public **0.16299** against t4 0.16336 (-0.00037), t3 0.16360, t2 0.16314. Row order agrees with t4 almost exactly (Spearman 0.999: about 76% of the test rows are new business with no claim history to use, only 24% renewals can move), predicted level -0.9% (motor 498 vs 505). The public differences among t2-t5a (0.16299-0.16360) are all inside the noise (Part 1: 0.0003-0.001); local two-direction validation, which showed +0.0011..+0.0014, stays the selection criterion (D20); no public-score conclusion is drawn. Submissions on the 2026-10-25 UTC day: t2, t3, t4, t5a (4 of 10).
+

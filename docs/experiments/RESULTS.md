@@ -618,3 +618,12 @@ hist2 = hist1 plus the customer's last-year claims split by line. GBM only, robu
 ## 68. Clipping the highest predictions rejected (2026-10-25 EDT)
 
 t7 recipe reproduced (0.1397 forward / 0.1271 reverse). Capping each line's predictions at its 99.9 / 99.5 / 99 / 98 percentile (line total rescaled): forward 0.0000 / -0.0002 / -0.0005 / -0.0015, reverse -0.0002 / -0.0004 / -0.0006 / -0.0011. Worse or equal in both directions, so the top of the prediction range carries real signal. Not adopted (D75).
+
+## 69. Pre-registered rules for the GLM blend and per-line severity constants (2026-10-25 EDT)
+
+Written before measuring. (a) Severity credibility constant k_sev per line, one line changed at a time from 30 to 10 / 100 / 300 on the t7 recipe: adopt a value for a line only if that line's D2 is not lower in either direction and the pooled gain summed over both directions is above +0.002; otherwise keep 30. (b) GLM (frequency x severity, developed data, hist1 inputs) added to the tree base at a share of 10% / 20% / 30%: adopt only if both directions are not lower and the summed gain is above +0.002; otherwise the GLM is rejected for Part 2 and stays rejected.
+
+## 70. Per-line severity constants and GLM in the blend, both rejected (2026-10-25 EDT)
+
+Rules were written first (RESULTS 69). **k_sev per line** (t7 recipe, one line changed from 30; pooled D2 forward / reverse, t7 = 0.1397 / 0.1271): motor 10 / 100 / 300: 0.1397 / 0.1271, 0.1397 / 0.1272, 0.1397 / 0.1272; contents 10 / 100 / 300: 0.1397 / 0.1272, 0.1397 / 0.1270, 0.1397 / 0.1269; buildings 10 / 100 / 300: 0.1384 / 0.1277, 0.1413 / 0.1265, 0.1421 / 0.1262. Motor and contents are flat (at most 0.0003); buildings moves the two directions in opposite directions (300: +0.0024 forward, -0.0009 reverse), so it is not both-non-negative. Rejected (D76); k_sev stays 30.
+**GLM** (frequency x severity, quantile bands, hist1 inputs, developed data; `p2_dev_predictions.py --model glm`, stem `glm_hist1`) mixed into the frequency x severity base at 10 / 20 / 30%: forward 0.1391 / 0.1385 / 0.1378, reverse 0.1276 / 0.1280 / 0.1282 (t7 0.1397 / 0.1271). Forward falls by 0.0006 / 0.0012 / 0.0019, reverse rises by 0.0005 / 0.0009 / 0.0011; the sum is negative at every share and forward is worse. Rejected (D77), consistent with Part 1 (D24, D29). The reverse-direction gain is buildings only (0.0823 -> 0.0868) and forward loses there too (0.0978 -> 0.0929), i.e. the GLM moves the buildings level, not the ranking.

@@ -36,9 +36,13 @@ def main() -> None:
     ap.add_argument("--k-freq", default="20", help="frequency credibility constant: 20, or motor=60,buildings=400,contents=20")
     ap.add_argument("--k-sev", default="30")
     ap.add_argument("--gbm-name", default="gbm", help="name of the tree base: gbm, or a variant stem written by p2_dev_predictions --variant")
+    ap.add_argument("--glm-share", type=float, default=0.0, help="weight of the developed-market GLM (stem glm_hist1) in the frequency x severity base; the other bases are scaled by 1 - share")
     a = ap.parse_args()
     nets = [m for m in a.nn_models.split(",") if m]
     models = ({a.gbm_name: 1.0 - a.nn_weight} | {m: a.nn_weight / len(nets) for m in nets}) if a.nn_weight > 0 else {a.gbm_name: 1.0}
+
+    if a.glm_share > 0:
+        models = {m: w * (1.0 - a.glm_share) for m, w in models.items()} | {"glm_hist1": a.glm_share}
 
     def load(tag, line):
         return ms.mixed_costs(models, tag, line), ms.mixed_costs(models, tag, line, counts=True)

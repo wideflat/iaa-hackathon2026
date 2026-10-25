@@ -81,6 +81,8 @@ Each decision: what, why (evidence), status. "Reviewed by" is the human who conf
 | D73 | Blend weights stay at net 0.5 / Tweedie 0.25 for every line | RESULTS 66: flat surface (sum of the two directions 0.2638-0.2674 over 16 cells; best cell +0.0006 over t7); per-line optima disagree between directions | No per-line tuning | Project lead |
 | D74 | Keep hist1; do not adopt hist2 (customer claims split by line) | RESULTS 67: GBM-only D2 -0.0012 forward / -0.0035 reverse vs hist1, worse in both directions (buildings) | No nets retrained; t7 stays the final candidate | Project lead |
 | D75 | No clipping of high predictions | RESULTS 68: capping at the 98-99.9 percentile per line is 0 to -0.0015 in both directions | Rejected | Project lead |
+| D76 | Severity credibility constant stays 30 for every line | RESULTS 70: motor / contents flat (<= 0.0003); buildings 300 is +0.0024 forward and -0.0009 reverse | Rejected by the pre-registered rule | Project lead |
+| D77 | No GLM in the Part 2 blend | RESULTS 70: 10-30% GLM share is -0.0006..-0.0019 forward and +0.0005..+0.0011 reverse; sum negative, forward worse | Rejected (same as Part 1 D24 / D29) | Project lead |
 
 ## Open decisions
 - Names of the team's independent reviewer and approver for the governance log (placeholders in `workflow/AI_USAGE.md`): to be filled in by the project lead.

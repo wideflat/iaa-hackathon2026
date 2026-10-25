@@ -486,3 +486,7 @@ The buildings level is the only large uncertainty and it points in opposite dire
 
 `submissions/p2_t2_robust_gbm.csv` (sha256 48a794a4da428ca4...), GBM base + robust level + gender, submitted at the project lead's request. Public **0.16314** against p2_t1 0.16077 (+0.00237). Local two-direction difference of the level method was +0.0024 forward / +0.0014 reverse, so the public gain has the same sign and size; both are inside the Part 1 noise of paired public differences (0.0003-0.001 SD for similar files, larger here because the files differ by 4-9% in level per line), so it is a consistent signal, not a proof. Submissions used on 2026-10-24 EDT / 2026-10-25 UTC: p2_t1 (21:05 UTC Oct 24), p2_t2 (00:28 UTC Oct 25).
 
+## 53. p2_t3 submitted (2026-10-24 20:45 EDT)
+
+`submissions/p2_t3_robust_gbm_tabm.csv` (sha256 113e521a4e5d013b...), GBM + TabM 50/50 base + robust level + gender, submitted at the project lead's request. Public **0.16360** vs p2_t2 0.16314 (+0.00046) and p2_t1 0.16077. Local difference net base vs GBM base under the same level method: +0.0007 forward / +0.0034 reverse. The public gain is inside the noise (a +8% level difference between the two files moves it little); the ordering t1 < t2 < t3 agrees with the local ordering. Submissions so far on the 2026-10-25 UTC day: t2, t3 (2 of 10).
+

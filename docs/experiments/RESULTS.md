@@ -610,3 +610,7 @@ Averaging seeds does not improve validation (-0.0002 / -0.0003 and -0.0003 / -0.
 
 Net weight 0.3 / 0.5 / 0.7 / 0.85 x Tweedie share 0.0 / 0.15 / 0.25 / 0.35 (`scripts/p2_weight_grid.sh`, output `artifacts/p2_weight_grid.txt`), pooled D2 forward / reverse. The surface is flat: the sum of the two directions runs from 0.2638 to 0.2674 over all 16 cells, t7 (0.5, 0.25) is 0.2668 (forward 0.1397, reverse 0.1271). Best cells: net 0.7 / Tweedie 0.35 (0.1402 / 0.1272, sum +0.0006 over t7), net 0.5 / 0.35 (0.1400 / 0.1272). Per line the optimum differs a little (motor prefers fewer nets and no Tweedie part: 0.0951 / 0.0474 at 0.5 / 0.0 against 0.0942 / 0.0470; contents prefers more nets going forward but loses in reverse; buildings prefers the Tweedie part: 0.0996 / 0.0829 at 0.35 against 0.0978 / 0.0823), but every per-line difference is below 0.0015 in one direction and of opposite sign in the other. Per-line weights would be tuned on noise: no change (D73); t7 keeps the Part 1 structure (net 0.5, Tweedie 0.25 of the total).
 
+
+## 67. History inputs split by line (hist2) rejected (2026-10-25 EDT)
+
+hist2 = hist1 plus the customer's last-year claims split by line. GBM only, robust level without closure plus gender, pooled D2 forward / reverse: hist1 0.1329 / 0.1192; hist2 0.1317 / 0.1157 (-0.0012 / -0.0035). Both directions worse, mostly buildings (forward 0.0818 -> 0.0770; reverse 0.0637 -> 0.0540). Not adopted (D74); nets are not retrained. Fits ran in a helper session (`helper/p2-hist2`, 6 fits).

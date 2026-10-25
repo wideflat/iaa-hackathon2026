@@ -614,3 +614,7 @@ Net weight 0.3 / 0.5 / 0.7 / 0.85 x Tweedie share 0.0 / 0.15 / 0.25 / 0.35 (`scr
 ## 67. History inputs split by line (hist2) rejected (2026-10-25 EDT)
 
 hist2 = hist1 plus the customer's last-year claims split by line. GBM only, robust level without closure plus gender, pooled D2 forward / reverse: hist1 0.1329 / 0.1192; hist2 0.1317 / 0.1157 (-0.0012 / -0.0035). Both directions worse, mostly buildings (forward 0.0818 -> 0.0770; reverse 0.0637 -> 0.0540). Not adopted (D74); nets are not retrained. Fits ran in a helper session (`helper/p2-hist2`, 6 fits).
+
+## 68. Clipping the highest predictions rejected (2026-10-25 EDT)
+
+t7 recipe reproduced (0.1397 forward / 0.1271 reverse). Capping each line's predictions at its 99.9 / 99.5 / 99 / 98 percentile (line total rescaled): forward 0.0000 / -0.0002 / -0.0005 / -0.0015, reverse -0.0002 / -0.0004 / -0.0006 / -0.0011. Worse or equal in both directions, so the top of the prediction range carries real signal. Not adopted (D75).

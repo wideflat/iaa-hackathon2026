@@ -80,6 +80,7 @@ Each decision: what, why (evidence), status. "Reviewed by" is the human who conf
 | D72 | Buildings peril-level frequency factors are shrunk hard towards the line value (credibility constant 400 claims instead of 20); other lines unchanged; no post-hoc spread, exposure or shrink corrections | RESULTS 65: +0.0061 forward / +0.0034 reverse over t6 from buildings alone; the peril ratios of buildings swing between the two emerging years (fire 2.32 / 0.84); post-hoc corrections fail in one direction | Adopted as candidate t7 (public 0.16474, best); supersedes D69 as the current best | Project lead |
 | D73 | Blend weights stay at net 0.5 / Tweedie 0.25 for every line | RESULTS 66: flat surface (sum of the two directions 0.2638-0.2674 over 16 cells; best cell +0.0006 over t7); per-line optima disagree between directions | No per-line tuning | Project lead |
 | D74 | Keep hist1; do not adopt hist2 (customer claims split by line) | RESULTS 67: GBM-only D2 -0.0012 forward / -0.0035 reverse vs hist1, worse in both directions (buildings) | No nets retrained; t7 stays the final candidate | Project lead |
+| D75 | No clipping of high predictions | RESULTS 68: capping at the 98-99.9 percentile per line is 0 to -0.0015 in both directions | Rejected | Project lead |
 
 ## Open decisions
 - Names of the team's independent reviewer and approver for the governance log (placeholders in `workflow/AI_USAGE.md`): to be filled in by the project lead.

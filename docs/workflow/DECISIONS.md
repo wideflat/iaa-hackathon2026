@@ -75,6 +75,7 @@ Each decision: what, why (evidence), status. "Reviewed by" is the human who conf
 | D67 | No domain-shift weights in the developed model | RESULTS 59: -0.0001 forward, -0.0017 reverse; contents level distorted | Rejected | Project lead |
 | D68 | One-year claim-history inputs (`hist1`) enter the developed GBM (and the nets, once trained) | RESULTS 60: GBM alone +0.0023 forward / +0.0021 reverse, every line non-negative in both directions; with the old nets +0.0014 / +0.0011 over t4 | Adopted; candidate t5a = GBM(hist1) + nets without history, t5 = all with history | Project lead |
 | D69 | Final base t6: GBM (50%, with history) and TabM + TabM-PLE (50%, with history) in the Part 1 recipe, with the direct Tweedie GBM at 25% of the total, robust level, gender | RESULTS 62: +0.0047 forward / +0.0017 reverse over t4, +0.0033 / +0.0006 over t5a; public 0.16450 (best) | Adopted as the current best candidate; supersedes D65 | Project lead |
+| D70 | No weather-slope correction | RESULTS 63: hail-slope correction +0.0000 forward, -0.0011 reverse; the developed model follows the yearly weather movement (A/E 0.99 / 1.01) | Rejected | Project lead |
 
 ## Open decisions
 - Names of the team's independent reviewer and approver for the governance log (placeholders in `workflow/AI_USAGE.md`): to be filled in by the project lead.

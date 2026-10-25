@@ -565,3 +565,19 @@ All three lines are better in both directions with history (the first time any c
 
 `submissions/p2_t5a_hist1_gbm_2nets.csv` (sha256 81a7da62e28934e4...): GBM with one-year claim history + (TabM, TabM-PLE) without history 50/50, robust level, gender. Submitted under the standing approval (local validation better than t4 in both directions: +0.0014 forward, +0.0011 reverse). Public **0.16299** against t4 0.16336 (-0.00037), t3 0.16360, t2 0.16314. Row order agrees with t4 almost exactly (Spearman 0.999: about 76% of the test rows are new business with no claim history to use, only 24% renewals can move), predicted level -0.9% (motor 498 vs 505). The public differences among t2-t5a (0.16299-0.16360) are all inside the noise (Part 1: 0.0003-0.001); local two-direction validation, which showed +0.0011..+0.0014, stays the selection criterion (D20); no public-score conclusion is drawn. Submissions on the 2026-10-25 UTC day: t2, t3, t4, t5a (4 of 10).
 
+## 62. Nets with history, direct Tweedie part; candidate t6 submitted (2026-10-25 09:13 EDT)
+
+All 9 TabM and 9 TabM-PLE fits with the `hist1` inputs (helpers) and the direct Tweedie GBM (4 leaves / 350 rounds and 8 leaves / 300 rounds, averaged; helper) are in. Two-direction test (robust level, winsorised 99%, no closure, gender), pooled D2 forward 2023 -> 2024 / reverse 2024 -> 2023:
+
+| Base | Forward | Reverse |
+|---|---|---|
+| t4: GBM + 2 nets, no history | 0.1289 | 0.1220 |
+| t5a: GBM with history + 2 nets without | 0.1303 | 0.1231 |
+| t5: GBM + 2 nets, all with history | 0.1313 | 0.1229 |
+| **t6 = t5 + Tweedie part 25%** | **0.1336** | **0.1237** |
+| t5 + Tweedie part 50% (not used) | 0.1352 | 0.1236 |
+
+Tweedie part vs the same base without it (paired): 25%: +0.0023 (+0.0009..+0.0036) forward, +0.0008 (-0.0014..+0.0036) reverse; 50%: +0.0039 / +0.0007. The 25% share follows the Part 1 recipe (tree half 50/50 frequency x severity and Tweedie, tree weight 50% -> Tweedie 25% of the total); the larger share was not chosen although its forward score is higher (the gain is in buildings, the line with the unstable level). The Tweedie GBM contributes relativities only; its level is tied to the robust frequency x severity level on the calibration rows (`calibrate_robust(tw_...)`). t6 vs t4: +0.0047 forward / +0.0017 reverse; vs t5a +0.0033 / +0.0006: neither direction worse.
+
+`submissions/p2_t6_hist1_all_tw.csv` (sha256 c172f6cb985b69aa...), mean per row motor 508, buildings 477, contents 90, row order vs t5a Spearman 0.994-0.997. Submitted under the standing approval. Public **0.16450**: the best of all Part 2 submissions (t3 0.16360, t4 0.16336, t5a 0.16299, t2 0.16314, t1 0.16077), +0.0009 over t3. The local ordering agrees; the gap is at the edge of the public noise, so the choice rests on the two-direction local validation (D20). Submissions on the 2026-10-25 UTC day: t2, t3, t4, t5a, t6 (5 of 10).
+

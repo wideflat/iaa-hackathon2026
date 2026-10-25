@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
-from iaa import cache, data, market, target  # noqa: E402
+from iaa import cache, data, market, p2_features, target  # noqa: E402
 from iaa.config import ARTIFACTS_DIR, LINES  # noqa: E402
 from iaa.models.freqsev import FreqSev  # noqa: E402
 
@@ -39,6 +39,12 @@ def main() -> None:
     ap.add_argument("--tags", default="A,B,C")
     ap.add_argument("--lines", default=",".join(LINES))
     ap.add_argument("--drop", default="", help="comma-separated shared features to leave out of the developed model (e.g. written_premium,discount_applied)")
+    ap.add_argument("--features", default="", help="comma-separated engineered feature sets of iaa.p2_features (mktnorm, pct, xline, ratios), applied to both markets")
+    ap.add_argument("--leaves", type=int, default=4, help="gbm: num_leaves of both stages")
+    ap.add_argument("--freq-rounds", type=int, default=350)
+    ap.add_argument("--sev-rounds", type=int, default=300)
+    ap.add_argument("--lr", type=float, default=0.05)
+    ap.add_argument("--min-leaf-freq", type=int, default=300)
     ap.add_argument("--variant", default="", help="suffix of the output files when --drop or --mix-as is used")
     ap.add_argument("--mix-as", default="", help="buildings only: comma-separated developed levels (w, brick, stone) to read the emerging code MIX as; one extra file per level, the model is trained once")
     ap.add_argument("--model", default="gbm", choices=["gbm", "nn_tabm", "nn_tabm_ple"], help="gbm = LightGBM (Part 1 tree half); nn_* = the TabM nets of the Part 1 NN half")
@@ -47,9 +53,13 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     claims = data.load_claims(DIRS["developed"], "developed")
     dev, em = cache.load_frames(market="developed", data_dir=DIRS["developed"]), cache.load_frames(market="emerging", data_dir=DIRS["emerging"])
+    fsets = tuple(x for x in a.features.split(",") if x)
+    held = {"developed": p2_features.lines_held(dev), "emerging": p2_features.lines_held(em)} if "xline" in fsets else {}
     for line in a.lines.split(","):
         d = market.to_common(dev[line], line, "developed")
         e = market.to_common(em[line], line, "emerging")
+        if fsets:
+            d, e = p2_features.add_features(d, line, fsets, held.get("developed")), p2_features.add_features(e, line, fsets, held.get("emerging"))
         d_train = d[d["split"] == "train"]
         matched = target.matched_claims(d_train, claims, line)
         for tag in a.tags.split(","):
@@ -60,8 +70,8 @@ def main() -> None:
                 continue
             train = d_train[d_train["year"] <= LAST_TRAIN_YEAR[tag]]
             if a.model == "gbm":
-                model = FreqSev(matched, kind="gbm", cat_encoding="target", outlier_mult=5.0, freq_rounds=350, sev_rounds=300, threads=THREADS,
-                                params_freq={"num_threads": THREADS, "num_leaves": 4}, params_sev={"num_threads": THREADS, "num_leaves": 4}, extra_drop=tuple(c for c in a.drop.split(",") if c)).fit(train)
+                model = FreqSev(matched, kind="gbm", cat_encoding="target", outlier_mult=5.0, freq_rounds=a.freq_rounds, sev_rounds=a.sev_rounds, threads=THREADS,
+                                params_freq={"num_threads": THREADS, "num_leaves": a.leaves, "learning_rate": a.lr, "min_data_in_leaf": a.min_leaf_freq}, params_sev={"num_threads": THREADS, "num_leaves": a.leaves, "learning_rate": a.lr}, extra_drop=tuple(c for c in a.drop.split(",") if c)).fit(train)
             else:   # as scripts/run_cv.py --model fs_nn --outlier-mult 5 --nn-tabm-k 4 [--nn-ple 8]
                 nnp = {"tabm_k": 4, "threads": THREADS} | ({"ple_bins": 8} if a.model == "nn_tabm_ple" else {})
                 model = FreqSev(matched, kind="nn", outlier_mult=5.0, threads=THREADS, nn_params=nnp, extra_drop=tuple(c for c in a.drop.split(",") if c)).fit(train)

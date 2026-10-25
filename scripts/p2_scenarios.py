@@ -31,7 +31,7 @@ def main() -> None:
     meta = pd.concat([f[["row_id", "new_business", "exposure_calc"]] for f in em.values()])
     rows = []
     for direction in ("forward", "reverse"):
-        o = pd.read_parquet(pc.P2 / f"p2_calib2_{direction}_nn{a.nn_weight}_oof.parquet").merge(meta, on="row_id")
+        o = pd.read_parquet(pc.P2 / f"p2_calib2_{direction}_gbm_nn{a.nn_weight}_oof.parquet").merge(meta, on="row_id")
         base = d2_tweedie(o["y"], o["pred"])
         for line in ("motor", "buildings", "contents"):
             for sc in SCALES:

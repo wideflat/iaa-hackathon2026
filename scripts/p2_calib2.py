@@ -29,9 +29,10 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--nn-weight", type=float, default=0.0, help="weight of the nets in the base (0 = GBM only)")
     ap.add_argument("--nn-models", default="nn_tabm")
+    ap.add_argument("--gbm-name", default="gbm", help="name of the tree base: gbm, or a variant stem written by p2_dev_predictions --variant")
     a = ap.parse_args()
     nets = [m for m in a.nn_models.split(",") if m]
-    models = ({"gbm": 1.0 - a.nn_weight} | {m: a.nn_weight / len(nets) for m in nets}) if a.nn_weight > 0 else {"gbm": 1.0}
+    models = ({a.gbm_name: 1.0 - a.nn_weight} | {m: a.nn_weight / len(nets) for m in nets}) if a.nn_weight > 0 else {a.gbm_name: 1.0}
 
     def load(tag, line):
         return ms.mixed_costs(models, tag, line), ms.mixed_costs(models, tag, line, counts=True)
@@ -92,7 +93,7 @@ def main() -> None:
             r = score_report(V.assign(pred=p), n_boot=0)
             print(f"  {k:28s} D2={r['d2_pooled']:.4f} " + " ".join(f"{l}={r[f'd2_{l}']:.4f}/cal{r[f'calibration_{l}']:.2f}" for l in LINES), flush=True)
         pd.DataFrame({"row_id": V["row_id"], "customer_id": V["customer_id"], "line": V["line"], "y": V["y"], "pred": P["robustw99_noclose+gender"], "pred_closure": P["closure_only+gender"]}).to_parquet(
-            pc.P2 / f"p2_calib2_{name.split()[0]}_nn{a.nn_weight}_oof.parquet")   # for the scenario analysis
+            pc.P2 / f"p2_calib2_{name.split()[0]}_{a.gbm_name}_nn{a.nn_weight}_oof.parquet")   # for the scenario analysis
         for k in ("cost_k300+gender", "robust_fs_noclose+gender", "robustw95_noclose+gender", "robustw99_noclose+gender"):
             d = bootstrap_d2_diff(V["y"], P[k], P["closure_only+gender"], V["customer_id"])
             print(f"  {k} - closure_only+gender: {d['diff']:+.4f} (95% {d['lo']:+.4f}..{d['hi']:+.4f})")

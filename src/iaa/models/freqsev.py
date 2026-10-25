@@ -250,7 +250,9 @@ class FreqSev:
         if self.adv_strength:
             assert target is not None, "adv_strength needs fit(train, target=rows to be predicted)"
             w = w * self._adv_weights(train, target)
-        return None if (not self.recency and not self.adv_strength) else w / w.mean()
+        if "pool_w" in train.columns:   # pooled training of several markets: per-row weight of the row's market (the column is not a model input)
+            w = w * train["pool_w"].to_numpy(dtype=float)
+        return None if (not self.recency and not self.adv_strength and "pool_w" not in train.columns) else w / w.mean()
 
     def fit(self, train: pd.DataFrame, target: pd.DataFrame | None = None):
         self._fit_features(train)

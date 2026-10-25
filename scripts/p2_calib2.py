@@ -37,10 +37,14 @@ def main() -> None:
     ap.add_argument("--k-sev", default="30")
     ap.add_argument("--gbm-name", default="gbm", help="name of the tree base: gbm, or a variant stem written by p2_dev_predictions --variant")
     ap.add_argument("--glm-share", type=float, default=0.0, help="weight of the developed-market GLM (stem glm_hist1) in the frequency x severity base; the other bases are scaled by 1 - share")
+    ap.add_argument("--pool-stem", default="", help="pooled GBM variant (p2_dev_predictions --pool): forward uses tag PF for both years, reverse tag PR; replaces the base models")
+    ap.add_argument("--force-tag", default="", help="score calibration and validation rows with this developed cut-off tag (e.g. B) in both directions: the control of the pooled runs, which also see developed 2023")
     a = ap.parse_args()
     nets = [m for m in a.nn_models.split(",") if m]
     models = ({a.gbm_name: 1.0 - a.nn_weight} | {m: a.nn_weight / len(nets) for m in nets}) if a.nn_weight > 0 else {a.gbm_name: 1.0}
 
+    if a.pool_stem:
+        models = {a.pool_stem: 1.0}
     if a.glm_share > 0:
         models = {m: w * (1.0 - a.glm_share) for m, w in models.items()} | {"glm_hist1": a.glm_share}
 
@@ -51,12 +55,13 @@ def main() -> None:
     em = cache.load_frames(market="emerging", data_dir=pc.EM_DIR)
     for name, cal_y, val_y in (("forward 2023->2024", 2023, 2024), ("reverse 2024->2023", 2024, 2023)):
         parts, preds = [], {}
+        tag_of = (lambda y: "PF" if cal_y == 2023 else "PR") if a.pool_stem else ((lambda y: a.force_tag) if a.force_tag else (lambda y: TAG[y]))   # noqa: E731
         for line in LINES:
             e = market.to_common(em[line], line, "emerging").assign(gender=em[line]["gender"])
             rows = e[e["split"] == "train"]
             cal, val = rows[rows["year"] == cal_y], rows[rows["year"] == val_y]
-            cost_c, cnt_c = load(TAG[cal_y], line)
-            cost_v, _ = load(TAG[val_y], line)
+            cost_c, cnt_c = load(tag_of(cal_y), line)
+            cost_v, _ = load(tag_of(val_y), line)
             perils = list(cost_c.columns)
             comp = lambda d: pc.completeness(line, perils, d["year"].reset_index(drop=True)).set_axis(d.index)  # noqa: E731
             ec, en = cost_c.loc[cal["row_id"]].set_axis(cal.index) * comp(cal), cnt_c.loc[cal["row_id"]].set_axis(cal.index) * comp(cal)

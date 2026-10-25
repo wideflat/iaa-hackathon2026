@@ -22,6 +22,7 @@ from iaa.models.freqsev import FreqSev  # noqa: E402
 
 DIRS = {"developed": ROOT / "data" / "part2" / "developed", "emerging": ROOT / "data" / "part2" / "emerging"}
 LAST_TRAIN_YEAR = {"A": 2022, "B": 2023, "C": 2024}
+POOL = {"PF": (2023, (2023,)), "PR": (2023, (2024,)), "PC": (2024, (2023, 2024))}   # pooled tag -> (last developed year, labelled emerging years): forward / reverse validation / final
 THREADS = 4
 
 
@@ -52,6 +53,8 @@ def main() -> None:
     ap.add_argument("--variant", default="", help="suffix of the output files when --drop or --mix-as is used")
     ap.add_argument("--mix-as", default="", help="buildings only: comma-separated developed levels (w, brick, stone) to read the emerging code MIX as; one extra file per level, the model is trained once")
     ap.add_argument("--model", default="gbm", choices=["gbm", "tw", "glm", "nn_tabm", "nn_tabm_ple"], help="gbm = LightGBM frequency x severity (Part 1 tree half); tw = direct pure-premium Tweedie LightGBM (--leaves 4 --freq-rounds 350, or 8 / 300; one column dev_all); glm = regularised frequency x severity GLM with quantile bands (blend challenger); nn_* = the TabM nets of the Part 1 NN half")
+    ap.add_argument("--pool", default="", choices=["", "PF", "PR", "PC"], help="gbm only: also train on the labelled emerging rows of POOL[tag] with a market_emerging input; the tag replaces --tags")
+    ap.add_argument("--pool-weight", type=float, default=1.0, help="row weight of the emerging rows relative to a developed row")
     a = ap.parse_args()
     out_dir = ARTIFACTS_DIR / "p2"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -65,6 +68,7 @@ def main() -> None:
         for mk, fr, cl, first in (("developed", dev, claims, 2021), ("emerging", em, em_claims, 2023)):
             rows_all = pd.concat([f[["policy_id", "customer_id", "period_start", "period_end"]] for f in fr.values()], ignore_index=True)
             hist1[mk] = (p2_features.customer_prev_year_claims(cl, rows_all, by_line="hist2" in fsets_all), first)
+    em_claims_all = data.load_claims(DIRS["emerging"], "emerging")
     held = {"developed": p2_features.lines_held(dev), "emerging": p2_features.lines_held(em)} if "xline" in fsets else {}
     for line in a.lines.split(","):
         d = market.to_common(dev[line], line, "developed")
@@ -76,11 +80,30 @@ def main() -> None:
             d, e = p2_features.add_features(d, line, fsets, held.get("developed")), p2_features.add_features(e, line, fsets, held.get("emerging"))
         d_train = d[d["split"] == "train"]
         matched = target.matched_claims(d_train, claims, line)
-        for tag in a.tags.split(","):
+        for tag in ([a.pool] if a.pool else a.tags.split(",")):
             stem = ("dev_pred2" if a.model == "gbm" else f"dev_pred2_{a.model}") + (f"_{a.variant}" if a.variant else "")
             path = out_dir / f"{stem}_{tag}_{line}.parquet"   # costs and counts; dev_pred_ = first run of the GBM (costs only)
             old_path = out_dir / f"dev_pred_{tag}_{line}.parquet" if (a.model == "gbm" and not a.variant) else out_dir / "does_not_exist.parquet"
             if path.exists():
+                continue
+            if a.pool:
+                assert a.model == "gbm", "--pool is implemented for the gbm only"
+                last_dev, em_years = POOL[tag]
+                dev_tr = d_train[d_train["year"] <= last_dev]
+                em_tr = e[(e["split"] == "train") & e["year"].isin(em_years)]
+                matched_dev = matched[matched["row_id"].isin(dev_tr["row_id"])]
+                table = FreqSev(matched, kind="gbm").c_by_year   # completeness from the developed claims only (all training years), as in the unpooled model
+                m_em = target.matched_claims(em_tr, em_claims_all, line)
+                m_em = m_em[m_em["row_id"].notna()]
+                prefix = lambda df: df.assign(row_id="E" + df["row_id"].astype(str))   # noqa: E731  (row ids restart at M00000000 in each market)
+                train = pd.concat([dev_tr.assign(market_emerging=0, pool_w=1.0), prefix(em_tr).assign(market_emerging=1, pool_w=a.pool_weight)], ignore_index=True)
+                matched_p = pd.concat([matched_dev, prefix(m_em)], ignore_index=True)
+                model = FreqSev(matched_p, kind="gbm", cat_encoding="target", outlier_mult=5.0, freq_rounds=a.freq_rounds, sev_rounds=a.sev_rounds, threads=THREADS, n_seeds=a.seeds,
+                                params_freq={"num_threads": THREADS, "num_leaves": a.leaves, "learning_rate": a.lr, "min_data_in_leaf": a.min_leaf_freq}, params_sev={"num_threads": THREADS, "num_leaves": a.leaves, "learning_rate": a.lr},
+                                extra_drop=tuple(c for c in a.drop.split(",") if c) + ("pool_w",), completeness_table=table).fit(train)
+                out, by = score(model, e.assign(market_emerging=1))
+                out.to_parquet(path)
+                print(f"{line} tag {tag} W={a.pool_weight}: trained on {len(dev_tr)} developed + {len(em_tr)} emerging rows, k={model.k_:.3f}, trend={model.sev_trend_:.3f}; emerging mean cost/row {by.sum(axis=1).mean():.1f}", flush=True)
                 continue
             train = d_train[d_train["year"] <= LAST_TRAIN_YEAR[tag]]
             if a.model == "gbm":

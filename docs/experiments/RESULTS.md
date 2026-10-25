@@ -520,3 +520,17 @@ Same test as RESULTS 54 (robust level, winsorised 99%, no closure, gender; GBM-o
 
 Every variant that gains forward loses in reverse, and the movement is in buildings (about 1,000 claims, the line whose level moves 1.5x between the two years): validation noise, not signal. On motor and contents alone no variant moves more than +-0.0008. Adoption rule (both directions >= 0 and a clearly positive sum, > +0.002) is met by none. The developed base is at its ceiling relative to what fold E can resolve; the remaining engineering effort is better spent on the level and on averaging bases (nets) than on features or tree settings (D64).
 
+## 56. Two averaged nets in the base; candidate t4 (2026-10-25 EDT)
+
+All nine TabM-PLE fits (three lines x cut-offs A, B, C) are in. Two-direction test as in RESULTS 50 (robust level, winsorised 99%, no closure, gender), pooled D2 forward 2023 -> 2024 / reverse 2024 -> 2023:
+
+| Base | Forward | Reverse |
+|---|---|---|
+| GBM only | 0.1281 | 0.1176 |
+| GBM + TabM, 50/50 | 0.1288 | 0.1210 |
+| GBM + TabM-PLE, 50/50 | 0.1283 | 0.1223 |
+| **GBM + (TabM, TabM-PLE averaged), 50/50** | **0.1289** | **0.1220** |
+| GBM + (TabM, TabM-PLE), 70% nets | 0.1286 | 0.1223 |
+
+Averaged nets 50/50 vs GBM only: +0.0008 forward, +0.0044 reverse (paired vs the closure recipe +0.0009 / +0.0015, intervals include 0). Chosen: 50% nets, both nets averaged (no tuning on the maximum; 70% is no better). Candidate `submissions/p2_t4_robust_gbm_2nets.csv` (sha256 9bffbfe583d20340...; mean per row motor 505, buildings 480, contents 92; total mean 367.6): level between t2 (GBM only: 489 / 433 / 89) and t3 (TabM only: 528 / 472 / 93), as expected when the net's level noise is averaged out; row ranking agrees with t3 (Spearman 0.996-0.998). Not yet submitted.
+

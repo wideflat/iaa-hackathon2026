@@ -57,8 +57,8 @@ def main() -> None:
     ap.add_argument("--gbm-name", default="gbm", help="name of the tree base: gbm, or a variant stem such as hist1")
     ap.add_argument("--level", default="closure", choices=["closure", "robust"], help="closure: per-peril cost factors + line closure (p2_t1); robust: count x median factors, no closure")
     ap.add_argument("--sev-location", default="w99", choices=["median", "w99"], help="severity scale of a peril: ratio of medians, or of the claim means winsorised at the 99% quantile of each market")
-    ap.add_argument("--k-freq", type=float, default=20.0)
-    ap.add_argument("--k-sev", type=float, default=30.0)
+    ap.add_argument("--k-freq", default="20", help="frequency credibility constant: 20, or motor=60,buildings=400,contents=20")
+    ap.add_argument("--k-sev", default="30")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     share = {kv.split("=")[0]: float(kv.split("=")[1]) for kv in a.nn_share.split(",") if kv}
@@ -108,7 +108,7 @@ def main() -> None:
                 twc = lambda tag: sum(base_costs(f"tw_{t}", tag, line)["all"] for t in tws) / len(tws)   # noqa: E731
                 tw_raw = pd.concat([twc("A").loc[rows.loc[rows["year"] == 2023, "row_id"]], twc("B").loc[rows.loc[rows["year"] == 2024, "row_id"]]]).loc[rows["row_id"]].set_axis(rows.index)
                 tw_kw = dict(tw_train=tw_raw * crow, tw_test=twc("C").loc[test["row_id"]].set_axis(test.index), tw_share=a.tw_share)
-            pred, fac = transfer.calibrate_robust(pred_train, cnt_train, n_by, rows["y"], rows["n_claims"], g_train, emed, dmed, pred_test, g_test, a.k_freq, a.k_sev, a.k_gender, **tw_kw)
+            pred, fac = transfer.calibrate_robust(pred_train, cnt_train, n_by, rows["y"], rows["n_claims"], g_train, emed, dmed, pred_test, g_test, transfer.line_value(a.k_freq, line), transfer.line_value(a.k_sev, line), a.k_gender, **tw_kw)
             fac["closure"] = fac["train_actual_over_predicted"]
         factors[line] = fac
         parts.append(pd.DataFrame({"row_id": test["row_id"], "prediction": pred}))

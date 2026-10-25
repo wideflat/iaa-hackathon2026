@@ -123,3 +123,12 @@ def calibrate_robust(cost_train: pd.DataFrame, count_train: pd.DataFrame, n_by_p
     f_group = group_factors(y_train, base_train, gender_train, n_claims_train, k=k_group)
     pred = base_test * gender_test.map(f_group).to_numpy()
     return pred, {"peril": rf.to_dict("index"), "group": f_group.to_dict(), "train_actual_over_predicted": float(y_train.sum() / base_train.sum()), "tw_scale": scale}
+
+
+def line_value(spec: str, line: str) -> float:
+    """A constant that may differ by line: '20' (all lines) or 'motor=60,buildings=400,contents=20'."""
+    if "=" not in spec:
+        return float(spec)
+    d = {kv.split("=")[0]: float(kv.split("=")[1]) for kv in spec.split(",")}
+    assert line in d, f"no value for {line} in {spec!r}"
+    return d[line]

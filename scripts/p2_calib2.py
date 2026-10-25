@@ -33,6 +33,8 @@ def main() -> None:
     ap.add_argument("--tw-names", default="", help="direct Tweedie GBM variants (stems written by p2_dev_predictions --model tw --variant), averaged; blended into the tree base")
     ap.add_argument("--tw-share", type=float, default=0.5, help="weight of the Tweedie part in the blended tree base (Part 1 tree half: 0.5)")
     ap.add_argument("--weather-slope", action="store_true", help="per-peril hail slope correction (glass_hail in motor, storm in buildings): the response of the developed model to hail days is re-estimated on the calibration year, centred within each year")
+    ap.add_argument("--k-freq", default="20", help="frequency credibility constant: 20, or motor=60,buildings=400,contents=20")
+    ap.add_argument("--k-sev", default="30")
     ap.add_argument("--gbm-name", default="gbm", help="name of the tree base: gbm, or a variant stem written by p2_dev_predictions --variant")
     a = ap.parse_args()
     nets = [m for m in a.nn_models.split(",") if m]
@@ -80,13 +82,13 @@ def main() -> None:
             dc = dev_claims[(dev_claims["line"] == line) & (dev_claims["status"] != "repudiated") & (dev_claims["loss_date"].dt.year == cal_y)]
             dmed = target.claim_net_cost(dc).groupby(dc["peril"]).median().reindex(perils)
             emed = m.groupby("peril")["net_cost"].median().reindex(perils).fillna(dmed)
-            rf = transfer.robust_factors(n_by, en.sum(), emed, dmed)
+            rf = transfer.robust_factors(n_by, en.sum(), emed, dmed, transfer.line_value(a.k_freq, line), transfer.line_value(a.k_sev, line))
             dcost = target.claim_net_cost(dc)
             loc = {}
             for q in (0.95, 0.99):   # winsorised mean: every claim capped at the quantile of its own market and peril
                 dw = dcost.groupby(dc["peril"]).apply(lambda x: x.clip(upper=x.quantile(q)).mean()).reindex(perils)
                 ew = m.groupby("peril")["net_cost"].apply(lambda x: x.clip(upper=x.quantile(q)).mean()).reindex(perils).fillna(dw)
-                loc[q] = transfer.robust_factors(n_by, en.sum(), ew, dw)
+                loc[q] = transfer.robust_factors(n_by, en.sum(), ew, dw, transfer.line_value(a.k_freq, line), transfer.line_value(a.k_sev, line))
             f_cost = transfer.calibration_factors(act_rows, ec, n_by, k=300)
             variants = {
                 "closure_only": (ec.sum(axis=1), ev.sum(axis=1)),

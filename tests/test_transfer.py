@@ -152,3 +152,10 @@ def test_calibrate_robust_with_a_tweedie_part_keeps_the_robust_level_and_reorder
     mixed, fac = transfer.calibrate_robust(*args, k_freq=1.0, k_sev=1.0, k_group=1e12, tw_train=tw * 3.0, tw_test=tw * 3.0, tw_share=0.5)
     assert mixed.sum() == pytest.approx(base.sum(), rel=1e-9)            # the level is the robust one
     assert mixed[0] < mixed[-1] and fac["tw_scale"] == pytest.approx(1.0 / 3.0)
+
+
+def test_line_value_parses_a_constant_or_a_per_line_spec():
+    assert transfer.line_value("20", "motor") == 20.0
+    assert transfer.line_value("motor=60,buildings=400,contents=20", "buildings") == 400.0
+    with pytest.raises(AssertionError):
+        transfer.line_value("motor=60", "contents")

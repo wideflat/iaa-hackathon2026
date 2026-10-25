@@ -546,3 +546,18 @@ Averaged nets 50/50 vs GBM only: +0.0008 forward, +0.0044 reverse (paired vs the
 
 `--adv 0.5` (developed rows weighted by the odds that they look like emerging rows, features only; the Part 1 mechanism), GBM-only base, robust level, gender: pooled D2 forward 0.1280 / reverse 0.1159 against 0.1281 / 0.1176 for the unweighted GBM: -0.0001 / -0.0017. Contents calibration moves from 0.97 to 1.19 forward, i.e. the weighting shifts the level of the line it distorts most. No gain in either direction: rejected (D67), as in Part 1.
 
+## 60. One-year claim-history inputs in the developed base (2026-10-25 EDT)
+
+Inputs (`hist1`, `iaa.p2_features.add_history1`): the policy's own claims of the previous year (this line), the claims at the same address, and the customer's claims over all lines in the previous year (reported by 31 December of that year). One-year windows are used because the emerging book starts in 2023 (all-time counts would mean different things); the first year of each market (developed 2021, emerging 2023) is set to missing, not to zero. Motivation (A/E screen on emerging 2024 renewals): motor last-year claimants 1.195 vs non-claimants 0.944, i.e. +27% not captured by the model; buildings and contents customers with a claim on another line 1.59 / 1.43 vs 0.92 / 0.95.
+
+Two-direction test (robust level, winsorised 99%, no closure, gender), pooled D2 forward 2023 -> 2024 / reverse 2024 -> 2023:
+
+| Base | Forward | Reverse | Motor fwd / rev | Buildings fwd / rev | Contents fwd / rev |
+|---|---|---|---|---|---|
+| GBM, no history (baseline) | 0.1281 | 0.1176 | 0.0899 / 0.0443 | 0.0706 / 0.0586 | 0.0975 / 0.1134 |
+| **GBM with history** | **0.1304 (+0.0023)** | **0.1197 (+0.0021)** | 0.0924 / 0.0456 | 0.0733 / 0.0625 | 0.0993 / 0.1144 |
+| t4: GBM + (TabM, TabM-PLE) 50/50, no history | 0.1289 | 0.1220 | | | |
+| GBM with history + the same nets without history | 0.1303 (+0.0014 vs t4) | 0.1231 (+0.0011 vs t4) | 0.0938 / 0.0464 | 0.0673 / 0.0723 | 0.1046 / 0.1130 |
+
+All three lines are better in both directions with history (the first time any change is non-negative everywhere). Adopted for the tree half (D68). The nets with history inputs are being trained (helpers); the Tweedie GBM part is being trained (helper).
+

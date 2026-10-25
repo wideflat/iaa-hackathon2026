@@ -73,6 +73,7 @@ Each decision: what, why (evidence), status. "Reviewed by" is the human who conf
 | D65 | Final base = GBM 50% + average of TabM and TabM-PLE 50% (per line), robust level, gender | RESULTS 56: +0.0008 forward / +0.0044 reverse over GBM only; two nets halve the level noise of a single net (t4 level sits between t2 and t3); 70% nets not better | Adopted as candidate t4; replaces D61's "waits for TabM-PLE" | Project lead |
 | D66 | No further emerging-only corrections (gender x age, no-claims bonus, excess, occupation, cover type) | RESULTS 58: all <= +0.0001 or negative in both directions on top of the final base | Rejected; gender stays one flat factor per line | Project lead |
 | D67 | No domain-shift weights in the developed model | RESULTS 59: -0.0001 forward, -0.0017 reverse; contents level distorted | Rejected | Project lead |
+| D68 | One-year claim-history inputs (`hist1`) enter the developed GBM (and the nets, once trained) | RESULTS 60: GBM alone +0.0023 forward / +0.0021 reverse, every line non-negative in both directions; with the old nets +0.0014 / +0.0011 over t4 | Adopted; candidate t5a = GBM(hist1) + nets without history, t5 = all with history | Project lead |
 
 ## Open decisions
 - Names of the team's independent reviewer and approver for the governance log (placeholders in `workflow/AI_USAGE.md`): to be filled in by the project lead.

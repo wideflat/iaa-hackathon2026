@@ -1,0 +1,8 @@
+fold A: xs_gbm_base 0.1369 vs xs_gbm_xline 0.1373 | diff -0.0004 (95% CI -0.0026..+0.0012), P(first better) = 0.40, rows 626,355
+   buildings  diff +0.0009 (CI -0.0005..+0.0024)
+   contents   diff +0.0002 (CI -0.0017..+0.0020)
+   motor      diff -0.0015 (CI -0.0055..+0.0011)
+fold B: xs_gbm_base 0.1333 vs xs_gbm_xline 0.1335 | diff -0.0002 (95% CI -0.0007..+0.0003), P(first better) = 0.21, rows 626,190
+   buildings  diff -0.0005 (CI -0.0019..+0.0007)
+   contents   diff -0.0003 (CI -0.0012..+0.0007)
+   motor      diff +0.0001 (CI -0.0002..+0.0005)

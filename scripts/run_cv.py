@@ -55,6 +55,7 @@ def main() -> None:
     ap.add_argument("--entity", action="store_true", help="fs_nn: customer_id and address_id as learned embeddings")
     ap.add_argument("--nn-tabm-k", type=int, default=None, help="fs_nn: TabM BatchEnsemble members per MLP")
     ap.add_argument("--history-extra", action="store_true", help="add per-peril / gap / max-cost / open-claim history features (iaa.engineered_history)")
+    ap.add_argument("--crossline", action="store_true", help="add the customer's other-line policy attributes of the same year (iaa.crossline)")
     ap.add_argument("--engineered", action="store_true", help="add the label-free engineered features (iaa.engineered)")
     ap.add_argument("--nn-ple", type=int, default=None, help="fs_nn: piecewise-linear encoding of numeric inputs with this many quantile bins")
     ap.add_argument("--cat-encoding", default="native", choices=["native", "label", "count", "both", "target", "target_peril"], help="tree models: categorical encoding")
@@ -92,6 +93,9 @@ def main() -> None:
     if a.history_extra:
         from iaa.engineered_history import add_history_extra
         frames = add_history_extra(frames, claims)
+    if a.crossline:
+        from iaa.crossline import add_crossline
+        frames = add_crossline(frames)
     if a.engineered:
         from iaa.engineered import add_engineered
         frames = add_engineered(frames)

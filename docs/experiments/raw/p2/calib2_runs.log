@@ -1464,3 +1464,131 @@ reverse 2024->2023 contents actual / predicted on the calibration rows: median 1
   robust_fs_noclose+gender - closure_only+gender: +0.0042 (95% +0.0002..+0.0091)
   robustw95_noclose+gender - closure_only+gender: +0.0043 (95% +0.0006..+0.0078)
   robustw99_noclose+gender - closure_only+gender: +0.0049 (95% +0.0010..+0.0086)
+
+##### 2026-10-26 01:23 UTC python scripts/p2_calib2.py --gbm-name hist1 --nn-models nn_tabm_hist1,nn_tabm_ple_hist1 --nn-weight 0.5 --tw-names twl4,twl8 --tw-share 0.25 --k-freq motor=20,buildings=400,contents=20 --oracle
+oracle 2024 motor actual / predicted on the calibration rows: median 0.968  w95 0.969  w99 0.98
+oracle 2024 buildings actual / predicted on the calibration rows: median 0.85  w95 0.852  w99 0.843
+oracle 2024 contents actual / predicted on the calibration rows: median 1.146  w95 1.073  w99 1.064
+=== oracle 2024: 59202 validation rows
+  closure_only                 D2=0.1425 motor=0.0924/cal1.00 buildings=0.1120/cal1.00 contents=0.1030/cal1.00
+  closure_only+gender          D2=0.1449 motor=0.0957/cal1.00 buildings=0.1138/cal1.00 contents=0.1048/cal1.00
+  cost_k300                    D2=0.1427 motor=0.0927/cal1.00 buildings=0.1119/cal1.00 contents=0.1033/cal1.00
+  cost_k300+gender             D2=0.1451 motor=0.0960/cal1.00 buildings=0.1138/cal1.00 contents=0.1051/cal1.00
+  cost_k300_noclose            D2=0.1426 motor=0.0927/cal1.00 buildings=0.1117/cal1.02 contents=0.1033/cal0.99
+  cost_k300_noclose+gender     D2=0.1450 motor=0.0960/cal1.00 buildings=0.1135/cal1.02 contents=0.1051/cal0.99
+  robust_fs                    D2=0.1422 motor=0.0921/cal1.00 buildings=0.1110/cal1.00 contents=0.1035/cal1.00
+  robust_fs+gender             D2=0.1446 motor=0.0954/cal1.00 buildings=0.1128/cal1.00 contents=0.1054/cal1.00
+  robust_fs_noclose            D2=0.1403 motor=0.0919/cal1.03 buildings=0.1058/cal1.18 contents=0.1021/cal0.87
+  robust_fs_noclose+gender     D2=0.1426 motor=0.0952/cal1.03 buildings=0.1074/cal1.18 contents=0.1040/cal0.87
+  robustw95                    D2=0.1428 motor=0.0922/cal1.00 buildings=0.1127/cal1.00 contents=0.1037/cal1.00
+  robustw95+gender             D2=0.1452 motor=0.0955/cal1.00 buildings=0.1146/cal1.00 contents=0.1056/cal1.00
+  robustw95_noclose            D2=0.1413 motor=0.0920/cal1.03 buildings=0.1081/cal1.17 contents=0.1035/cal0.93
+  robustw95_noclose+gender     D2=0.1437 motor=0.0953/cal1.03 buildings=0.1098/cal1.17 contents=0.1053/cal0.93
+  robustw99                    D2=0.1427 motor=0.0923/cal1.00 buildings=0.1126/cal1.00 contents=0.1037/cal1.00
+  robustw99+gender             D2=0.1452 motor=0.0955/cal1.00 buildings=0.1145/cal1.00 contents=0.1055/cal1.00
+  robustw99_noclose            D2=0.1412 motor=0.0922/cal1.02 buildings=0.1075/cal1.19 contents=0.1035/cal0.94
+  robustw99_noclose+gender     D2=0.1435 motor=0.0954/cal1.02 buildings=0.1092/cal1.19 contents=0.1054/cal0.94
+  robustw99_tw                 D2=0.1432 motor=0.0914/cal1.00 buildings=0.1149/cal1.00 contents=0.1046/cal1.00
+  robustw99_tw+gender          D2=0.1457 motor=0.0948/cal1.00 buildings=0.1168/cal1.00 contents=0.1065/cal1.00
+  robustw99_tw_noclose         D2=0.1416 motor=0.0913/cal1.02 buildings=0.1098/cal1.19 contents=0.1044/cal0.94
+  robustw99_tw_noclose+gender  D2=0.1441 motor=0.0947/cal1.02 buildings=0.1115/cal1.19 contents=0.1063/cal0.94
+  with Tweedie part - without: +0.0005 (95% -0.0005..+0.0015)
+  cost_k300+gender - closure_only+gender: +0.0002 (95% -0.0001..+0.0005)
+  robust_fs_noclose+gender - closure_only+gender: -0.0023 (95% -0.0060..+0.0015)
+  robustw95_noclose+gender - closure_only+gender: -0.0012 (95% -0.0044..+0.0018)
+  robustw99_noclose+gender - closure_only+gender: -0.0013 (95% -0.0048..+0.0019)
+oracle 2023 motor actual / predicted on the calibration rows: median 0.856  w95 0.875  w99 0.878
+oracle 2023 buildings actual / predicted on the calibration rows: median 1.313  w95 1.266  w99 1.27
+oracle 2023 contents actual / predicted on the calibration rows: median 1.042  w95 1.078  w99 1.069
+=== oracle 2023: 50094 validation rows
+  closure_only                 D2=0.1316 motor=0.0470/cal1.00 buildings=0.0978/cal1.00 contents=0.1110/cal1.00
+  closure_only+gender          D2=0.1330 motor=0.0494/cal1.00 buildings=0.0980/cal1.00 contents=0.1126/cal1.00
+  cost_k300                    D2=0.1318 motor=0.0470/cal1.00 buildings=0.0969/cal1.00 contents=0.1137/cal1.00
+  cost_k300+gender             D2=0.1332 motor=0.0495/cal1.00 buildings=0.0970/cal1.00 contents=0.1154/cal1.00
+  cost_k300_noclose            D2=0.1320 motor=0.0472/cal1.02 buildings=0.0970/cal0.98 contents=0.1141/cal0.97
+  cost_k300_noclose+gender     D2=0.1334 motor=0.0496/cal1.02 buildings=0.0972/cal0.98 contents=0.1157/cal0.97
+  robust_fs                    D2=0.1321 motor=0.0471/cal1.00 buildings=0.0961/cal1.00 contents=0.1166/cal1.00
+  robust_fs+gender             D2=0.1335 motor=0.0495/cal1.00 buildings=0.0962/cal1.00 contents=0.1182/cal1.00
+  robust_fs_noclose            D2=0.1291 motor=0.0449/cal1.17 buildings=0.0896/cal0.76 contents=0.1170/cal0.96
+  robust_fs_noclose+gender     D2=0.1304 motor=0.0473/cal1.17 buildings=0.0898/cal0.76 contents=0.1187/cal0.96
+  robustw95                    D2=0.1317 motor=0.0471/cal1.00 buildings=0.0946/cal1.00 contents=0.1171/cal1.00
+  robustw95+gender             D2=0.1330 motor=0.0495/cal1.00 buildings=0.0948/cal1.00 contents=0.1187/cal1.00
+  robustw95_noclose            D2=0.1297 motor=0.0457/cal1.14 buildings=0.0904/cal0.79 contents=0.1175/cal0.93
+  robustw95_noclose+gender     D2=0.1311 motor=0.0480/cal1.14 buildings=0.0906/cal0.79 contents=0.1191/cal0.93
+  robustw99                    D2=0.1316 motor=0.0471/cal1.00 buildings=0.0946/cal1.00 contents=0.1165/cal1.00
+  robustw99+gender             D2=0.1330 motor=0.0495/cal1.00 buildings=0.0948/cal1.00 contents=0.1181/cal1.00
+  robustw99_noclose            D2=0.1296 motor=0.0458/cal1.14 buildings=0.0902/cal0.79 contents=0.1170/cal0.94
+  robustw99_noclose+gender     D2=0.1310 motor=0.0482/cal1.14 buildings=0.0904/cal0.79 contents=0.1186/cal0.94
+  robustw99_tw                 D2=0.1317 motor=0.0460/cal1.00 buildings=0.0965/cal1.00 contents=0.1163/cal1.00
+  robustw99_tw+gender          D2=0.1331 motor=0.0485/cal1.00 buildings=0.0967/cal1.00 contents=0.1180/cal1.00
+  robustw99_tw_noclose         D2=0.1298 motor=0.0449/cal1.14 buildings=0.0918/cal0.79 contents=0.1168/cal0.94
+  robustw99_tw_noclose+gender  D2=0.1311 motor=0.0473/cal1.14 buildings=0.0920/cal0.79 contents=0.1185/cal0.94
+  with Tweedie part - without: +0.0001 (95% -0.0018..+0.0022)
+  cost_k300+gender - closure_only+gender: +0.0002 (95% -0.0004..+0.0007)
+  robust_fs_noclose+gender - closure_only+gender: -0.0026 (95% -0.0101..+0.0041)
+  robustw95_noclose+gender - closure_only+gender: -0.0020 (95% -0.0090..+0.0037)
+  robustw99_noclose+gender - closure_only+gender: -0.0020 (95% -0.0092..+0.0037)
+
+##### 2026-10-26 01:23 UTC python scripts/p2_calib2.py --gbm-name hist1 --nn-models nn_tabm_hist1,nn_tabm_ple_hist1 --nn-weight 0.5 --tw-names twl4,twl8 --tw-share 0.25 --k-freq motor=20,buildings=400,contents=20 --oracle
+oracle 2024 motor actual / predicted on the calibration rows: median 0.968  w95 0.969  w99 0.98
+oracle 2024 buildings actual / predicted on the calibration rows: median 0.85  w95 0.852  w99 0.843
+oracle 2024 contents actual / predicted on the calibration rows: median 1.146  w95 1.073  w99 1.064
+=== oracle 2024: 59202 validation rows
+  closure_only                 D2=0.1425 motor=0.0924/cal1.00 buildings=0.1120/cal1.00 contents=0.1030/cal1.00
+  closure_only+gender          D2=0.1449 motor=0.0957/cal1.00 buildings=0.1138/cal1.00 contents=0.1048/cal1.00
+  cost_k300                    D2=0.1427 motor=0.0927/cal1.00 buildings=0.1119/cal1.00 contents=0.1033/cal1.00
+  cost_k300+gender             D2=0.1451 motor=0.0960/cal1.00 buildings=0.1138/cal1.00 contents=0.1051/cal1.00
+  cost_k300_noclose            D2=0.1426 motor=0.0927/cal1.00 buildings=0.1117/cal1.02 contents=0.1033/cal0.99
+  cost_k300_noclose+gender     D2=0.1450 motor=0.0960/cal1.00 buildings=0.1135/cal1.02 contents=0.1051/cal0.99
+  robust_fs                    D2=0.1422 motor=0.0921/cal1.00 buildings=0.1110/cal1.00 contents=0.1035/cal1.00
+  robust_fs+gender             D2=0.1446 motor=0.0954/cal1.00 buildings=0.1128/cal1.00 contents=0.1054/cal1.00
+  robust_fs_noclose            D2=0.1403 motor=0.0919/cal1.03 buildings=0.1058/cal1.18 contents=0.1021/cal0.87
+  robust_fs_noclose+gender     D2=0.1426 motor=0.0952/cal1.03 buildings=0.1074/cal1.18 contents=0.1040/cal0.87
+  robustw95                    D2=0.1428 motor=0.0922/cal1.00 buildings=0.1127/cal1.00 contents=0.1037/cal1.00
+  robustw95+gender             D2=0.1452 motor=0.0955/cal1.00 buildings=0.1146/cal1.00 contents=0.1056/cal1.00
+  robustw95_noclose            D2=0.1413 motor=0.0920/cal1.03 buildings=0.1081/cal1.17 contents=0.1035/cal0.93
+  robustw95_noclose+gender     D2=0.1437 motor=0.0953/cal1.03 buildings=0.1098/cal1.17 contents=0.1053/cal0.93
+  robustw99                    D2=0.1427 motor=0.0923/cal1.00 buildings=0.1126/cal1.00 contents=0.1037/cal1.00
+  robustw99+gender             D2=0.1452 motor=0.0955/cal1.00 buildings=0.1145/cal1.00 contents=0.1055/cal1.00
+  robustw99_noclose            D2=0.1412 motor=0.0922/cal1.02 buildings=0.1075/cal1.19 contents=0.1035/cal0.94
+  robustw99_noclose+gender     D2=0.1435 motor=0.0954/cal1.02 buildings=0.1092/cal1.19 contents=0.1054/cal0.94
+  robustw99_tw                 D2=0.1432 motor=0.0914/cal1.00 buildings=0.1149/cal1.00 contents=0.1046/cal1.00
+  robustw99_tw+gender          D2=0.1457 motor=0.0948/cal1.00 buildings=0.1168/cal1.00 contents=0.1065/cal1.00
+  robustw99_tw_noclose         D2=0.1416 motor=0.0913/cal1.02 buildings=0.1098/cal1.19 contents=0.1044/cal0.94
+  robustw99_tw_noclose+gender  D2=0.1441 motor=0.0947/cal1.02 buildings=0.1115/cal1.19 contents=0.1063/cal0.94
+  with Tweedie part - without: +0.0005 (95% -0.0005..+0.0015)
+  cost_k300+gender - closure_only+gender: +0.0002 (95% -0.0001..+0.0005)
+  robust_fs_noclose+gender - closure_only+gender: -0.0023 (95% -0.0060..+0.0015)
+  robustw95_noclose+gender - closure_only+gender: -0.0012 (95% -0.0044..+0.0018)
+  robustw99_noclose+gender - closure_only+gender: -0.0013 (95% -0.0048..+0.0019)
+oracle 2023 motor actual / predicted on the calibration rows: median 0.856  w95 0.875  w99 0.878
+oracle 2023 buildings actual / predicted on the calibration rows: median 1.313  w95 1.266  w99 1.27
+oracle 2023 contents actual / predicted on the calibration rows: median 1.042  w95 1.078  w99 1.069
+=== oracle 2023: 50094 validation rows
+  closure_only                 D2=0.1316 motor=0.0470/cal1.00 buildings=0.0978/cal1.00 contents=0.1110/cal1.00
+  closure_only+gender          D2=0.1330 motor=0.0494/cal1.00 buildings=0.0980/cal1.00 contents=0.1126/cal1.00
+  cost_k300                    D2=0.1318 motor=0.0470/cal1.00 buildings=0.0969/cal1.00 contents=0.1137/cal1.00
+  cost_k300+gender             D2=0.1332 motor=0.0495/cal1.00 buildings=0.0970/cal1.00 contents=0.1154/cal1.00
+  cost_k300_noclose            D2=0.1320 motor=0.0472/cal1.02 buildings=0.0970/cal0.98 contents=0.1141/cal0.97
+  cost_k300_noclose+gender     D2=0.1334 motor=0.0496/cal1.02 buildings=0.0972/cal0.98 contents=0.1157/cal0.97
+  robust_fs                    D2=0.1321 motor=0.0471/cal1.00 buildings=0.0961/cal1.00 contents=0.1166/cal1.00
+  robust_fs+gender             D2=0.1335 motor=0.0495/cal1.00 buildings=0.0962/cal1.00 contents=0.1182/cal1.00
+  robust_fs_noclose            D2=0.1291 motor=0.0449/cal1.17 buildings=0.0896/cal0.76 contents=0.1170/cal0.96
+  robust_fs_noclose+gender     D2=0.1304 motor=0.0473/cal1.17 buildings=0.0898/cal0.76 contents=0.1187/cal0.96
+  robustw95                    D2=0.1317 motor=0.0471/cal1.00 buildings=0.0946/cal1.00 contents=0.1171/cal1.00
+  robustw95+gender             D2=0.1330 motor=0.0495/cal1.00 buildings=0.0948/cal1.00 contents=0.1187/cal1.00
+  robustw95_noclose            D2=0.1297 motor=0.0457/cal1.14 buildings=0.0904/cal0.79 contents=0.1175/cal0.93
+  robustw95_noclose+gender     D2=0.1311 motor=0.0480/cal1.14 buildings=0.0906/cal0.79 contents=0.1191/cal0.93
+  robustw99                    D2=0.1316 motor=0.0471/cal1.00 buildings=0.0946/cal1.00 contents=0.1165/cal1.00
+  robustw99+gender             D2=0.1330 motor=0.0495/cal1.00 buildings=0.0948/cal1.00 contents=0.1181/cal1.00
+  robustw99_noclose            D2=0.1296 motor=0.0458/cal1.14 buildings=0.0902/cal0.79 contents=0.1170/cal0.94
+  robustw99_noclose+gender     D2=0.1310 motor=0.0482/cal1.14 buildings=0.0904/cal0.79 contents=0.1186/cal0.94
+  robustw99_tw                 D2=0.1317 motor=0.0460/cal1.00 buildings=0.0965/cal1.00 contents=0.1163/cal1.00
+  robustw99_tw+gender          D2=0.1331 motor=0.0485/cal1.00 buildings=0.0967/cal1.00 contents=0.1180/cal1.00
+  robustw99_tw_noclose         D2=0.1298 motor=0.0449/cal1.14 buildings=0.0918/cal0.79 contents=0.1168/cal0.94
+  robustw99_tw_noclose+gender  D2=0.1311 motor=0.0473/cal1.14 buildings=0.0920/cal0.79 contents=0.1185/cal0.94
+  with Tweedie part - without: +0.0001 (95% -0.0018..+0.0022)
+  cost_k300+gender - closure_only+gender: +0.0002 (95% -0.0004..+0.0007)
+  robust_fs_noclose+gender - closure_only+gender: -0.0026 (95% -0.0101..+0.0041)
+  robustw95_noclose+gender - closure_only+gender: -0.0020 (95% -0.0090..+0.0037)
+  robustw99_noclose+gender - closure_only+gender: -0.0020 (95% -0.0092..+0.0037)

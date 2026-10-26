@@ -57,6 +57,7 @@ def main() -> None:
     ap.add_argument("--pool-stem", default="", help="pooled GBM variant (p2_dev_predictions --pool): forward uses tag PF for both years, reverse tag PR; replaces the base models")
     ap.add_argument("--force-tag", default="", help="score calibration and validation rows with this developed cut-off tag (e.g. B) in both directions: the control of the pooled runs, which also see developed 2023")
     ap.add_argument("--shared-freq", action="store_true", help="frequency prior of a peril name present in several lines = its pooled actual / expected ratio over the lines of the calibration year (transfer.shared_peril_prior)")
+    ap.add_argument("--oracle", action="store_true", help="ceiling analysis: calibrate on the validation year itself (in-sample level and gender factors), i.e. what a perfect level estimate of that year would score")
     a = ap.parse_args()
     nets = [m for m in a.nn_models.split(",") if m]
     models = ({a.gbm_name: 1.0 - a.nn_weight} | {m: a.nn_weight / len(nets) for m in nets}) if a.nn_weight > 0 else {a.gbm_name: 1.0}
@@ -71,7 +72,7 @@ def main() -> None:
 
     em_claims, dev_claims = data.load_claims(pc.EM_DIR, "emerging"), data.load_claims(DEV_DIR, "developed")
     em = cache.load_frames(market="emerging", data_dir=pc.EM_DIR)
-    for name, cal_y, val_y in (("forward 2023->2024", 2023, 2024), ("reverse 2024->2023", 2024, 2023)):
+    for name, cal_y, val_y in ((("oracle 2024", 2024, 2024), ("oracle 2023", 2023, 2023)) if a.oracle else (("forward 2023->2024", 2023, 2024), ("reverse 2024->2023", 2024, 2023))):
         parts, preds = [], {}
         prior = None
         if a.shared_freq:   # pre-pass over the lines: calibration-year claim counts and developed expected counts by peril

@@ -52,7 +52,7 @@ def main() -> None:
     ap.add_argument("--seeds", type=int, default=1, help="gbm / tw: bagging seeds averaged per stage; nn_*: nets averaged per stage (Part 1 final: 3)")
     ap.add_argument("--variant", default="", help="suffix of the output files when --drop or --mix-as is used")
     ap.add_argument("--mix-as", default="", help="buildings only: comma-separated developed levels (w, brick, stone) to read the emerging code MIX as; one extra file per level, the model is trained once")
-    ap.add_argument("--model", default="gbm", choices=["gbm", "tw", "glm", "nn_tabm", "nn_tabm_ple"], help="gbm = LightGBM frequency x severity (Part 1 tree half); tw = direct pure-premium Tweedie LightGBM (--leaves 4 --freq-rounds 350, or 8 / 300; one column dev_all); glm = regularised frequency x severity GLM with quantile bands (blend challenger); nn_* = the TabM nets of the Part 1 NN half")
+    ap.add_argument("--model", default="gbm", choices=["gbm", "tw", "glm", "nn_tabm", "nn_tabm_ple", "nn_tabm_q"], help="gbm = LightGBM frequency x severity (Part 1 tree half); tw = direct pure-premium Tweedie LightGBM (--leaves 4 --freq-rounds 350, or 8 / 300; one column dev_all); glm = regularised frequency x severity GLM with quantile bands (blend challenger); nn_* = the TabM nets of the Part 1 NN half")
     ap.add_argument("--pool", default="", choices=["", "PF", "PR", "PC"], help="gbm only: also train on the labelled emerging rows of POOL[tag] with a market_emerging input; the tag replaces --tags")
     ap.add_argument("--pool-weight", type=float, default=1.0, help="row weight of the emerging rows relative to a developed row")
     a = ap.parse_args()
@@ -115,7 +115,7 @@ def main() -> None:
             elif a.model == "glm":   # as scripts/run_cv.py --model fs_glm --bands --outlier-mult 5
                 model = FreqSev(matched, kind="glm", bands=True, outlier_mult=5.0, threads=THREADS, extra_drop=tuple(c for c in a.drop.split(",") if c)).fit(train)
             else:   # as scripts/run_cv.py --model fs_nn --outlier-mult 5 --nn-tabm-k 4 [--nn-ple 8]
-                nnp = {"tabm_k": 4, "threads": THREADS, "n_seeds": a.seeds} | ({"ple_bins": 8} if a.model == "nn_tabm_ple" else {})
+                nnp = {"tabm_k": 4, "threads": THREADS, "n_seeds": a.seeds} | ({"ple_bins": 8} if a.model == "nn_tabm_ple" else {}) | ({"num_transform": "quantile"} if a.model == "nn_tabm_q" else {})
                 model = FreqSev(matched, kind="nn", outlier_mult=5.0, threads=THREADS, nn_params=nnp, extra_drop=tuple(c for c in a.drop.split(",") if c)).fit(train)
             out, by = score(model, e)
             if old_path.exists():   # reproducibility check against the first run (same seeds, same data): costs must be identical

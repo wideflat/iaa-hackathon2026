@@ -60,7 +60,8 @@ def main() -> None:
     ap.add_argument("--oracle", action="store_true", help="ceiling analysis: calibrate on the validation year itself (in-sample level and gender factors), i.e. what a perfect level estimate of that year would score")
     a = ap.parse_args()
     nets = [m for m in a.nn_models.split(",") if m]
-    models = ({a.gbm_name: 1.0 - a.nn_weight} | {m: a.nn_weight / len(nets) for m in nets}) if a.nn_weight > 0 else {a.gbm_name: 1.0}
+    gbms = [g for g in a.gbm_name.split(",") if g]   # tree bases averaged with equal weights
+    models = ({g: (1.0 - a.nn_weight) / len(gbms) for g in gbms} | {m: a.nn_weight / len(nets) for m in nets}) if a.nn_weight > 0 else {g: 1.0 / len(gbms) for g in gbms}
 
     if a.pool_stem:
         models = {a.pool_stem: 1.0}

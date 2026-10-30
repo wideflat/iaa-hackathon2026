@@ -73,7 +73,8 @@ def main() -> None:
         rows = e[e["split"] == "train"].reset_index(drop=True)
         test = e[e["split"] == "test"].reset_index(drop=True)
         w_nn = share.get(line, 0.0)
-        models = ({a.gbm_name: 1.0 - w_nn} | {m: w_nn / len(nets) for m in nets}) if w_nn > 0 else {a.gbm_name: 1.0}
+        gbms = [g for g in a.gbm_name.split(",") if g]   # tree bases averaged with equal weights
+        models = ({g: (1.0 - w_nn) / len(gbms) for g in gbms} | {m: w_nn / len(nets) for m in nets}) if w_nn > 0 else {g: 1.0 / len(gbms) for g in gbms}
         cost = {tag: mixed_costs(models, tag, line) for tag in ("A", "B", "C")}
         perils = list(cost["C"].columns)
         # as-valued predictions of the training rows: 2023 rows from tag A, 2024 rows from tag B, times the completeness of their accident year

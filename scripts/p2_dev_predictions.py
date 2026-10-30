@@ -52,7 +52,9 @@ def main() -> None:
     ap.add_argument("--seeds", type=int, default=1, help="gbm / tw: bagging seeds averaged per stage; nn_*: nets averaged per stage (Part 1 final: 3)")
     ap.add_argument("--variant", default="", help="suffix of the output files when --drop or --mix-as is used")
     ap.add_argument("--mix-as", default="", help="buildings only: comma-separated developed levels (w, brick, stone) to read the emerging code MIX as; one extra file per level, the model is trained once")
-    ap.add_argument("--model", default="gbm", choices=["gbm", "tw", "glm", "nn_tabm", "nn_tabm_ple", "nn_tabm_q"], help="gbm = LightGBM frequency x severity (Part 1 tree half); tw = direct pure-premium Tweedie LightGBM (--leaves 4 --freq-rounds 350, or 8 / 300; one column dev_all); glm = regularised frequency x severity GLM with quantile bands (blend challenger); nn_* = the TabM nets of the Part 1 NN half")
+    ap.add_argument("--model", default="gbm", choices=["gbm", "tw", "glm", "xgb", "nn_tabm", "nn_tabm_ple", "nn_tabm_q", "nn_tabm_w"], help="gbm = LightGBM frequency x severity (Part 1 tree half); tw = direct pure-premium Tweedie LightGBM (--leaves 4 --freq-rounds 350, or 8 / 300; one column dev_all); glm = regularised frequency x severity GLM with quantile bands (blend challenger); nn_* = the TabM nets of the Part 1 NN half")
+    ap.add_argument("--feature-fraction", type=float, default=1.0, help="gbm: LightGBM feature_fraction of both stages (column subsampling, a diversity member for the ensemble)")
+    ap.add_argument("--depth", type=int, default=3, help="xgb: tree depth")
     ap.add_argument("--pool", default="", choices=["", "PF", "PR", "PC"], help="gbm only: also train on the labelled emerging rows of POOL[tag] with a market_emerging input; the tag replaces --tags")
     ap.add_argument("--pool-weight", type=float, default=1.0, help="row weight of the emerging rows relative to a developed row")
     a = ap.parse_args()
@@ -108,14 +110,17 @@ def main() -> None:
             train = d_train[d_train["year"] <= LAST_TRAIN_YEAR[tag]]
             if a.model == "gbm":
                 model = FreqSev(matched, kind="gbm", cat_encoding="target", outlier_mult=5.0, freq_rounds=a.freq_rounds, sev_rounds=a.sev_rounds, threads=THREADS, n_seeds=a.seeds,
-                                params_freq={"num_threads": THREADS, "num_leaves": a.leaves, "learning_rate": a.lr, "min_data_in_leaf": a.min_leaf_freq}, params_sev={"num_threads": THREADS, "num_leaves": a.leaves, "learning_rate": a.lr}, extra_drop=tuple(c for c in a.drop.split(",") if c), adv_strength=a.adv).fit(train, target=e if a.adv else None)
+                                params_freq={"num_threads": THREADS, "num_leaves": a.leaves, "learning_rate": a.lr, "min_data_in_leaf": a.min_leaf_freq, "feature_fraction": a.feature_fraction}, params_sev={"num_threads": THREADS, "num_leaves": a.leaves, "learning_rate": a.lr, "feature_fraction": a.feature_fraction}, extra_drop=tuple(c for c in a.drop.split(",") if c), adv_strength=a.adv).fit(train, target=e if a.adv else None)
             elif a.model == "tw":   # as scripts/make_submission.py --model fs_tw --leaves L --freq-rounds R --outlier-mult 5 --cat-encoding target
                 model = FreqSev(matched, kind="tw", cat_encoding="target", outlier_mult=5.0, freq_rounds=a.freq_rounds, sev_rounds=a.sev_rounds, threads=THREADS,
                                 params_freq={"num_threads": THREADS, "num_leaves": a.leaves}, params_sev={"num_threads": THREADS, "num_leaves": a.leaves}, extra_drop=tuple(c for c in a.drop.split(",") if c)).fit(train)
+            elif a.model == "xgb":   # as scripts/run_cv.py --model fs_xgb --depth 3 --freq-rounds 350 --sev-rounds 300 --outlier-mult 5 --cat-encoding target
+                model = FreqSev(matched, kind="xgb", cat_encoding="target", outlier_mult=5.0, freq_rounds=a.freq_rounds, sev_rounds=a.sev_rounds, threads=THREADS,
+                                params_freq={"num_threads": THREADS, "max_depth": a.depth}, params_sev={"num_threads": THREADS, "max_depth": a.depth}, extra_drop=tuple(c for c in a.drop.split(",") if c)).fit(train)
             elif a.model == "glm":   # as scripts/run_cv.py --model fs_glm --bands --outlier-mult 5
                 model = FreqSev(matched, kind="glm", bands=True, outlier_mult=5.0, threads=THREADS, extra_drop=tuple(c for c in a.drop.split(",") if c)).fit(train)
             else:   # as scripts/run_cv.py --model fs_nn --outlier-mult 5 --nn-tabm-k 4 [--nn-ple 8]
-                nnp = {"tabm_k": 4, "threads": THREADS, "n_seeds": a.seeds} | ({"ple_bins": 8} if a.model == "nn_tabm_ple" else {}) | ({"num_transform": "quantile"} if a.model == "nn_tabm_q" else {})
+                nnp = {"tabm_k": 4, "threads": THREADS, "n_seeds": a.seeds} | ({"ple_bins": 8} if a.model == "nn_tabm_ple" else {}) | ({"num_transform": "quantile"} if a.model == "nn_tabm_q" else {}) | ({"hidden": (384, 192), "dropout": 0.2} if a.model == "nn_tabm_w" else {})
                 model = FreqSev(matched, kind="nn", outlier_mult=5.0, threads=THREADS, nn_params=nnp, extra_drop=tuple(c for c in a.drop.split(",") if c)).fit(train)
             out, by = score(model, e)
             if old_path.exists():   # reproducibility check against the first run (same seeds, same data): costs must be identical

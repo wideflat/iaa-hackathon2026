@@ -4,7 +4,7 @@ Screen: the repository README and `docs/part2/REPORT.md`; one slide per block. S
 
 | Time | Block | Say / show |
 |---|---|---|
-| 0:00-0:30 | Result | "Week 1: private rank 3 of 54, D2 0.13864. Week 2: the same engine, adapted to a market with two years of data; public score 0.16474." Show the table of section 1. |
+| 0:00-0:30 | Result | "Week 1: private rank 3 of 54, D2 0.13864. Week 2: the same engine, adapted to a market with two years of data; public score 0.16462 for the final ensemble." Show the table of section 1. |
 | 0:30-1:30 | What changed | Three numbers on one slide: motor frequency +34% and cost -42%; 76% of the test book is new business; no history before 2023. Show the peril table (frequency multipliers by peril, severity scale by line). "The new market is the old market times stable peril multipliers: we measured that, we did not assume it." |
 | 1:30-2:30 | Method | One picture: developed model on shared variables -> add last-year claim history -> blend GBM, Tweedie GBM, two nets -> level from the emerging book (counts and winsorised severity per peril, credibility-weighted, no closing to the training total) -> gender factor. "The emerging data decides how much, the developed data decides who." |
 | 2:30-3:30 | How we trust it | Both-direction validation (forward and reverse) and why: two years, buildings swings 1.5x. Show the step table (0.1110 -> 0.1397). Show the rejected list in one sentence: more than twenty ideas rejected because they helped in one direction only. Show the Part 1 shake-up figure: public and private agree overall (0.997) but not inside the top group (0.20): we select by local validation. |

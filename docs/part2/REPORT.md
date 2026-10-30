@@ -7,8 +7,8 @@ Team: Kohei Kudo (Kaggle team name); members and reviewers: [to be filled in by 
 | | Result |
 |---|---|
 | Week 1 (developed market) | Private leaderboard rank 3 of 54 teams, pooled Tweedie D2 0.13864 (top team 0.13923); selected file `blend_v10_perline.csv`. Public rank 14: the public order inside the top group did not predict the private order (section 6). |
-| Week 2 (emerging market), public leaderboard | 0.16474 for the latest candidate, from 0.16077 for the first (seven submissions; the last four differ by less than the noise of the public board). |
-| Week 2 local validation (two emerging years, both time directions) | Pooled D2 0.1397 forward (calibrate 2023, score 2024) and 0.1271 reverse, against 0.1110 forward for a model fitted on the emerging data alone. |
+| Week 2 (emerging market), public leaderboard | 0.16462 for the final ensemble, from 0.16077 for the first (eleven submissions; the last seven, 0.16450 to 0.16474, differ by less than the noise of the public board; the best single file, 0.16474, is within 0.00012 of the final). |
+| Week 2 local validation (two emerging years, both time directions) | Pooled D2 0.1408 forward (calibrate 2023, score 2024) and 0.1272 reverse for the final ensemble (0.1397 / 0.1271 before ensembling), against 0.1110 forward for a model fitted on the emerging data alone. |
 
 **Approach in one paragraph.** The emerging book has two years and about 1,000 claims per property line, too little to learn its own relationships. We therefore keep the developed market's frequency-by-severity model (trained on 2021-24 with 2.4 million policy rows) for the *relationships between rating factors and cost*, restricted to variables both markets record, and re-estimate only the *level* of each peril and one market-specific rating factor (gender) on the emerging data, with credibility weighting. Every change was judged on the two emerging years in both time directions and on paired bootstrap differences; more than twenty plausible ideas were rejected on that evidence (section 4).
 
@@ -45,9 +45,10 @@ Data quality (all in `docs/part2/DATA_REVIEW.md`): the Part 1 duplicates and pla
 | + nets (TabM, TabM-PLE) 50% | 0.1289 | 0.1220 | 0.16336 |
 | + one-year claim history | 0.1313 | 0.1229 | |
 | + direct Tweedie part (25%) | 0.1336 | 0.1237 | 0.16450 |
-| + buildings frequency credibility 400 | **0.1397** | **0.1271** | **0.16474** |
+| + buildings frequency credibility 400 | 0.1397 | 0.1271 | 0.16474 |
+| + ensemble of 3 tree bases, 6 nets and 4 Tweedie fits (final) | **0.1408** | **0.1272** | **0.16462** |
 
-Local figures are on the two emerging training years, public figures on the 2025 test rows (a different population: 76% new business); only the ordering is comparable.
+The ensemble averages members with equal weights inside each group (single-seed and 3-seed fits, 4- and 8-leaf trees, three net families); it is variance reduction, not a tuned gain: the public differences among the last seven candidates are 0.00024 or less. Checks that bound what more tuning could give: a simulation of the level method with a known truth (400 simulated books per scenario; the robust level beats a plain line closure in every scenario, RESULTS 76-78) and a ceiling analysis (a perfect line level would add at most 0.005 D2, RESULTS 84); a search for remaining feature structure found none beyond the gender factor (973 levels, RESULTS 79). Local figures are on the two emerging training years, public figures on the 2025 test rows (a different population: 76% new business); only the ordering is comparable.
 
 **Rejected with evidence** (`docs/workflow/DECISIONS.md`, `docs/experiments/RESULTS.md`): emerging-only models, stacking and blends with them, a new-business multiplier (estimated 1.57 in 2023, 0.9 in 2024), region and other emerging-only features, age / occupation / excess / no-claims-bonus / cover-type corrections beyond gender, frequency-severity split calibration, domain-shift weights, a model without the insurer's own premium variables, the construction code MIX read as timber, brick or stone, engineered features (market-relative premium, percentile ranks, lines held, ratios), other LightGBM settings (leaves, learning rate, leaf size), three-seed averaging, a hail-slope correction (the developed model under-reacts to hail between addresses, but the correction fails in reverse), spread and exposure post-corrections. The pattern is consistent: gains that appear in one direction and not in the other sit in buildings, the line with ~1,000 claims, and are validation noise.
 

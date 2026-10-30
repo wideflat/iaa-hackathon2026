@@ -10,7 +10,7 @@ Status: candidate t3 (GBM + TabM, robust level, gender factor). Written 2026-10-
 
 **Inputs.** Shared variables only (`VARIABLES.md`). Never used: `customer_service_contacts` (outcome-generated), `renewal_decision`, noise fields, claim history, region (different code sets), exact age (replaced by the five age bands), mileage, telematics, credit band. Gender is not a model input; it enters as a factor fitted on the emerging book (decision D57).
 
-**Validation.** Emerging fold E in both directions (calibrate 2023 / score 2024 and the reverse), paired customer-cluster bootstrap. Pooled D2 (Tweedie 1.5): forward 0.1288, reverse 0.1210 (GBM + TabM base, robust level, gender). The same figure for an emerging-only GBM is 0.1110 forward (RESULTS 45). Public leaderboard: p2_t1 scored 0.16077 (t2 and t3 not yet submitted).
+**Validation.** Emerging fold E in both directions (calibrate 2023 / score 2024 and the reverse), paired customer-cluster bootstrap. Pooled D2 (Tweedie 1.5) of the final ensemble (3 tree bases, 6 nets, 4 direct Tweedie fits, claim-history inputs, robust level, gender): forward 0.1408, reverse 0.1272; the same figure for an emerging-only GBM is 0.1110 forward (RESULTS 45). Public leaderboard: first file 0.16077, final ensemble 0.16462, best single file 0.16474 (differences among the last seven candidates are noise). A simulation with known truth and a ceiling analysis are in RESULTS 76-78 and 84.
 
 **Known limits and uncertainty.**
 * The 2025 test is 76% new business, the validation years 15%: new-business relativity comes from the developed book and is only weakly testable (ratio of observed to predicted new-business/renewal frequency 1.02-1.15 in motor, noisy elsewhere).

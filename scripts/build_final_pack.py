@@ -4,7 +4,7 @@
 
 * week1_prediction.csv / week2_prediction.csv: copies of the chosen prediction files (checked against the sample submissions; sha256 printed)
 * writeup.docx / writeup.pdf: docs/part2/REPORT.md with the team line filled in (pandoc, then LibreOffice for the PDF)
-* video_slides.pptx (+ .pdf): seven slides for the 4:30 demo, speaker notes from docs/part2/VIDEO_SCRIPT.md
+* the designed slide deck and the demo video come from scripts/video/ (build_slides.py, build_video.py)
 Names and results that only the team knows are arguments; without them the files carry a visible [..] placeholder.
 """
 import argparse
@@ -142,9 +142,7 @@ def main() -> None:
     src = OUT / "writeup.md"; src.write_text("\n".join(lines))
     subprocess.run(["pandoc", str(src), "-o", str(OUT / "writeup.docx")], check=True)
     subprocess.run(["soffice", "--headless", "--convert-to", "pdf", "--outdir", str(OUT), str(OUT / "writeup.docx")], check=True, capture_output=True)
-    build_deck(OUT / "video_slides.pptx", f"{a.team_name} ({a.members})", a.w2_private)
-    subprocess.run(["soffice", "--headless", "--convert-to", "pdf", "--outdir", str(OUT), str(OUT / "video_slides.pptx")], check=True, capture_output=True)
-    for f in ("writeup.docx", "writeup.pdf", "video_slides.pptx", "video_slides.pdf"):
+    for f in ("writeup.docx", "writeup.pdf"):
         shutil.copy(OUT / f, DOCS / f)
     print("written:", sorted(p.name for p in OUT.iterdir()))
 

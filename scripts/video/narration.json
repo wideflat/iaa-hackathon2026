@@ -1,0 +1,43 @@
+{
+ "scenes": [
+  {"id": "bus", "chapter": "01 · A different way to work", "sents": [
+    "Most of this model was built on a bus.",
+    "No laptop. Just my phone, and my voice.",
+    "I spoke, Claude Code transcribed it, ran the experiments in the cloud, and sent back results I could read between stops.",
+    "This is what AI-assisted actuarial work looks like when it leaves the desk."]},
+  {"id": "result", "chapter": "02 · The result", "sents": [
+    "Two weeks, two markets.",
+    "Week one: a developed market with two point four million policy rows. Rank three of fifty-four.",
+    "Week two: a new emerging market, only two years of data, and a test book that is seventy-six percent new business.",
+    "We finished second."]},
+  {"id": "changed", "chapter": "03 · What changed", "sents": [
+    "So what changed in the new market?",
+    "Motor claims are thirty-four percent more frequent, but forty-two percent cheaper.",
+    "Glass, third-party and injury claims are far more frequent. Escape of water is far less.",
+    "And three out of four test policies are brand-new customers with no history.",
+    "We measured that these differences are stable across both years, instead of assuming it."]},
+  {"id": "method", "chapter": "04 · The method", "sents": [
+    "The method keeps what transfers, and re-measures what does not.",
+    "A developed-market model, trained on the variables both markets share, ranks who is risky. I add last year's claim history.",
+    "An ensemble of five tree models, seven neural nets and four Tweedie models averages out the noise.",
+    "Then the emerging book sets the level: claim counts and winsorised severities for each peril, credibility-weighted, plus one gender factor.",
+    "The emerging data decides how much. The developed data decides who."]},
+  {"id": "trust", "chapter": "05 · How we trust it", "sents": [
+    "With two years of data, a single split can mistake noise for signal.",
+    "So every change is tested in both directions: calibrate on 2023 and score 2024, then the reverse. We keep it only if neither direction gets worse.",
+    "That took the score from point one one one oh, for an emerging-only model, to point one four oh five.",
+    "More than thirty ideas were rejected this way, including pooled training, a GLM blend and clipping of high predictions.",
+    "A simulation with a known truth confirmed the level method, and a ceiling analysis showed that a perfect level is worth at most half of one hundredth."]},
+  {"id": "ai", "chapter": "06 · AI in the workflow", "sents": [
+    "AI was part of every step.",
+    "Claude Code explored both markets, wrote the code with one hundred and twenty-five tests, and ran the experiments, while more than ten helper sessions refit models in parallel.",
+    "A blind second agent compared the markets from the raw tables alone.",
+    "And verification caught real errors: unsupported statements in a first draft, a simulator bug that looked like a model bias, and a net that Part one had already rejected.",
+    "Every number traces to a command."]},
+  {"id": "guard", "chapter": "07 · Guardrails and uncertainty", "sents": [
+    "Guardrails: a leak alarm, reproducibility checks, a model card, and eighty-four recorded decisions.",
+    "The biggest uncertainty is the buildings level. Plus or minus twenty percent is about one hundredth of a point.",
+    "And gender rating is flagged for regulatory review.",
+    "Built with an AI teammate, from a bus seat. Thank you."]}
+ ]
+}

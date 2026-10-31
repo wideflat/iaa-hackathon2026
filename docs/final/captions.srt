@@ -1,0 +1,127 @@
+1
+00:00:00,600 --> 00:00:04,722
+Most of this model was built on a bus.
+
+2
+00:00:04,880 --> 00:00:08,577
+No laptop. Just my phone, and my voice.
+
+3
+00:00:08,734 --> 00:00:17,963
+I spoke, Claude Code transcribed it, ran the experiments in the cloud, and sent back results I could read between stops.
+
+4
+00:00:18,120 --> 00:00:23,945
+This is what AI-assisted actuarial work looks like when it leaves the desk.
+
+5
+00:00:25,002 --> 00:00:26,997
+Two weeks, two markets.
+
+6
+00:00:27,154 --> 00:00:34,255
+Week one: a developed market with two point four million policy rows. Rank three of fifty-four.
+
+7
+00:00:34,413 --> 00:00:43,641
+Week two: a new emerging market, only two years of data, and a test book that is seventy-six percent new business.
+
+8
+00:00:43,799 --> 00:00:45,368
+We finished second.
+
+9
+00:00:46,426 --> 00:00:49,697
+So what changed in the new market?
+
+10
+00:00:49,854 --> 00:00:54,828
+Motor claims are thirty-four percent more frequent, but forty-two percent cheaper.
+
+11
+00:00:54,985 --> 00:01:01,661
+Glass, third-party and injury claims are far more frequent. Escape of water is far less.
+
+12
+00:01:01,818 --> 00:01:07,642
+And three out of four test policies are brand-new customers with no history.
+
+13
+00:01:07,800 --> 00:01:14,050
+We measured that these differences are stable across both years, instead of assuming it.
+
+14
+00:01:15,107 --> 00:01:19,655
+The method keeps what transfers, and re-measures what does not.
+
+15
+00:01:19,813 --> 00:01:28,616
+A developed-market model, trained on the variables both markets share, ranks who is risky. I add last year's claim history.
+
+16
+00:01:28,773 --> 00:01:36,300
+An ensemble of five tree models, seven neural nets and four Tweedie models averages out the noise.
+
+17
+00:01:36,457 --> 00:01:45,261
+Then the emerging book sets the level: claim counts and winsorised severities for each peril, credibility-weighted, plus one gender factor.
+
+18
+00:01:45,418 --> 00:01:50,391
+The emerging data decides how much. The developed data decides who.
+
+19
+00:01:51,449 --> 00:01:57,273
+With two years of data, a single split can mistake noise for signal.
+
+20
+00:01:57,431 --> 00:02:08,787
+So every change is tested in both directions: calibrate on 2023 and score 2024, then the reverse. We keep it only if neither direction gets worse.
+
+21
+00:02:08,945 --> 00:02:17,748
+That took the score from point one one one oh, for an emerging-only model, to point one four oh five.
+
+22
+00:02:17,905 --> 00:02:26,283
+More than thirty ideas were rejected this way, including pooled training, a GLM blend and clipping of high predictions.
+
+23
+00:02:26,440 --> 00:02:38,222
+A simulation with a known truth confirmed the level method, and a ceiling analysis showed that a perfect level is worth at most half of one hundredth.
+
+24
+00:02:39,280 --> 00:02:42,125
+AI was part of every step.
+
+25
+00:02:42,283 --> 00:02:54,490
+Claude Code explored both markets, wrote the code with one hundred and twenty-five tests, and ran the experiments, while more than ten helper sessions refit models in parallel.
+
+26
+00:02:54,648 --> 00:03:00,047
+A blind second agent compared the markets from the raw tables alone.
+
+27
+00:03:00,204 --> 00:03:12,837
+And verification caught real errors: unsupported statements in a first draft, a simulator bug that looked like a model bias, and a net that Part one had already rejected.
+
+28
+00:03:12,995 --> 00:03:15,840
+Every number traces to a command.
+
+29
+00:03:16,898 --> 00:03:22,722
+Guardrails: a leak alarm, reproducibility checks, a model card, and eighty-four recorded decisions.
+
+30
+00:03:22,880 --> 00:03:31,257
+The biggest uncertainty is the buildings level. Plus or minus twenty percent is about one hundredth of a point.
+
+31
+00:03:31,415 --> 00:03:35,112
+And gender rating is flagged for regulatory review.
+
+32
+00:03:35,269 --> 00:03:40,243
+Built with an AI teammate, from a bus seat. Thank you.

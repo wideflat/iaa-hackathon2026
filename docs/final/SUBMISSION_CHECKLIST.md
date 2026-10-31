@@ -11,7 +11,7 @@ All files are in `artifacts/final_submission/` (not in git: prediction files; th
 | Team Members Actual Names | Kohei Kudo (sole member) | ready |
 | Week 1 Prediction File | `week1_prediction.csv` = `submissions/blend_v10_perline.csv`, 626,639 rows, sha256 `2223edb5502401f3f5b1833ae4281df5e3d43bdd60452f993d2ae5ec01caa8bd`, 17.8 MB | ready (matches the file selected on Kaggle in Week 1, PART1_FINAL.md) |
 | Week 2 Prediction File | `week2_prediction.csv` = `submissions/p2_t11_ensemble_e3.csv` (the file selected on Kaggle, confirmed by the team lead), 209,063 rows, sha256 `5013e6c952154dd8494ee68f52cec3753152416450a39d764a45e73eca57e8cb`, 5.9 MB | ready |
-| Video Demo Link | URL of the recorded video (YouTube unlisted / Drive / Loom, link viewable without sign-in) | **not recorded**: use `video_slides.pptx` (6 slides, speaker notes) and `docs/part2/VIDEO_SCRIPT.md` (4:30) |
+| Video Demo Link | URL of the video (YouTube unlisted / Drive, link viewable without sign-in) | **video built** (3:44, 1080p, original music, captions): `artifacts/final_submission/demo_video.mp4`; upload it and paste the link. Optional: record your own voice-over on `demo_video_no_music.mp4` following `voiceover_script.md` (timecoded) |
 | Project Write-Up File | `writeup.pdf` (or `writeup.docx`), 6 pages; covers both parts; names, final file (t11), Week 1 rank 3 and Week 2 rank 2 filled in | ready |
 | Code Repository Link | `https://github.com/wideflat/iaa-hackathon2026` (default branch `main` after the release PR of 2026-10-31; `dev` is the same code) | team to confirm the repository is readable by the judges (visibility or collaborator access) |
 
@@ -30,3 +30,10 @@ Hello, our team ([team name], Kaggle) completed both weeks' predictions and the 
 * Video: "A short video demo explaining your approach, results, AI-assisted workflow, and how your solution changed when the new market data was introduced. Only first 5 minutes will be graded." Nothing is said about voice-over, language, captions or format.
 * "AI-assisted review tools will be used as a first layer to screen videos, documentation, and code." The final deliverables "must cover both parts" (rules page).
 * Recommendation: record a voice-over (narrate the slides live while screen-recording): a video that must explain approach and results is judged on explanation, and a spoken transcript is also what an AI screening tool can read. Add captions (auto-generated is enough) or paste the narration from `docs/part2/VIDEO_SCRIPT.md` into the video description. Keep it to 4:30; cover Week 1 in the first 30 seconds as well as Week 2.
+
+## Demo video and slide deck (built 2026-10-31)
+* `demo_video.mp4`: 3:44, 1920x1080, 30 fps, original generated music, burned-in captions of the narration; `demo_video_no_music.mp4` is the same without music for your own voice-over; `captions.srt` and `voiceover_script.md` (timecoded, relaxed pace of about 141 words per minute) match it. The first minute is the phone-first story (modelled from a bus, by voice), then result, what changed, method, validation, AI workflow, guardrails.
+* `demo_slides.pptx` / `demo_slides.pdf`: 8 slides in the same design (speaker notes = narration).
+* Everything is generated from code: `python scripts/video/build_video.py --render` (about 3 minutes), `python scripts/video/build_slides.py`; text in `scripts/video/narration.json`, design in `scripts/video/scene.html`, music in `scripts/video/make_music.py`.
+* The phone screens are re-created from the text of your screenshots (session names and messages are real). To use the real screenshots instead, put them into `scripts/video/assets/phone/` (jpg or png, shown in file-name order) and re-run the render.
+* There is no synthetic voice: installing a text-to-speech package was not permitted in this session, so the narration is captions plus the script for your own voice.

@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>IAA hackathon 2026 demo (frame renderer)</title>
+<style>
+:root{--navy:#142B4D;--blue:#2F6FDE;--blue2:#5B93F0;--amber:#F2A33A;--teal:#1F8A8A;--red:#D64545;--green:#2E9E6B;--ink:#2B3340;--mute:#6B7686;--card:#FFFFFF;--line:#D8DEE8}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:#e9edf3;font-family:'Inter','Liberation Sans',sans-serif;color:var(--ink)}
+#stage{position:absolute;inset:0;background:linear-gradient(180deg,#f6f8fb 0%,#e3e8f0 100%);overflow:hidden}
+#grid{position:absolute;left:0;right:0;bottom:0;height:520px;opacity:.9}
+#topbar{position:absolute;left:0;right:0;top:0;height:74px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 34px;font-size:22px;font-weight:600;color:var(--navy);z-index:30}
+#topbar .l{display:flex;gap:14px;align-items:center}
+#topbar .dot{width:16px;height:16px;border-radius:50%;background:var(--blue)}
+#topbar .r{font-variant-numeric:tabular-nums;color:var(--mute);font-weight:600}
+#chip{position:absolute;left:34px;top:98px;height:50px;background:var(--blue);color:#fff;border-radius:7px;display:flex;align-items:center;gap:20px;padding:0 22px;font-size:24px;font-weight:700;z-index:30;box-shadow:0 6px 18px rgba(47,111,222,.28)}
+#chip .dots{display:flex;gap:10px}
+#chip .dots i{width:14px;height:14px;border-radius:50%;border:2px solid #fff;display:block}
+#chip .dots i.on{background:#fff}
+#chip .dots i.done{background:var(--amber);border-color:var(--amber)}
+#caption{position:absolute;left:160px;right:160px;bottom:56px;min-height:90px;display:flex;align-items:center;justify-content:center;z-index:40}
+#caption span{background:rgba(20,43,77,.92);color:#fff;font-size:35px;font-weight:600;line-height:1.3;padding:16px 34px;border-radius:14px;text-align:center;max-width:1600px;box-shadow:0 10px 30px rgba(20,43,77,.28)}
+#footer{position:absolute;left:34px;bottom:12px;font-size:15px;color:var(--mute);z-index:41}
+.scene{position:absolute;inset:0;opacity:0;z-index:10}
+.abs{position:absolute}
+.card{position:absolute;background:var(--card);border-radius:22px;box-shadow:0 14px 40px rgba(20,43,77,.12);border:1px solid #e4e9f1}
+.big{font-weight:800;color:var(--navy);letter-spacing:-.02em}
+.lab{font-size:22px;color:var(--mute);font-weight:600}
+.pill{position:absolute;border-radius:999px;font-weight:700}
+/* phone */
+.phone{position:absolute;width:420px;height:860px;border-radius:64px;background:#0f1524;box-shadow:0 40px 80px rgba(20,43,77,.35),inset 0 0 0 3px #2a3350;padding:16px}
+.phone .screen{position:relative;width:100%;height:100%;border-radius:50px;background:#fff;overflow:hidden}
+.phone .notch{position:absolute;left:50%;top:10px;width:120px;height:30px;margin-left:-60px;border-radius:18px;background:#0f1524;z-index:5}
+.sb{position:absolute;left:0;right:0;top:0;height:56px;font-size:17px;font-weight:700;padding:16px 34px;display:flex;justify-content:space-between;z-index:4;color:#111}
+.app-h{position:absolute;left:0;right:0;top:56px;height:70px;padding:0 26px;display:flex;align-items:center;justify-content:space-between;font-weight:800;font-size:26px;border-bottom:1px solid #eee}
+.sess{position:absolute;left:18px;right:18px;height:66px;border-radius:14px;background:#f3f5f9;display:flex;align-items:center;gap:12px;padding:0 16px;font-size:17px;font-weight:600;color:#26304a}
+.sess b{width:12px;height:12px;border-radius:50%;background:var(--green);display:block;flex:0 0 auto}
+.sess em{margin-left:auto;font-style:normal;font-size:13px;color:#fff;background:var(--blue);border-radius:99px;padding:3px 10px}
+.msg{position:absolute;left:20px;right:20px;font-size:19px;line-height:1.38;color:#222}
+.msg h4{font-size:22px;margin-bottom:8px}
+.msg li{margin-left:20px;margin-top:4px}
+.me{position:absolute;right:18px;max-width:300px;background:var(--blue);color:#fff;border-radius:20px 20px 4px 20px;padding:12px 16px;font-size:18px;font-weight:600}
+.compose{position:absolute;left:16px;right:16px;bottom:18px;height:56px;border-radius:28px;background:#f0f2f7;display:flex;align-items:center;padding:0 22px;font-size:17px;color:#8a93a6}
+/* voice pill */
+#voice{position:absolute;display:flex;align-items:center;gap:16px;height:84px;border-radius:42px;background:#fff;box-shadow:0 12px 34px rgba(20,43,77,.2);padding:0 28px 0 18px;border:1px solid #e1e7f0;font-size:27px;font-weight:700;color:var(--navy)}
+#voice .mic{width:52px;height:52px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;font-size:26px}
+#voice .wave{display:flex;gap:4px;align-items:center;height:50px;width:130px}
+#voice .wave i{display:block;width:6px;border-radius:3px;background:var(--blue)}
+.tag{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 16px;font-size:20px;font-weight:700;color:var(--navy)}
+</style></head>
+<body><div id="stage">
+<svg id="grid" viewBox="0 0 1920 520" preserveAspectRatio="none"></svg>
+<div id="topbar"><div class="l"><span class="dot"></span>IAA AI-Assisted Hackathon 2026 &nbsp;·&nbsp; Kohei Kudo</div><div class="r" id="clock">Week 1 → Week 2 &nbsp; 0:00</div></div>
+<div id="chip"><span id="chiptxt">01</span><span class="dots" id="chipdots"></span></div>
+
+<!-- SCENE 1 -->
+<div class="scene" id="s_bus">
+  <div class="phone" id="phone" style="left:200px;top:168px;transform-origin:top left">
+    <div class="screen">
+      <div class="notch"></div>
+      <div class="sb"><span>12:31</span><span>●●● 68</span></div>
+      <div class="app-h"><span>Code</span><span style="font-size:20px;color:var(--blue)">+ New</span></div>
+      <div id="ph_list"></div><img id="ph_img" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;opacity:0;z-index:3" alt="">
+      <div id="ph_chat" style="opacity:0">
+        <div class="msg" style="top:150px"><h4>Why claim history looks promising</h4>Among motor renewals, customers who claimed last year run about <b>27% above</b> what our model predicts (actual-to-expected 1.195 against 0.944 for non-claimants).<ul><li>the policy's own claims last year</li><li>claims at the same address</li><li>the customer's claims across all lines</li></ul></div>
+        <div class="msg" style="top:520px"><b>What's running</b><ul><li>Local: GBM with history features</li><li>Helper: Tweedie GBM, 4 and 8 leaves</li></ul></div>
+        <div class="compose">Type / for commands</div>
+      </div>
+    </div>
+  </div>
+  <div id="voice" style="left:796px;top:790px;opacity:0"><div class="mic">🎙️</div><div class="wave" id="wave"></div><div id="vtxt" style="white-space:nowrap">…</div></div>
+  <div class="abs big" id="b_head" style="left:790px;top:230px;font-size:104px;line-height:1.02;width:1000px">Modelled<br>from a bus.</div>
+  <div class="abs" id="b_sub" style="left:796px;top:480px;font-size:38px;font-weight:600;color:var(--mute);line-height:1.35;width:900px">Phone only · voice only · cloud sessions<br><span style="color:var(--blue)">AI-assisted actuarial work, away from the desk.</span></div>
+  <div class="card" id="b_c1" style="left:796px;top:610px;width:260px;height:150px"><div class="abs big" id="b_n1" style="left:26px;top:20px;font-size:62px">0</div><div class="abs lab" style="left:26px;top:100px">parallel helper sessions</div></div>
+  <div class="card" id="b_c2" style="left:1080px;top:610px;width:260px;height:150px"><div class="abs big" id="b_n2" style="left:26px;top:20px;font-size:62px">0</div><div class="abs lab" style="left:26px;top:100px">Part 2 submissions</div></div>
+  <div class="card" id="b_c3" style="left:1364px;top:610px;width:260px;height:150px"><div class="abs big" id="b_n3" style="left:26px;top:20px;font-size:62px">0</div><div class="abs lab" style="left:26px;top:100px">automated tests</div></div>
+  <div class="abs" id="road" style="left:640px;right:0;top:156px;height:10px"></div>
+  <div class="abs" id="bus" style="left:640px;top:96px;font-size:70px">🚌</div>
+</div>
+
+<!-- SCENE 2 -->
+<div class="scene" id="s_result">
+  <div class="abs big" id="r_head" style="left:120px;top:176px;font-size:80px">Two weeks. Two markets.</div>
+  <div class="card" id="r_c1" style="left:120px;top:296px;width:760px;height:340px">
+    <div class="abs pill" style="left:36px;top:30px;background:#E9F0FE;color:var(--blue);font-size:22px;padding:8px 20px">WEEK 1 · DEVELOPED MARKET</div>
+    <div class="abs big" id="r_n1" style="left:36px;top:96px;font-size:150px;color:var(--navy)">#3</div>
+    <div class="abs" style="left:290px;top:120px;font-size:30px;font-weight:700;color:var(--navy);line-height:1.4">of 54 teams<br><span style="color:var(--mute);font-weight:600;font-size:26px">private D² 0.13864<br>2.4 million policy rows</span></div>
+    <div class="abs lab" style="left:36px;top:270px;font-size:24px">3 lines · 4 years · frequency × severity + nets</div>
+  </div>
+  <div class="card" id="r_c2" style="left:940px;top:296px;width:860px;height:340px;background:linear-gradient(135deg,#142B4D,#1F4A9A);border:none">
+    <div class="abs pill" style="left:36px;top:30px;background:rgba(255,255,255,.16);color:#fff;font-size:22px;padding:8px 20px">WEEK 2 · EMERGING MARKET</div>
+    <div class="abs big" id="r_n2" style="left:36px;top:96px;font-size:150px;color:#fff">#2</div>
+    <div class="abs" style="left:290px;top:120px;font-size:30px;font-weight:700;color:#fff;line-height:1.4">private leaderboard<br><span style="color:#B8CCF3;font-weight:600;font-size:26px">public D² 0.16458<br>2 years of data · 76% new business</span></div>
+    <div class="abs" style="left:36px;top:270px;font-size:24px;font-weight:600;color:#B8CCF3">same engine, adapted: what to carry over, what to re-measure</div>
+  </div>
+  <div class="abs" id="r_tl" style="left:170px;top:680px;width:1580px;height:90px"></div>
+</div>
+
+<!-- SCENE 3 -->
+<div class="scene" id="s_changed">
+  <div class="card" id="c_t1" style="left:120px;top:190px;width:330px;height:210px"><div class="abs big" id="c_n1" style="left:26px;top:24px;font-size:80px;color:var(--blue)">+34%</div><div class="abs lab" style="left:28px;top:134px;line-height:1.3">motor claim<br>frequency</div></div>
+  <div class="card" id="c_t2" style="left:470px;top:190px;width:330px;height:210px"><div class="abs big" id="c_n2" style="left:26px;top:24px;font-size:80px;color:var(--red)">−42%</div><div class="abs lab" style="left:28px;top:134px;line-height:1.3">motor mean<br>claim cost</div></div>
+  <div class="card" id="c_t3" style="left:120px;top:430px;width:680px;height:420px">
+    <svg class="abs" id="donut" style="left:30px;top:30px" width="360" height="360" viewBox="0 0 360 360"></svg>
+    <div class="abs big" id="c_n3" style="left:410px;top:120px;font-size:112px;color:var(--navy)">76%</div>
+    <div class="abs lab" style="left:414px;top:250px;line-height:1.35;font-size:24px;white-space:nowrap">of the 2025 test book is<br>new business<br><span style="color:var(--red)">no claim history</span></div>
+  </div>
+  <div class="card" id="c_bars" style="left:850px;top:190px;width:950px;height:660px">
+    <div class="abs" style="left:40px;top:28px;font-size:30px;font-weight:800;color:var(--navy)">Claim frequency, emerging ÷ developed</div>
+    <div class="abs lab" style="left:40px;top:72px;font-size:21px">ranges measured in both years · 1.0× = same as developed</div>
+    <div id="bars"></div>
+  </div>
+</div>
+
+<!-- SCENE 4 -->
+<div class="scene" id="s_method">
+  <div id="m_pipe"></div>
+  <div class="card" id="m_ens" style="left:120px;top:540px;width:1680px;height:230px">
+    <div class="abs" style="left:40px;top:24px;font-size:28px;font-weight:800;color:var(--navy)">The ensemble: 16 models, averaged in groups</div>
+    <div id="m_dots"></div>
+  </div>
+  <div class="abs big" id="m_tag" style="left:120px;top:800px;width:1680px;text-align:center;font-size:48px;color:var(--blue)">The emerging data decides <u>how much</u>. The developed data decides <u>who</u>.</div>
+</div>
+
+<!-- SCENE 5 -->
+<div class="scene" id="s_trust">
+  <div class="card" id="t_chart" style="left:120px;top:190px;width:980px;height:640px">
+    <div class="abs" style="left:36px;top:24px;font-size:28px;font-weight:800;color:var(--navy)">Pooled D² on the emerging book, every step tested both ways</div>
+    <div class="abs lab" style="left:36px;top:66px;font-size:21px"><span style="color:var(--blue)">■</span> forward (calibrate 2023 → score 2024) &nbsp; <span style="color:var(--amber)">■</span> reverse (2024 → 2023) &nbsp; <span style="color:var(--mute)">· axis starts at 0.10</span></div>
+    <div id="t_bars"></div>
+  </div>
+  <div class="card" id="t_rej" style="left:1140px;top:190px;width:660px;height:460px;overflow:hidden">
+    <div class="abs" style="left:30px;top:22px;font-size:28px;font-weight:800;color:var(--navy)"><span id="t_cnt">0</span> ideas rejected</div>
+    <div id="t_list"></div>
+  </div>
+  <div class="card" id="t_b1" style="left:1140px;top:670px;width:320px;height:170px"><div class="abs lab" style="left:22px;top:18px;font-size:20px">SIMULATION</div><div class="abs" style="left:22px;top:46px;font-size:24px;font-weight:700;color:var(--navy);line-height:1.25">known truth:<br>robust level beats<br>plain closure</div></div>
+  <div class="card" id="t_b2" style="left:1480px;top:670px;width:320px;height:170px"><div class="abs lab" style="left:22px;top:18px;font-size:20px">CEILING</div><div class="abs big" style="left:22px;top:44px;font-size:52px;color:var(--teal);white-space:nowrap">≤ +0.005</div><div class="abs lab" style="left:22px;top:112px;font-size:21px;line-height:1.25">D² from a<br>perfect level</div></div>
+</div>
+
+<!-- SCENE 6 -->
+<div class="scene" id="s_ai">
+  <div class="card" id="a_sess" style="left:120px;top:190px;width:880px;height:640px">
+    <div class="abs" style="left:36px;top:24px;font-size:28px;font-weight:800;color:var(--navy)">Parallel helper sessions, refitting while I was away</div>
+    <div id="a_tiles"></div>
+  </div>
+  <div id="a_cards"></div>
+</div>
+
+<!-- SCENE 7 -->
+<div class="scene" id="s_guard">
+  <div id="g_items"></div>
+  <div class="card" id="g_gauge" style="left:120px;top:470px;width:900px;height:360px">
+    <div class="abs" style="left:36px;top:24px;font-size:28px;font-weight:800;color:var(--navy)">Main stated uncertainty: the buildings level</div>
+    <svg class="abs" id="gauge" style="left:60px;top:80px" width="780" height="260" viewBox="0 0 780 260"></svg>
+  </div>
+  <div class="card" id="g_flag" style="left:1060px;top:470px;width:740px;height:360px">
+    <div class="abs" style="left:36px;top:24px;font-size:28px;font-weight:800;color:var(--navy)">Limits we state</div>
+    <div class="abs" style="left:36px;top:80px;font-size:25px;line-height:1.4;font-weight:600;color:var(--ink);width:670px"><div style="margin-bottom:16px">⚖️ Gender is a rating factor: flagged for regulatory review; a gender-free file is the alternative</div><div style="margin-bottom:16px">📉 Two emerging years, 76% new business: the level, not the ranking, is the risk</div><div>🧪 Public scores within 0.0002: we select by local validation</div></div>
+  </div>
+  <div id="g_end" style="position:absolute;inset:0;background:linear-gradient(135deg,#142B4D,#1F4A9A);opacity:0;z-index:20">
+    <div class="abs" style="left:0;right:0;top:300px;text-align:center;font-size:36px;font-weight:700;color:#B8CCF3">Kohei Kudo · IAA AI-Assisted Hackathon 2026</div>
+    <div class="abs big" style="left:0;right:0;top:370px;text-align:center;font-size:96px;color:#fff;line-height:1.1">Built with an AI teammate,<br>from a bus seat.</div>
+    <div class="abs" style="left:0;right:0;top:650px;text-align:center;font-size:36px;font-weight:700;color:#fff">Week 1 · #3 of 54 &nbsp;&nbsp;|&nbsp;&nbsp; Week 2 · #2</div>
+    <div class="abs" style="left:0;right:0;top:720px;text-align:center;font-size:30px;font-weight:600;color:#B8CCF3">github.com/wideflat/iaa-hackathon2026</div>
+  </div>
+</div>
+
+<div id="caption"><span id="captxt" style="opacity:0"></span></div>
+<div id="footer">Music: generated for this video by Claude Code (scripts/video/make_music.py) · all numbers from docs/experiments/RESULTS.md</div>
+</div>
+<script>
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const P=(t,a,b)=>clamp((t-a)/(b-a));
+const eo=x=>1-Math.pow(1-x,3), eio=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2, eb=x=>{const c1=1.70158,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2)};
+const $=id=>document.getElementById(id);
+let TL=null;
+window.PHONE_IMGS=[];window.setPhoneImages=(a)=>{window.PHONE_IMGS=a;};
+window.setTimeline=(tl)=>{TL=tl;init();};
+
+// perspective grid like the reference stage
+(function(){const g=$('grid');let h='';const vx=960,vy=-40;for(let i=-14;i<=14;i++){h+=`<line x1="${vx}" y1="${vy}" x2="${960+i*260}" y2="520" stroke="#c9d1de" stroke-width="1.4"/>`}for(let k=0;k<9;k++){const y=Math.pow(k/8,2)*520;h+=`<line x1="0" y1="${y}" x2="1920" y2="${y}" stroke="#c9d1de" stroke-width="1.4"/>`}g.innerHTML=h;})();
+
+function init(){
+  // chapter dots
+  const d=$('chipdots');d.innerHTML=TL.scenes.map(()=>'<i></i>').join('');
+  // phone session list
+  const names=[['Kaggle IAA hackathon strategy','Waiting'],['p2 helper: 3-seed GBM and Tweedie','New'],['p2 helper: 3-seed TabM with history','New'],['p2 helper: TabM nets with history','New'],['p2 helper: TabM-PLE nets with history','New'],['p2 helper: direct Tweedie GBM base','New'],['p2 helper: MIX construction reading','New'],['p2 helper: GBM settings screen','New']];
+  $('ph_list').innerHTML=names.map((n,i)=>`<div class="sess" style="top:${150+i*84}px" data-i="${i}"><b></b>${n[0]}<em>${n[1]}</em></div>`).join('');
+  // wave
+  $('wave').innerHTML=Array.from({length:18}).map(()=>'<i></i>').join('');
+  // road dashes
+  $('road').innerHTML='<div style="position:absolute;left:0;right:0;top:4px;height:4px;background:repeating-linear-gradient(90deg,#9aa6ba 0 36px,transparent 36px 72px)"></div>';
+  // result timeline
+  $('r_tl').innerHTML=`<div style="position:absolute;left:0;right:0;top:38px;height:8px;border-radius:4px;background:#d5dce8"></div><div id="r_tlf" style="position:absolute;left:0;top:38px;height:8px;border-radius:4px;background:var(--blue);width:0"></div>`+[[0,'Oct 17','Part 1 opens'],[0.45,'Oct 24','New market arrives'],[1,'Oct 30','Final files']].map((m,i)=>`<div class="tl" data-p="${m[0]}" style="position:absolute;left:${m[0]*100}%;top:20px;transform:translateX(${m[0]==1?-100:(m[0]==0?0:-50)}%);text-align:${m[0]==1?'right':(m[0]==0?'left':'center')}"><div style="width:44px;height:44px;border-radius:50%;background:var(--blue);margin:${m[0]==1?'0 0 0 auto':(m[0]==0?'0':'0 auto')};box-shadow:0 0 0 8px rgba(47,111,222,.2);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:22px">${i+1}</div><div style="font-size:26px;font-weight:800;color:var(--navy);margin-top:6px;white-space:nowrap">${m[1]}</div><div class="lab" style="font-size:21px;white-space:nowrap">${m[2]}</div></div>`).join('');
+  // donut
+  let dn='<circle cx="180" cy="180" r="130" fill="none" stroke="#e4e9f1" stroke-width="44"/><circle id="dring" cx="180" cy="180" r="130" fill="none" stroke="var(--blue)" stroke-width="44" stroke-linecap="butt" stroke-dasharray="0 817" transform="rotate(-90 180 180)"/>';
+  $('donut').innerHTML=dn;
+  // bars
+  const items=[['glass-hail',1.65,'1.5–1.8×',1],['bodily injury',1.45,'1.4–1.5×',1],['third-party property',1.4,'1.4×',1],['storm (buildings)',1.5,'1.3–1.7×',1],['escape of water',0.68,'0.65–0.7×',0]];
+  $('bars').innerHTML=items.map((it,i)=>`<div class="bar" data-i="${i}" data-v="${it[1]}" style="position:absolute;left:40px;top:${130+i*100}px;width:870px"><div style="font-size:25px;font-weight:700;color:var(--navy)">${it[0]} <span style="float:right;color:var(--mute)">${it[2]}</span></div><div style="margin-top:8px;height:30px;border-radius:15px;background:#edf1f7;position:relative"><div class="fill" style="position:absolute;left:0;top:0;height:30px;border-radius:15px;width:0;background:${it[3]?'var(--blue)':'var(--amber)'}"></div><div style="position:absolute;left:${100/2*1.0}%;top:-6px;width:3px;height:42px;background:var(--navy);opacity:.45"></div></div></div>`).join('');
+  // pipeline
+  const steps=[['Developed model','2.4M rows · variables both markets share','🌍'],['+ Claim history','last year: policy · address · customer','🕘'],['Ensemble','5 trees · 7 nets · 4 Tweedie','🧩'],['Level from emerging book','counts × winsorised severity · credibility-weighted','📍'],['Gender factor','one flat factor per line','⚖️']];
+  $('m_pipe').innerHTML=steps.map((s,i)=>`<div class="card pstep" data-i="${i}" style="left:${120+i*340}px;top:190px;width:310px;height:300px"><div class="abs" style="left:24px;top:22px;font-size:54px">${s[2]}</div><div class="abs" style="left:24px;top:104px;font-size:30px;font-weight:800;color:var(--navy);line-height:1.15;width:260px">${s[0]}</div><div class="abs lab" style="left:24px;top:200px;font-size:21px;line-height:1.3;width:262px">${s[1]}</div></div>`).join('')+[0,1,2,3].map(i=>`<div class="abs parrow" data-i="${i}" style="left:${120+i*340+306}px;top:318px;font-size:44px;color:var(--blue);font-weight:800">›</div>`).join('');
+  // ensemble dots
+  let dots='';const grp=[['5 tree models',5,'var(--green)'],['7 neural nets',7,'var(--blue)'],['4 Tweedie GBMs',4,'var(--amber)']];let x=40;let idx=0;
+  grp.forEach(g=>{dots+=`<div class="abs" style="left:${x}px;top:80px;font-size:23px;font-weight:700;color:var(--mute)">${g[0]}</div>`;for(let k=0;k<g[1];k++){dots+=`<div class="edot" data-i="${idx++}" style="position:absolute;left:${x+k*66}px;top:130px;width:52px;height:52px;border-radius:50%;background:${g[2]};opacity:0"></div>`}x+=g[1]*66+90});
+  $('m_dots').innerHTML=dots;
+  // validation bars
+  const steps2=[['Emerging-only GBM',0.1110,null],['Developed model + closure',0.1256,0.1162],['+ robust level',0.1281,0.1176],['+ nets',0.1289,0.1220],['+ claim history',0.1313,0.1229],['+ Tweedie part',0.1336,0.1237],['+ buildings credibility',0.1397,0.1271],['+ ensemble (final)',0.1405,0.1268]];
+  $('t_bars').innerHTML=steps2.map((s,i)=>{const top=108+i*62;return `<div class="vb" data-i="${i}" data-f="${s[1]}" data-r="${s[2]??''}" style="position:absolute;left:36px;top:${top}px;width:910px;height:54px"><div style="position:absolute;left:0;top:0;width:290px;font-size:21px;font-weight:700;color:var(--navy);line-height:54px">${s[0]}</div><div class="bf" style="position:absolute;left:300px;top:6px;height:20px;border-radius:10px;background:var(--blue);width:0"></div><div class="br" style="position:absolute;left:300px;top:30px;height:20px;border-radius:10px;background:var(--amber);width:0"></div><div class="bt" style="position:absolute;left:300px;top:2px;font-size:20px;font-weight:800;color:var(--navy);width:600px"></div></div>`}).join('');
+  // rejected list
+  const rej=['Pooled training with a market flag','GLM in the blend','Quantile-input net on its own','Clipping high predictions','Cross-line covariates','Shared peril multipliers','Domain-shift weights','Slope calibration','Multi-seed level refits','Emerging-only models','Per-line severity constants','Claim history split by line','…and 18 more'];
+  $('t_list').innerHTML=rej.map((r,i)=>`<div class="rj" data-i="${i}" style="position:absolute;left:30px;top:${78+i*28}px;font-size:21px;font-weight:600;color:var(--ink);opacity:0;white-space:nowrap"><span style="color:var(--red);font-weight:800">✕</span> ${r}</div>`).join('');
+  // ai tiles
+  const tn=['3-seed GBM + Tweedie','3-seed TabM, history','TabM nets, history','TabM-PLE nets, history','direct Tweedie GBM','MIX construction','GBM settings screen','market-normalised features','premium-free model','entity embeddings','recency & domain shift','XGBoost & CatBoost'];
+  $('a_tiles').innerHTML=tn.map((n,i)=>{const c=i%3,r=Math.floor(i/3);return `<div class="atile" data-i="${i}" style="position:absolute;left:${30+c*282}px;top:${92+r*128}px;width:266px;height:112px;border-radius:16px;background:#f1f4f9;padding:14px 16px;overflow:hidden"><div style="font-size:15px;font-weight:700;color:var(--mute)">HELPER ${i+1}</div><div style="font-size:19px;font-weight:700;color:var(--navy);line-height:1.2;margin-top:4px">${n}</div><div style="position:absolute;left:16px;right:16px;bottom:14px;height:8px;border-radius:4px;background:#dce3ee"><div class="af" style="height:8px;border-radius:4px;background:var(--green);width:0"></div></div></div>`}).join('');
+  const caught=[['1','Unsupported statements','Three claims in the first data review had no evidence: replaced by measured values before commit.'],['2','A bias that was a bug','The simulation showed every estimator biased low; the plain closure had it too: the test harness was wrong, conclusion withdrawn.'],['3','Already rejected','A net we built had failed in Part 1 on the big folds; the public score agreed. We now search the record first.']];
+  $('a_cards').innerHTML=caught.map((c,i)=>`<div class="card acard" data-i="${i}" style="left:1040px;top:${190+i*218}px;width:760px;height:200px"><div class="abs pill" style="left:26px;top:24px;width:46px;height:46px;background:var(--red);color:#fff;font-size:26px;text-align:center;line-height:46px">${c[0]}</div><div class="abs" style="left:92px;top:22px;font-size:29px;font-weight:800;color:var(--navy)">${c[1]}</div><div class="abs" style="left:92px;top:68px;font-size:21px;font-weight:600;color:var(--mute);line-height:1.38;width:640px">${c[2]}</div></div>`).join('');
+  // guardrails
+  const gi=[['🚨','Leak alarm','D² above 0.35 stops a run'],['🔁','Reproducible','re-run matches to 1e-6'],['📋','Model card','monitoring triggers'],['🧾','84 decisions','each with its evidence']];
+  $('g_items').innerHTML=gi.map((g,i)=>`<div class="card gitem" data-i="${i}" style="left:${120+i*425}px;top:190px;width:395px;height:240px"><div class="abs" style="left:26px;top:20px;font-size:60px">${g[0]}</div><div class="abs" style="left:26px;top:108px;font-size:31px;font-weight:800;color:var(--navy)">${g[1]}</div><div class="abs lab" style="left:26px;top:160px;font-size:22px;line-height:1.25;width:340px">${g[2]}</div></div>`).join('');
+  // gauge
+  let gg='<path d="M190 230 A200 200 0 0 1 590 230" fill="none" stroke="#e4e9f1" stroke-width="40" stroke-linecap="round"/><path id="garc" d="M190 230 A200 200 0 0 1 590 230" fill="none" stroke="#F2A33A" stroke-width="40" stroke-linecap="round" stroke-dasharray="0 700"/><text x="390" y="205" text-anchor="middle" font-size="70" font-weight="800" fill="#142B4D" id="gtxt">±0%</text><text x="390" y="248" text-anchor="middle" font-size="26" font-weight="600" fill="#6B7686">buildings level ≈ ±0.01 D²</text>';
+  $('gauge').innerHTML=gg;
+}
+
+function setCaption(t){
+  let txt='',op=0;
+  for(const s of TL.scenes){for(const e of s.sents){if(t>=e.start&&t<e.end){txt=e.text;op=Math.min(1,(t-e.start)/0.15,(e.end-t)/0.15);}}}
+  const c=$('captxt');c.textContent=txt;c.style.opacity=op;
+}
+const QUOTES=['keep trying to improve the model','once local validation improves, proceed to submit','can you continue to explore other angles?'];
+
+function renderAt(t){
+  if(!TL)return;
+  // scenes visibility + transitions
+  let cur=0;
+  TL.scenes.forEach((s,i)=>{
+    const el=$('s_'+s.id);const a=s.start-0.0,b=s.end;
+    const fin=P(t,a,a+.55),fout=1-P(t,b-.45,b);
+    const vis=(t>=a&&t<b)?Math.min(eo(fin),fout<1?eio(fout):1):0;
+    el.style.opacity=vis;el.style.transform=`translateY(${(1-eo(fin))*34}px)`;
+    if(t>=a)cur=i;
+  });
+  const sc=TL.scenes[cur];if(sc.id!=='guard')$('chip').style.opacity=1;
+  $('chiptxt').textContent=sc.chapter;
+  [...$('chipdots').children].forEach((d,i)=>{d.className=i<cur?'done':(i==cur?'on':'')});
+  const m=Math.floor(t/60),s=Math.floor(t%60);
+  $('clock').textContent=`Week 1 → Week 2   ${m}:${String(s).padStart(2,'0')}`;
+  const L=t-sc.start; const S=sc.sents.map(e=>e.start-sc.start);
+  const fn=window['scene_'+sc.id]; if(fn)fn(L,S,sc);
+  setCaption(t);
+}
+
+function scene_bus(L,S,sc){
+  // phone screens: list then chat
+  const sw=P(L,S[2]-0.2,S[2]+0.5);
+  const im=window.PHONE_IMGS;if(im.length){const k=Math.min(im.length-1,Math.floor(L/(sc.end-sc.start)*im.length));if($('ph_img').dataset.k!=String(k)){$('ph_img').src=im[k];$('ph_img').dataset.k=k;}$('ph_img').style.opacity=1;$('ph_list').style.display='none';$('ph_chat').style.display='none';}else{$('ph_list').style.opacity=1-sw;$('ph_chat').style.opacity=sw;}
+  document.querySelectorAll('#ph_list .sess').forEach((e,i)=>{const p=eb(P(L,0.3+i*0.12,0.9+i*0.12));e.style.opacity=p;e.style.transform=`translateX(${(1-p)*80}px)`});
+  const ph=$('phone');ph.style.transform=`translateY(${Math.sin(L*1.6)*6}px) scale(.9)`;
+  // voice pill
+  const vs=S[1], ve=S[3];const vp=P(L,vs-0.2,vs+0.4)*(1-P(L,ve-0.2,ve+0.3));
+  const v=$('voice');v.style.opacity=vp;v.style.top=(800-vp*6)+'px';
+  const q=Math.floor(clamp((L-vs)/(ve-vs))*QUOTES.length*0.999);const qs=QUOTES[Math.min(q,2)];
+  const ql=(ve-vs)/QUOTES.length;const qp=P(L,vs+q*ql,vs+q*ql+ql*0.7);
+  $('vtxt').textContent=qs.slice(0,Math.floor(qs.length*qp));
+  [...$('wave').children].forEach((b,i)=>{b.style.height=(8+ (vp>0.1? (Math.abs(Math.sin(L*7+i*0.9))*0.7+Math.abs(Math.sin(L*3.1+i*1.7))*0.3):0)*38)+'px'});
+  // headline etc
+  const h=$('b_head');const hp=eo(P(L,0.15,0.9));h.style.opacity=hp;h.style.transform=`translateX(${(1-hp)*-60}px)`;
+  const sp=eo(P(L,S[1]-0.1,S[1]+0.6));$('b_sub').style.opacity=sp;$('b_sub').style.transform=`translateY(${(1-sp)*30}px)`;
+  [['b_c1','b_n1',10,'+'],['b_c2','b_n2',12,''],['b_c3','b_n3',125,'']].forEach((c,i)=>{const p=eb(P(L,S[2]+0.2+i*0.25,S[2]+0.9+i*0.25));$(c[0]).style.opacity=clamp(p);$(c[0]).style.transform=`translateY(${(1-p)*50}px) scale(${.9+.1*clamp(p)})`;$(c[1]).textContent=Math.round(c[2]*eo(P(L,S[2]+0.3+i*0.25,S[2]+1.6+i*0.25)))+c[3]});
+  // bus
+  const bp=L/ (sc.end-sc.start);$('bus').style.left=(560+bp*1500)+'px';$('bus').style.transform=`translateY(${Math.sin(L*9)*2}px)`;
+  const rd=$('road').firstChild;rd.style.backgroundPosition=(-L*160)+'px 0';
+}
+function scene_result(L,S){
+  const p0=eo(P(L,0.1,0.8));$('r_head').style.opacity=p0;$('r_head').style.transform=`translateY(${(1-p0)*30}px)`;
+  const c1=eb(P(L,S[1],S[1]+0.8));$('r_c1').style.opacity=clamp(c1);$('r_c1').style.transform=`translateX(${(1-c1)*-120}px)`;
+  const c2=eb(P(L,S[3]-0.2,S[3]+0.8));$('r_c2').style.opacity=clamp(c2);$('r_c2').style.transform=`translateX(${(1-c2)*120}px) scale(${1+0.02*Math.sin(P(L,S[3]+0.8,S[3]+2.5)*Math.PI)})`;
+  const n1=Math.round(3+ (54-3)*(1-eo(P(L,S[1]+0.1,S[1]+1.1)))*0);$('r_n1').textContent='#3';
+  $('r_n2').textContent='#'+(L<S[3]+0.2?'—':'2');
+  const tp=eo(P(L,S[2]-0.3,S[2]+3.0));$('r_tlf').style.width=(tp*100)+'%';
+  document.querySelectorAll('#r_tl .tl').forEach(e=>{const pp=parseFloat(e.dataset.p);const a=eb(P(tp,pp-0.02,pp+0.12));e.style.opacity=clamp(a);e.style.transform=e.style.transform.replace(/scale\([^)]*\)/,'')+` scale(${.6+.4*clamp(a)})`});
+  $('r_tl').style.opacity=eo(P(L,S[1]+0.5,S[1]+1.3));
+}
+function scene_changed(L,S){
+  [['c_t1','c_n1',1],['c_t2','c_n2',1]].forEach((c,i)=>{const p=eb(P(L,0.3+i*0.25,1.0+i*0.25));$(c[0]).style.opacity=clamp(p);$(c[0]).style.transform=`translateY(${(1-p)*60}px)`});
+  const dp=eb(P(L,S[3]-0.2,S[3]+0.7));$('c_t3').style.opacity=clamp(dp);$('c_t3').style.transform=`translateY(${(1-dp)*60}px)`;
+  $('dring').setAttribute('stroke-dasharray',(817*0.76*eo(P(L,S[3]+0.2,S[3]+1.6)))+' 817');
+  const bp=eo(P(L,S[2]-0.3,S[2]+0.5));$('c_bars').style.opacity=bp;$('c_bars').style.transform=`translateX(${(1-bp)*80}px)`;
+  document.querySelectorAll('#bars .bar').forEach(b=>{const i=+b.dataset.i,v=+b.dataset.v;const p=eo(P(L,S[2]+0.2+i*0.35,S[2]+1.2+i*0.35));b.querySelector('.fill').style.width=(v/2*100*p)+'%'});
+  const pl=1+0.012*Math.sin(L*3);
+}
+function scene_method(L,S){
+  document.querySelectorAll('.pstep').forEach(e=>{const i=+e.dataset.i;const t0=[0.3,S[1]+1.2,S[2]-0.3,S[3]-0.3,S[3]+3.0][i];const p=eb(P(L,t0,t0+0.7));e.style.opacity=clamp(p);e.style.transform=`translateY(${(1-p)*70}px) scale(${.92+.08*clamp(p)})`;const act=P(L,t0,t0+0.4)*(1-P(L,t0+1.8,t0+2.2));e.style.boxShadow=`0 14px 40px rgba(20,43,77,${.12+.1*act}), 0 0 0 ${3*act}px rgba(47,111,222,${.65*act})`});
+  document.querySelectorAll('.parrow').forEach(e=>{const i=+e.dataset.i;const t0=[S[1]+0.6,S[2]-0.5,S[3]-0.5,S[3]+2.6][i];e.style.opacity=eo(P(L,t0,t0+0.4));e.style.transform=`translateX(${Math.sin(L*4)*4}px)`});
+  const mp=eo(P(L,S[2]-0.2,S[2]+0.6));$('m_ens').style.opacity=mp;$('m_ens').style.transform=`translateY(${(1-mp)*50}px)`;
+  document.querySelectorAll('.edot').forEach(e=>{const i=+e.dataset.i;const p=eb(P(L,S[2]+0.5+i*0.13,S[2]+0.9+i*0.13));e.style.opacity=clamp(p);e.style.transform=`scale(${clamp(p)})`});
+  const tg=eo(P(L,S[4]-0.1,S[4]+0.7));$('m_tag').style.opacity=tg;$('m_tag').style.transform=`translateY(${(1-tg)*30}px)`;
+}
+function scene_trust(L,S){
+  const cp=eo(P(L,0.1,0.8));$('t_chart').style.opacity=cp;$('t_chart').style.transform=`translateX(${(1-cp)*-80}px)`;
+  const maxw=560,base=0.10,rng=0.0505; // map 0.10..0.1505 to bar width
+  const w=v=>(v-base)/rng*maxw;
+  document.querySelectorAll('#t_bars .vb').forEach(e=>{const i=+e.dataset.i;const t0=(i<2?0.3+i*0.6:S[2]+(i-2)*0.55);const p=eo(P(L,t0+0.2,t0+0.9));const f=+e.dataset.f;const r=e.dataset.r===''?null:+e.dataset.r;
+    e.style.opacity=clamp(p*2);e.querySelector('.bf').style.width=(w(f)*p)+'px';
+    const br=e.querySelector('.br');br.style.width=(r?w(r)*p:0)+'px';
+    e.querySelector('.bt').style.left=(300+Math.max(w(f),r?w(r):0)*p+14)+'px';e.querySelector('.bt').textContent=p>0.5?(r?f.toFixed(4)+' | '+r.toFixed(4):f.toFixed(4)):''});
+  const rp=eo(P(L,S[3]-0.2,S[3]+0.6));$('t_rej').style.opacity=rp;$('t_rej').style.transform=`translateX(${(1-rp)*80}px)`;
+  const nrev=0;document.querySelectorAll('.rj').forEach(e=>{const i=+e.dataset.i;const p=eo(P(L,S[3]+0.3+i*((S[4]-S[3]-0.5)/13),S[3]+0.7+i*((S[4]-S[3]-0.5)/13)));e.style.opacity=p;e.style.transform=`translateX(${(1-p)*30}px)`});
+  $('t_cnt').textContent=(L>S[4]-0.3?'30+':Math.min(30,Math.round(30*eo(P(L,S[3]+0.3,S[4]))))) ;
+  [['t_b1',S[4]],['t_b2',S[4]+3.4]].forEach(c=>{const p=eb(P(L,c[1],c[1]+0.7));$(c[0]).style.opacity=clamp(p);$(c[0]).style.transform=`translateY(${(1-p)*50}px)`});
+}
+function scene_ai(L,S){
+  const sp=eo(P(L,0.1,0.8));$('a_sess').style.opacity=sp;$('a_sess').style.transform=`translateX(${(1-sp)*-80}px)`;
+  document.querySelectorAll('.atile').forEach(e=>{const i=+e.dataset.i;const p=eb(P(L,0.4+i*0.16,1.0+i*0.16));e.style.opacity=clamp(p);e.style.transform=`scale(${.85+.15*clamp(p)})`;
+    const fill=(0.15+((i*37)%60)/100)+0.3*Math.sin(L*0.8+i);const prog=clamp(P(L,0.4+i*0.16,7.4+i*0.16))*(0.35+(i%4)*0.18);e.querySelector('.af').style.width=(clamp(prog)*100)+'%';e.style.background=(L>S[1]+4+i*0.2&&i%3==0)?'#e6f6ee':'#f1f4f9'});
+  document.querySelectorAll('.acard').forEach(e=>{const i=+e.dataset.i;const t0=S[3]+0.4+i*0.9;const p=eb(P(L,t0,t0+0.7));e.style.opacity=clamp(p);e.style.transform=`translateX(${(1-p)*140}px)`});
+}
+function scene_guard(L,S,sc){
+  document.querySelectorAll('.gitem').forEach(e=>{const i=+e.dataset.i;const p=eb(P(L,0.2+i*0.35,0.9+i*0.35));e.style.opacity=clamp(p);e.style.transform=`translateY(${(1-p)*60}px)`});
+  const gp=eo(P(L,S[1]-0.2,S[1]+0.6));$('g_gauge').style.opacity=gp;$('g_gauge').style.transform=`translateY(${(1-gp)*50}px)`;
+  const sweep=eo(P(L,S[1]+0.3,S[1]+2.6));const ang=-70+140*sweep*0.5*2*0.5+ (Math.sin(L*3)*3);
+  
+  $('garc').setAttribute('stroke-dasharray',(628*0.5*sweep)+' 700');$('gtxt').textContent='±'+Math.round(20*sweep)+'%';
+  const fp=eo(P(L,S[2]-0.2,S[2]+0.6));$('g_flag').style.opacity=fp;$('g_flag').style.transform=`translateY(${(1-fp)*50}px)`;
+  const ep=eo(P(L,S[3]+0.0,S[3]+0.9));$('g_end').style.opacity=ep;$('chip').style.opacity=1-ep;
+}
+</script></body></html>

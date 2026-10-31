@@ -9,29 +9,86 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from iaa import data, features  # noqa: E402
+from iaa import cache, data, features, target  # noqa: E402
+from iaa.models.freqsev import FreqSev  # noqa: E402
 from iaa.config import LINES  # noqa: E402
 from iaa.models.baselines import LGBMTweedie, MeanRateModel  # noqa: E402
 from iaa.submission import write_submission  # noqa: E402
 
 
+def _fit_claims(a, tr, claims, line):
+    matched = target.matched_claims(tr, claims, line)
+    if a.thin_events:
+        from iaa.events import thin_for_fitting
+        matched = thin_for_fitting(matched, tr)
+    return matched
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", choices=["mean_rate", "lgbm"], required=True)
+    ap.add_argument("--model", choices=["mean_rate", "lgbm", "fs_gbm", "fs_glm", "fs_nn", "fs_xgb", "fs_tw", "fs_twx", "fs_twnn"], required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--keep-noise", action="store_true")
     ap.add_argument("--rounds", type=int, default=400)
+    ap.add_argument("--leaves", type=int, default=None, help="fs: num_leaves for both stages")
+    ap.add_argument("--freq-rounds", type=int, default=250)
+    ap.add_argument("--sev-rounds", type=int, default=200)
+    ap.add_argument("--seeds", type=int, default=1)
+    ap.add_argument("--nn-tabm-k", type=int, default=0, help="fs_nn: TabM members per MLP (0 = plain MLP)")
+    ap.add_argument("--history-extra", action="store_true", help="add per-peril / gap / max-cost / open-claim history features (iaa.engineered_history)")
+    ap.add_argument("--engineered", action="store_true")
+    ap.add_argument("--num-encoding", default="native", choices=["native", "lowcard", "count", "both"])
+    ap.add_argument("--nn-numtf", default=None, choices=["standard", "log", "quantile"])
+    ap.add_argument("--nn-cat-te", action="store_true")
+    ap.add_argument("--trend-scale", type=float, default=1.0)
+    ap.add_argument("--trend-halflife", type=float, default=None)
+    ap.add_argument("--cat-encoding", default="native", choices=["native", "label", "count", "both", "target", "target_peril"])
+    ap.add_argument("--yoy", action="store_true", help="add year-on-year change features of the policy inputs (iaa.yoy)")
+    ap.add_argument("--extra-features", default="", help="comma-separated normally excluded columns to add as inputs (e.g. exposure_calc,start_month,end_month)")
+    ap.add_argument("--seasonality", action="store_true", help="fs: frequency offset for the calendar months a row is in force (winter storm / escape of water)")
+    ap.add_argument("--depth", type=int, default=None, help="fs_xgb / fs_twx: tree depth")
+    ap.add_argument("--nn-ple", type=int, default=0)
+    ap.add_argument("--thin-events", action="store_true", help="thin regional claim surges (iaa.events) back to the cell's baseline month for fitting")
+    ap.add_argument("--trend-mode", default="pooled", choices=["pooled", "peril"], help="severity trend pooled per line or per peril")
+    ap.add_argument("--year-feature", action="store_true", help="fs_gbm: add the policy year as a numeric input")
+    ap.add_argument("--deflate", default="", help="comma-separated nominal columns to divide by their median in the row's own year")
+    ap.add_argument("--level-halflife", type=float, default=None, help="rebalance to the recent-weighted trended cost (half-life in years)")
+    ap.add_argument("--rebalance-level", choices=["line", "peril"], default="line")
+    ap.add_argument("--outlier-mult", type=float, default=None, help="winsorise single claims above k x cap in excess load and level")
     a = ap.parse_args()
 
-    claims, customers = data.load_claims(), data.load_customers()
-    addresses, weather = data.load_addresses(), data.load_weather()
+    claims = data.load_claims()
+    frames = cache.load_frames()
+    if a.deflate:
+        from iaa.deflate import deflate_frames
+        frames = deflate_frames(frames, [c for c in a.deflate.split(",") if c])
+    if a.yoy:
+        from iaa.yoy import add_yoy
+        frames = add_yoy(frames)
+    if a.history_extra:
+        from iaa.engineered_history import add_history_extra
+        frames = add_history_extra(frames, claims)
+    if a.engineered:
+        from iaa.engineered import add_engineered
+        frames = add_engineered(frames)
     parts = []
     for line in LINES:
-        df = features.build_line_frame(line, customers=customers, addresses=addresses, weather=weather, claims=claims)
-        model = MeanRateModel() if a.model == "mean_rate" else LGBMTweedie(drop_noise=not a.keep_noise, n_rounds=a.rounds)
-        model.fit(df[df["split"] == "train"])
+        df = frames[line]
+        tr = df[df["split"] == "train"]
+        if a.model.startswith("fs_"):
+            p = ({"max_depth": a.depth} if a.depth else {}) if a.model in ("fs_xgb", "fs_twx") else ({"num_leaves": a.leaves} if a.leaves else {})
+            model = FreqSev(_fit_claims(a, tr, claims, line), kind=a.model[3:], drop_noise=not a.keep_noise, freq_rounds=a.freq_rounds,
+                            sev_rounds=a.sev_rounds, params_freq=p, params_sev=p, n_seeds=a.seeds, nn_params={"n_seeds": a.seeds, "threads": 4, **({"tabm_k": a.nn_tabm_k} if a.nn_tabm_k else {}), **({"ple_bins": a.nn_ple} if a.nn_ple else {}), **({"num_transform": a.nn_numtf} if a.nn_numtf else {})},
+                            rebalance_level=a.rebalance_level, outlier_mult=a.outlier_mult, cat_encoding=a.cat_encoding, num_encoding=a.num_encoding, cat_te=a.nn_cat_te, trend_scale=a.trend_scale, trend_halflife=a.trend_halflife, level_halflife=a.level_halflife, year_feature=a.year_feature, seasonality=a.seasonality, extra_features=tuple(c for c in a.extra_features.split(",") if c), trend_mode=a.trend_mode)
+        else:
+            model = MeanRateModel() if a.model == "mean_rate" else LGBMTweedie(drop_noise=not a.keep_noise, n_rounds=a.rounds)
+        model.fit(tr)
         test = df[df["split"] == "test"]
-        parts.append(pd.DataFrame({"row_id": test["row_id"].to_numpy(), "prediction": model.predict(test)}))
+        pred = model.predict(test)
+        parts.append(pd.DataFrame({"row_id": test["row_id"].to_numpy(), "prediction": pred}))
+        hist = tr[tr["year"] == 2024]  # sanity: predicted 2025 cost per exposure vs 2024 as valued and vs the 2021-24 average
+        print(f"{line:10s} predicted cost/exposure 2025 {pred.sum()/test['exposure_calc'].sum():8.1f} | actual 2024 (as valued) {hist['y'].sum()/hist['exposure_calc'].sum():8.1f} | "
+              f"2021-24 avg {tr['y'].sum()/tr['exposure_calc'].sum():8.1f} | min {pred.min():.3f} max {pred.max():,.0f}", flush=True)
     sub = write_submission(pd.concat(parts, ignore_index=True), data.load_sample_submission(), Path(a.out))
     print(f"wrote {a.out}: {len(sub)} rows, mean prediction {sub['prediction'].mean():.2f}")
 

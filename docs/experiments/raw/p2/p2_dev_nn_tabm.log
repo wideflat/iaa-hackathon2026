@@ -1,0 +1,9 @@
+motor tag B: trained on 725270 rows, k=1.026, trend=0.043; emerging mean dev cost/row 610.9
+motor tag C: trained on 979968 rows, k=0.984, trend=0.051; emerging mean dev cost/row 649.4
+motor tag A: trained on 470693 rows, k=0.995, trend=0.063; emerging mean dev cost/row 637.3
+buildings tag B: trained on 523725 rows, k=1.060, trend=0.048; emerging mean dev cost/row 455.8
+buildings tag C: trained on 707726 rows, k=1.077, trend=0.066; emerging mean dev cost/row 550.6
+buildings tag A: trained on 339593 rows, k=1.053, trend=0.027; emerging mean dev cost/row 469.7
+contents tag B: trained on 534126 rows, k=1.046, trend=0.034; emerging mean dev cost/row 88.5
+contents tag C: trained on 721617 rows, k=1.065, trend=0.043; emerging mean dev cost/row 97.1
+contents tag A: trained on 346480 rows, k=1.066, trend=0.018; emerging mean dev cost/row 85.3

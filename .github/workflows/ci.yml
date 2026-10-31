@@ -1,0 +1,17 @@
+# Automated checks on every push: the unit tests (no competition data needed: all tests use small synthetic fixtures).
+name: tests
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]" xgboost scipy
+      - run: python -m pytest -q

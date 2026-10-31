@@ -1,0 +1,17 @@
+buildings tag PF W=1.0: trained on 523725 developed + 12580 emerging rows, k=1.094, trend=0.036; emerging mean cost/row 486.9
+contents tag PF W=1.0: trained on 534126 developed + 15834 emerging rows, k=1.056, trend=0.026; emerging mean cost/row 82.3
+motor tag PR W=1.0: trained on 725270 developed + 25603 emerging rows, k=1.030, trend=0.000; emerging mean cost/row 417.0
+buildings tag PR W=1.0: trained on 523725 developed + 14867 emerging rows, k=1.106, trend=0.026; emerging mean cost/row 399.4
+contents tag PR W=1.0: trained on 534126 developed + 18732 emerging rows, k=1.053, trend=0.018; emerging mean cost/row 86.1
+motor tag PF W=5.0: trained on 725270 developed + 21680 emerging rows, k=1.028, trend=0.016; emerging mean cost/row 403.9
+buildings tag PF W=5.0: trained on 523725 developed + 12580 emerging rows, k=1.110, trend=0.036; emerging mean cost/row 431.1
+contents tag PF W=5.0: trained on 534126 developed + 15834 emerging rows, k=1.043, trend=0.026; emerging mean cost/row 75.9
+motor tag PR W=5.0: trained on 725270 developed + 25603 emerging rows, k=1.025, trend=0.000; emerging mean cost/row 385.8
+buildings tag PR W=5.0: trained on 523725 developed + 14867 emerging rows, k=1.114, trend=0.026; emerging mean cost/row 311.3
+contents tag PR W=5.0: trained on 534126 developed + 18732 emerging rows, k=1.059, trend=0.018; emerging mean cost/row 80.6
+motor tag PF W=20.0: trained on 725270 developed + 21680 emerging rows, k=1.025, trend=0.016; emerging mean cost/row 387.6
+buildings tag PF W=20.0: trained on 523725 developed + 12580 emerging rows, k=1.089, trend=0.036; emerging mean cost/row 385.0
+contents tag PF W=20.0: trained on 534126 developed + 15834 emerging rows, k=1.043, trend=0.026; emerging mean cost/row 70.1
+motor tag PR W=20.0: trained on 725270 developed + 25603 emerging rows, k=1.013, trend=0.000; emerging mean cost/row 357.6
+buildings tag PR W=20.0: trained on 523725 developed + 14867 emerging rows, k=1.117, trend=0.026; emerging mean cost/row 234.0
+contents tag PR W=20.0: trained on 534126 developed + 18732 emerging rows, k=1.052, trend=0.018; emerging mean cost/row 69.6

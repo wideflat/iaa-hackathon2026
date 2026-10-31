@@ -1,0 +1,53 @@
+motor 2023 -> 2024 done
+motor 2024 -> 2023 done
+buildings 2023 -> 2024 done
+buildings 2024 -> 2023 done
+contents 2023 -> 2024 done
+contents 2024 -> 2023 done
+
+Mean regret in D2 points by scenario, estimator and line (average of the two directions); pooled = sum of the lines' regret over the sum of their null deviances
+
+== scenario A
+ line                           buildings  contents   motor  pooled  bias_buildings
+estimator                                                                         
+closure                           0.0016    0.0011  0.0043  0.0028         -0.0073
+robust kf=100 ks=30               0.0009    0.0007  0.0004  0.0006         -0.0020
+robust kf=100 ks=300              0.0006    0.0006  0.0002  0.0004         -0.0026
+robust kf=20 ks=30                0.0012    0.0009  0.0005  0.0008         -0.0020
+robust kf=20 ks=30 sizematch      0.0012    0.0009  0.0005  0.0008         -0.0037
+robust kf=20 ks=300               0.0008    0.0007  0.0003  0.0005         -0.0026
+robust kf=400 ks=30               0.0009    0.0007  0.0004  0.0006         -0.0040
+robust kf=400 ks=30 sizematch     0.0009    0.0007  0.0004  0.0006         -0.0057
+robust kf=400 ks=300              0.0006    0.0006  0.0002  0.0004         -0.0046
+robust kf=5000 ks=30              0.0009    0.0007  0.0004  0.0006         -0.0054
+robust kf=5000 ks=300             0.0006    0.0006  0.0002  0.0004         -0.0060
+
+== scenario B
+ line                           buildings  contents   motor  pooled  bias_buildings
+estimator                                                                         
+closure                           0.0049    0.0023  0.0043  0.0042         -0.0297
+robust kf=100 ks=30               0.0034    0.0017  0.0003  0.0016         -0.0647
+robust kf=100 ks=300              0.0054    0.0018  0.0003  0.0023         -0.1327
+robust kf=20 ks=30                0.0032    0.0012  0.0003  0.0014         -0.0705
+robust kf=20 ks=30 sizematch      0.0033    0.0012  0.0003  0.0015         -0.0733
+robust kf=20 ks=300               0.0052    0.0012  0.0004  0.0021         -0.1419
+robust kf=400 ks=30               0.0039    0.0026  0.0003  0.0019         -0.0666
+robust kf=400 ks=30 sizematch     0.0040    0.0026  0.0003  0.0019         -0.0692
+robust kf=400 ks=300              0.0060    0.0028  0.0002  0.0026         -0.1329
+robust kf=5000 ks=30              0.0043    0.0037  0.0003  0.0023         -0.0717
+robust kf=5000 ks=300             0.0066    0.0039  0.0002  0.0030         -0.1374
+
+== scenario C
+ line                           buildings  contents   motor  pooled  bias_buildings
+estimator                                                                         
+closure                           0.0040    0.0029  0.0058  0.0047         -0.0005
+robust kf=100 ks=30               0.0030    0.0015  0.0006  0.0016          0.0208
+robust kf=100 ks=300              0.0042    0.0022  0.0012  0.0024          0.0203
+robust kf=20 ks=30                0.0023    0.0012  0.0005  0.0012          0.0198
+robust kf=20 ks=30 sizematch      0.0023    0.0012  0.0005  0.0012          0.0181
+robust kf=20 ks=300               0.0035    0.0019  0.0010  0.0020          0.0193
+robust kf=400 ks=30               0.0036    0.0020  0.0012  0.0021          0.0140
+robust kf=400 ks=30 sizematch     0.0036    0.0020  0.0012  0.0022          0.0124
+robust kf=400 ks=300              0.0048    0.0026  0.0017  0.0029          0.0134
+robust kf=5000 ks=30              0.0039    0.0025  0.0021  0.0028          0.0075
+robust kf=5000 ks=300             0.0051    0.0031  0.0027  0.0035          0.0068

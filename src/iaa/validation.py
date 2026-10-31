@@ -24,6 +24,8 @@ class Fold:
 FOLDS = {
     "A": Fold("A_valid2023", (2021, 2022), 2023, weight=1.0, mature=True),
     "B": Fold("B_valid2024", (2021, 2022, 2023), 2024, weight=0.5, mature=False),
+    # Emerging market (2023-24 only): train 2023 -> validate 2024; the claim-history inputs of the 2023 rows are empty by construction
+    "E": Fold("E_valid2024", (2023,), 2024, weight=1.0, mature=False),
 }
 
 

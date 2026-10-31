@@ -1,0 +1,754 @@
+# Results summary (curated; full machine-generated table in `EXPERIMENT_LOG.md`)
+
+All scores are pooled Tweedie D2 (power 1.5). Fold A = train 2021-22, validate 2023 (mature, trusted). Fold B = train 2021-23, validate 2024 (immature actuals, half weight). 95% CIs are customer-clustered bootstraps; differences smaller than about 0.01 are inside the noise.
+
+## 1. Model comparison on the local folds
+Fold B for models with a completeness offset is scored in *observed space* (prediction scaled by the expected reported share), so it is comparable with the immature actuals; older rows scored raw are marked (raw). "cap" = outlier-robust score with row cost capped at 250k.
+| Model | Fold A | Fold B | Public LB | Comment |
+|---|---|---|---|---|
+| Constant cost rate per line x exposure | 0.087 | 0.071 (raw) | - | floor; line level and exposure carry most of the early signal |
+| Direct Tweedie GBM, before rebalancing | 0.098 | 0.120 (raw) | - | calibration 0.64-0.75 |
+| Direct Tweedie GBM + per-line rebalancing | 0.1225 | 0.1253 (raw) | - | |
+| Same, closed-claims-only labels (+ level to all claims) | 0.109 (0.112) | 0.128 (0.126) | - | worse on A |
+| Frequency x severity GBM v1 (per peril) | 0.1329 | 0.1290 (raw) | **0.12153** | first submission |
+| + severity trend only | 0.1318 | 0.1265 (raw) | - | motor calibration on B 1.33 |
+| **+ severity trend + completeness offset (v2)** | 0.1320 (cap 0.1315) | 0.1320 (cap 0.1330) | **0.12455** | current best submission; paired vs v1 on A: -0.0009 (-0.0015..-0.0003), tiny |
+| v2 + cross-line customer / address history / lagged weather | 0.1326 | - | - | paired +0.0006 (ns): no gain |
+| v2 + row timing features (period_days, start/end month) | 0.1328 | - | - | no gain; excluded by default |
+| v2 with num_leaves 4 (350/300 rounds) | **0.1339** (cap 0.1323) | 0.1322 (cap 0.1331) | - | paired vs v2: +0.0011 (P=0.95) on A, +0.0001 on B; simplest, weakly best |
+| Frequency x severity GLM (stabilised, alpha 1e-3/1e-2) | 0.1411 (cap 0.1316) | 0.1278 (cap 0.1292) | 0.12133 | GLM edge on A was one claim (see section 6) |
+| GLM + quantile bands | 0.1390 | - | - | no gain |
+| First GLM version (unstabilised) | 0.063 | 0.012 | - | broken: buildings D2 < 0 |
+| *Invalid: direct GBM with `customer_service_contacts`* | *0.555* | *0.655* | - | *leak; kept as evidence* |
+
+## 2. One-year-earlier rehearsal (`scripts/rehearsal.py`)
+Pretend today is 2022-12-31: train on 2021-22 with only claims known then, predict 2023 without its claims, score against 2023 as valued today (24 months old).
+| Variant | All claims | Closed claims only |
+|---|---|---|
+| Constant rate | 0.085 | 0.083 |
+| GBM, no maturity feature | 0.109 | 0.108 |
+| GBM + days-to-valuation feature | 0.121 | 0.117 |
+(A first version scored 0.99 because `y_true` was left in the features; fixed, guarded by a test, and a score above 0.35 now aborts any run.)
+
+## 3. Calibration diagnosis (fold A, direct Tweedie GBM, 300 rounds)
+Dropping history features, weather, premium or all time-drifting features left calibration at 0.67-0.78 and D2 at 0.102-0.111; an offset formulation gave 0.101 (calibration 0.69-0.77). The GBM is already 0.72-0.81 calibrated on its own training data and its deviance-optimal in-sample scalar is ~1.007: the shortfall is a property of Tweedie-1.5 with a log link, not trend or drift. Rescaling to the training total (+0.017) recovers nearly all of the oracle gain (oracle scalar chosen on the validation year: 0.1242).
+
+## 4. Public leaderboard, level probes and submissions (2026-10-18)
+| # | Submission | Public score | Note |
+|---|---|---|---|
+| 1 | `fs_gbm_v1` | 0.12153 | frequency x severity GBM trained on 2021-24 |
+| 2 | v1 x 0.90 (all lines) | 0.11554 | level probe |
+| 3 | v1 x 1.10 (all lines) | 0.12429 | level probe |
+| 4 | `fs_gbm_v2_trend_comp` | **0.12455** | v1 + severity trend + completeness: +0.0030 vs v1, as the x1.16 probe predicted (about 0.1247); rank 5 |
+| 5 | `fs_glm_v1` | 0.12133 | GLM; its level (mean 376 vs 359) accounts for at most ~0.001 of the 0.0032 gap |
+
+Quadratic fit in ln(scale) through probes 1-3: optimum near x1.16. v2 reached the same level through model-based changes (motor +23%, buildings +19%, contents +11% vs v1) rather than hand scaling. Five submissions were used on 2026-10-18 (UTC). The rules text then said 5 per day and the platform setting was 10; we stayed at 5 until the host confirmed the limit is 10 per day and updated the rules.
+Leaderboard snapshot at ~03:00 UTC (about 33% of test rows): 0.12815, 0.12753, 0.12697, 0.12532, 0.12425, then v1 0.12153 (later v2 0.12455: 5th). Reference files: organisers' basic GLM 0.10563; average-cost baseline 0.07169.
+
+## 5. Other measured facts that shaped the work
+- Constant rate already scores 0.087 locally, so most of D2 comes from line level; gains beyond are small in absolute terms (leaders are at 0.128).
+- Peril drives reporting development (12-month factor to ultimate: motor bodily injury 1.81, subsidence 1.46, other perils 1.02-1.08); severity is independent of report lag within a peril. Back-test of the 12-month-to-ultimate step: errors within +-1.6% for buildings/contents/non-BI motor and -3.5% to +4.2% for bodily injury.
+- Still open at 2024-12-31 (share of cost): motor bodily injury 15% / 26% / 49% / 80% for accident years 2021-2024; buildings 0.7% / 2.6% / 8.2% / 36%.
+- Recoveries: only 28% of closed motor own-damage/theft claims carry one (avg 77% of incurred), so unbooked recoveries overstate 2024 motor net cost by about 1.5%.
+
+## 6. Model choice: GLM vs GBM, and why raw fold A misled us
+- Raw fold A favoured the GLM (0.1411 vs 0.1320), driven by motor (+0.018). Paired bootstrap on the same rows: +0.0071 overall (CI -0.0015..+0.0207).
+- Fold A's validation year contains one open 11.9M motor bodily-injury claim. Capping row cost at 250k: GLM 0.1316 vs GBM 0.1315, difference +0.0001; the motor edge shrinks from +0.0184 to +0.0037.
+- Fold B (2024): GBM better, -0.0042 raw and -0.0038 capped (both significant); buildings and contents favour the GBM on both folds.
+- The leaderboard (2025) agrees: GBM 0.12455 vs GLM 0.12133. Decision: GBM is the main model.
+
+## 7. Overnight screens (helper sessions and local runs, 2026-10-18)
+| Study | Result (fold A, base 0.1320) | Read |
+|---|---|---|
+| GBM hyperparameters (helper 1) | fastlr 0.1328, slowlr 0.1320, leaves7 0.1336, leaves31 0.1309, minleaf100 0.1324, minleaf800 0.1325, cap99 0.1328, cap9999 0.1310 | plateau (all within CI ~0.014); smaller trees marginally better; leaves 4 confirmed (above) |
+| Feature ablations (helper 2) | keep suspected-noise columns 0.1096 (-0.022); drop premium/discount 0.1311; drop claim history 0.1319; drop weather 0.1312; drop customer 0.1328; drop service/channel 0.1318 | only the noise-column exclusion matters |
+| GLM regularisation (helper 3, base 0.1399) | alpha-freq 3e-4 0.1421, 3e-3 0.1373, 1e-2 0.1322; alpha-sev 3e-3 0.1392, 3e-2 0.1408, 1e-1 0.1417 | plateau |
+| New features / timing | GBM 0.1326 / 0.1328; GLM 0.1399 / 0.1399 | no gain |
+Helpers 1-3 ran in their own containers (no commits, no submissions); each GLM run needs ~5.5 GB RAM and two GBM runs together exceed the 15 GB of this container (three OOM kills were handled by re-running).
+
+## 8. Tail audit follow-through (2026-10-18)
+| Run | Fold A D2 [cap250k] | Fold B D2 [cap250k] | Read |
+|---|---|---|---|
+| fs_gbm_l4 (reference) | 0.1339 [0.1323] | 0.1322 [0.1331] | |
+| fs_gbm_l4_peril (per-peril rebalancing) | 0.1338 [0.1321] | 0.1321 [0.1330] | neutral; rejected, keep per-line |
+| fs_gbm_l4_out5 (winsorise claims above 5x cap in excess load and level) | 0.1339 [0.1323] | 0.1323 [0.1333] | paired vs reference: A 0.0000, B +0.0002 (CI excludes 0, motor +0.0004); adopted for robustness |
+
+The open 11.9M bodily-injury claim inflated the BI excess load (0.083 vs 0.008) and the motor level by about 2.7%; winsorising lowers the fitted 2025 total by 1.2% relative to the plain leaves-4 file (rank correlation 0.9999). Candidate file: `submissions/fs_gbm_v4_l4_out5.csv` (not yet submitted). Full audit: `docs/data/TAIL_AUDIT.md` (generated by `scripts/tail_audit.py`).
+
+## 9. Neural net and blend (2026-10-18)
+| Model | Fold A D2 [cap250k] | Fold B D2 [cap250k] | Public LB |
+|---|---|---|---|
+| GBM leaves 4 + out5 (`fs_gbm_l4_out5`) | 0.1339 [0.1323] | 0.1323 [0.1333] | not submitted |
+| NN v1, CANN-style, 1 seed (`fs_nn_v1`, motor 0.0848 / 0.0830, buildings 0.1061 / 0.1098, contents 0.0837 / 0.0832) | 0.1365 [0.1319] | 0.1296 [0.1309] | not submitted alone |
+| 50/50 blend (OOF) | 0.1388 [0.1356] | 0.1338 [0.1349] | |
+| Submitted `blend_gbm_nn_v1.csv` (= 0.5 `fs_gbm_v4_l4_out5` + 0.5 `fs_nn_v1`, both fitted on 2021-24) | | | **0.12587** (v2 0.12455, v1 0.12153, GLM 0.12133) |
+
+Paired bootstrap, blend minus GBM: fold A +0.0049 (95% CI +0.0024..+0.0082), fold B +0.0014 (CI +0.0003..+0.0025). Blend weights 0.25 / 0.75 were also positive on both folds but 0.5 was the best pooled; no per-line weights used. The public gain over v2 (+0.0013) has the same sign as the local gain over the GBM; the public score is one 2025-type sample and is not used to tune weights (D20/D21). Reading from the Kaggle submissions page (screenshot supplied by the project lead; `scripts/check_submissions.py` returned an authentication error at the time).
+
+## 10. Other algorithms and blend additions (2026-10-18)
+Reference blend R = equal-weight GBM (`fs_gbm_l4_out5`) + NN (`fs_nn_v1`): fold A 0.1388 [cap250k 0.1356], fold B 0.1338 [0.1349]. Candidates are added with equal weights (`scripts/blend_multi.py`, paired bootstrap on the same rows, customer-clustered).
+
+| Model (single) | Fold A D2 [cap250k] | Fold B D2 [cap250k] | Read |
+|---|---|---|---|
+| XGBoost freq x sev, depth 3 (`fs_xgb_d3`, helper session) | 0.1322 [0.1317] | 0.1321 [0.1332] | about LightGBM; 17 min for both folds |
+| CatBoost freq x sev, depth 4 (`fs_cat_d4`, helper session) | 0.1165 [0.1235] | 0.1201 [0.1208] | worse; motor calibration 1.24 on fold B; 27 min per fold |
+| Direct Tweedie NN (`nn_tweedie_v1`) | 0.1336 [0.1297] | 0.1215 [0.1228] | no trend / completeness handling; fold B motor calibration 1.23 |
+
+| Blend | A: cand - R (95% CI) | B: cand - R (95% CI) | Verdict |
+|---|---|---|---|
+| R + direct Tweedie NN | +0.0007 (-0.0000..+0.0015) | -0.0016 (-0.0024..-0.0008) | reject (worse on B) |
+| R + XGBoost | -0.0009 (-0.0027..+0.0004) | +0.0003 (-0.0001..+0.0006) | no gain |
+| R + CatBoost | -0.0027 (-0.0074..+0.0004) | -0.0011 (-0.0020..-0.0002) | reject |
+| R + all three | -0.0009 (-0.0046..+0.0015) | -0.0006 (-0.0012..-0.0000) | reject |
+
+Rule (set before looking, as in DECISIONS D23): a model joins the blend only if the paired difference is positive on both folds. None does. The direct net is structurally disadvantaged on fold B because its immature-year training rows are not completeness-adjusted; the GLM (tuned, fold A 0.1411) helped on fold A but not fold B (3-way 0.1331 vs 0.1338), so it is not adopted either.
+
+## 11. Wider, higher-dropout NN (2026-10-18, 13:15 EDT)
+`fs_nn_wide`: hidden 384,192, dropout 0.2, 1 seed. Single: fold A 0.1387 [cap250k 0.1310], fold B 0.1305 [0.1320] (NN v1: 0.1365 [0.1319] / 0.1296 [0.1309]; GBM: 0.1339 [0.1323] / 0.1323 [0.1333]). Motor stronger (A 0.0900 / B 0.0840), buildings A weaker (0.1043).
+
+| Blend (equal weights) | A: minus R (95% CI) | B: minus R (95% CI) | Read |
+|---|---|---|---|
+| GBM + NN wide (replace NN v1) | +0.0013 (-0.0012..+0.0051) | +0.0004 (-0.0003..+0.0009) | positive on both folds, not significant; cap250k scores about equal (A 0.1351 vs 0.1356, B 0.1354 vs 0.1349) |
+| GBM + NN v1 + NN wide | +0.0015 (-0.0008..+0.0050) | -0.0000 (-0.0007..+0.0004) | no gain |
+
+R = GBM + NN v1 (A 0.1388 [0.1356], B 0.1338 [0.1349]). The wide net is within noise of NN v1 in the blend: not worth a new submission by itself. The 3-seed NN (variance reduction, running) is the next test; a decision on a final NN configuration waits for it.
+
+## 12. 3-seed NN and risk-dependent tail load (2026-10-18, 15:15 EDT)
+| Run | Fold A D2 [cap250k] | Fold B D2 [cap250k] | Read |
+|---|---|---|---|
+| `fs_nn_s3` (NN v1, 3 seeds averaged per stage) | 0.1406 [0.1330] | 0.1313 [0.1326] | best single model so far; motor 0.0927 / 0.0848 |
+| GBM + `fs_nn_s3` (equal weights), minus R (GBM + NN v1) | +0.0018 (-0.0005..+0.0055) | +0.0006 (-0.0000..+0.0012) | positive on both folds, small; cap250k +0.0000 (A: 0.1356) / +0.0006 (B: 0.1355) |
+| `fs_gbm_tail05` (risk-dependent excess load, lambda 0.5; helper 2) | 0.1338 [0.1323] | 0.1323 [0.1333] | no change vs GBM 0.1339 / 0.1323 |
+| `fs_gbm_tail10` (lambda 1.0; helper 2) | 0.1337 [0.1322] | 0.1323 [0.1332] | no change |
+
+Tail model: fitted for 4 of 5 motor perils on fold A training (theft skipped, too few large claims); tail ratio median about 0.6-0.75, max 2.9-4.2, but the base excess loads are tiny (0.001-0.009), so the load barely moves predictions. Rejected (D25 below): not worth its code.
+
+## 13. Entity embeddings (customer_id, address_id as learned embeddings; helper 3, 15:14 EDT)
+| Run | Fold A D2 [cap250k] | Fold B D2 [cap250k] | Read |
+|---|---|---|---|
+| `fs_nn_entity` (1 seed) | 0.1338 [0.1299] | 0.1281 [0.1290] | worse than the same NN without entities (0.1365 [0.1319] / 0.1296 [0.1309]) |
+| `fs_nn_entity_d3` (dropout 0.3) | 0.1367 [0.1304] | 0.1292 [0.1304] | no gain either |
+No paired bootstrap run: both single-model scores are below the no-entity net on both folds and both metrics, so the idea is rejected (D26). Reading: the history features already carry the customer signal; unseen-customer and rare-customer rows get no benefit, and the extra parameters overfit.
+
+## 14. Recency and domain-shift weights on the GBM (helper 1, 17:45 EDT)
+LightGBM leaves 4 + outlier 5; reference A 0.1339 [cap250k 0.1323], B 0.1323 [0.1333].
+| Run | Fold A D2 [cap250k] | Fold B D2 [cap250k] | Read |
+|---|---|---|---|
+| `fs_gbm_rec03` (recency rho 0.3) | 0.1344 [0.1318] | 0.1322 [0.1332] | within noise |
+| `fs_gbm_rec07` (rho 0.7) | 0.1354 [0.1310] | 0.1312 [0.1323] | A up, B down, capped scores down on both |
+| `fs_gbm_adv05` (domain-shift weights, strength 0.5) | 0.1339 [0.1323] | 0.1322 [0.1332] | weights near uniform; no change |
+| `fs_gbm_adv10` (strength 1.0) | 0.1345 [0.1318] | 0.1320 [0.1331] | no change |
+Rejected (D27): none is positive on both folds on both metrics. The train and 2025-type rows are hard to tell apart (classifier weights near uniform), so there is little covariate shift for the weights to correct; recency does not help because the severity trend and completeness handling already model the drift. Predictions were not saved (helper stopped after the logs).
+
+## 15. TabM-style NN (k=4 BatchEnsemble members, 1 net per stage; 17:55 EDT)
+| Run | Fold A D2 [cap250k] | Fold B D2 [cap250k] | Read |
+|---|---|---|---|
+| `fs_nn_tabm4` | 0.1413 [0.1331] | 0.1328 [0.1338] | best single model: above the 3-seed net (0.1406 [0.1330] / 0.1313 [0.1326]) on both folds and metrics, at similar cost |
+| GBM + TabM (equal weights) minus R (GBM + NN v1) | +0.0027 (-0.0003..+0.0074) | +0.0013 (+0.0007..+0.0020) | cap250k: 0.1360 vs 0.1356 (A), 0.1361 vs 0.1349 (B) |
+| GBM + TabM minus GBM + NN 3 seeds | +0.0008 (-0.0002..+0.0020) | +0.0007 (+0.0001..+0.0015) | TabM better in the blend on both folds |
+| GBM + TabM + NN 3 seeds minus R | +0.0033 (-0.0004..+0.0094) | +0.0009 (+0.0003..+0.0017) | no better than GBM + TabM on fold B |
+Blend GBM + TabM: A 0.1414 [0.1360], B 0.1351 [0.1361]. Candidate for the next submission (D28).
+
+Submitted 2026-10-18 about 18:05 EDT (user approved): `blend_gbm_tabm4_v2.csv` = 0.5 `fs_gbm_v4_l4_out5` + 0.5 `fs_nn_tabm4`. Public score: to be filled in from the Kaggle submissions page (the submissions API returned authentication errors this afternoon).
+
+Component checks submitted 2026-10-18 about 18:15 EDT at the user's request (public scores to be filled in from the Kaggle page): `fs_nn_tabm4.csv` (TabM alone; CV A 0.1413 / B 0.1328) and `fs_gbm_v4_l4_out5.csv` (GBM alone; CV A 0.1339 / B 0.1323). Purpose: see whether the public ordering GBM < blend, TabM vs blend matches the local one. They are real models, not level probes, and are not used to tune weights (D20/D21).
+
+## 16. Public scores of the 2026-10-18 evening submissions (read 18:20 EDT from the Kaggle REST list; times in the list are UTC)
+| Submission | Public | Local CV (A / B, D2) |
+|---|---|---|
+| Blend GBM v4 + TabM (equal weights) | **0.12679** | 0.1414 / 0.1351 |
+| Blend GBM v4 + NN v1 (equal weights) | 0.12587 | 0.1388 / 0.1338 |
+| GBM v4 alone (leaves 4, outlier 5) | 0.12548 | 0.1339 / 0.1323 |
+| TabM alone | 0.12346 | 0.1413 / 0.1328 |
+| (earlier) v2 GBM 0.12455, v1 GBM 0.12153, GLM 0.12133 | | |
+Reading: the public order of the two blends matches the local order (+0.0009 public, +0.0027 / +0.0013 local); the blend beats both of its components (GBM +0.0013, TabM +0.0033), which is the diversity effect we want. TabM alone is worse than the GBM publicly although it was better on fold A and similar on fold B: fold A single-model scores overstate the NN, and fold B (the one that looks like 2025: immature last year) is the better guide, where the NN is about equal to the GBM. Do not choose a NN-heavy blend from fold A alone. No weights were tuned on these public scores (D20/D21); they are the first public evidence that supports the equal-weight GBM + TabM blend as the current best (0.12679). The top public score seen earlier was 0.12815.
+
+## 17. Per-line blend weights for GBM + TabM (18:25 EDT)
+Weights on TabM per line chosen from the per-line single-model ordering (TabM better on motor on both folds; GBM better on contents on both; buildings close), not by maximising D2: motor 0.7, buildings 0.4, contents 0.3 (equal weights = 0.5 each). Checked neighbours (0.6/0.5/0.4 and 0.7/0.5/0.3) to see that the result does not hinge on the exact values.
+| TabM weights (motor/buildings/contents) | Fold A vs equal (95% CI) | Fold B vs equal (95% CI) |
+|---|---|---|
+| 0.7 / 0.4 / 0.3 | +0.0021 (+0.0006..+0.0044); D2 0.1435, cap250k 0.1369 (equal 0.1414 / 0.1360) | +0.0004 (+0.0002..+0.0007); D2 0.1355, cap250k 0.1365 (equal 0.1351 / 0.1361) |
+| 0.6 / 0.5 / 0.4 | +0.0011 (+0.0003..+0.0023) | +0.0002 (+0.0001..+0.0004) |
+| 0.7 / 0.5 / 0.3 | +0.0019 (+0.0005..+0.0042) | +0.0004 (+0.0002..+0.0006) |
+Small but positive on both folds in every variant, with intervals excluding zero. File: `submissions/blend_gbm_tabm4_perline_v3.csv` (made with `scripts/blend_submissions.py`, which reproduces the submitted equal-weight blend exactly). Not submitted yet; one submission left today.
+
+## 18. TabM variants (18:30 EDT)
+| Run | Fold A D2 [cap250k] | Fold B D2 [cap250k] | Read |
+|---|---|---|---|
+| `fs_nn_tabm4` (k=4, hidden 192,96, dropout 0.1) | 0.1413 [0.1331] | 0.1328 [0.1338] | reference |
+| `fs_nn_tabm4_wide` (k=4, hidden 384,192, dropout 0.2) | 0.1381 [0.1326] | 0.1318 [0.1330] | worse on both folds and metrics: wider is not better |
+Helper runs `fs_nn_tabm8` (k=8) and `fs_nn_tabm4_s3` (3 seeds) are pending.
+
+Update 18:40 EDT. `fs_nn_tabm4_small` (hidden 128,64): A 0.1424 [0.1340], B 0.1308 [0.1322]: mixed vs the default (A up, B down); adding it to GBM + TabM: A +0.0013 (-0.0001..+0.0037), B -0.0006 (-0.0012..-0.0002): rejected. The default TabM configuration (k=4, 192,96, dropout 0.1) stays.
+Level check of the GBM + TabM blend (actual / predicted, fold A, fold B): motor 0.944 / 0.949, buildings 0.999 / 1.017, contents 1.072 / 0.991, overall 0.971 / 0.978. Motor is over-predicted by about 5% on both folds; correcting it with a scalar fitted on the other fold gains only +0.0001..+0.0002 D2, so no level correction is made (D2 is insensitive to a 5% level error in one line, and the 2025 level is not known from these folds).
+
+## 19. TabM with 3 seeds (helper 3, finished 18:42 EDT; 30 min for both folds)
+`fs_nn_tabm4_s3`: A 0.1429 [0.1347], B 0.1328 [0.1340] (1 seed: 0.1413 [0.1331] / 0.1328 [0.1338]). In the blend with the GBM: equal weights A +0.0005 (+0.0001..+0.0010), B -0.0001 (-0.0007..+0.0004) vs the 1-seed blend; per-line weights A +0.0003, B -0.0002 (both CIs include 0). Seed averaging does not change the blend; the single-seed TabM already fitted on 2021-24 is as good, so no 3-seed refit is made.
+
+## 20. Per-line-weight blend submitted (19:56 EDT)
+`blend_gbm_tabm4_perline_v3.csv` (TabM weight 0.7 motor / 0.4 buildings / 0.3 contents): public **0.12718**, vs 0.12679 for the equal-weight blend (+0.0004; the local gain was +0.0021 on fold A and +0.0004 on fold B). New best public score; the top public score seen earlier was 0.12815. This is the current final-submission candidate under D20 (local validation positive on both folds and the public score supports it).
+
+## 21. Stacking per-line blend weights across folds (`scripts/stack_oof.py`, 00:00 EDT 2026-10-19)
+Per-line non-negative weights (sum 1) fitted by maximum Tweedie likelihood on one fold's out-of-fold predictions and evaluated on the other.
+| Components | fitted A -> eval B | fitted B -> eval A | vs hand-set per-line weights (0.7/0.4/0.3 on TabM; B 0.1355, A 0.1435) |
+|---|---|---|---|
+| GBM + TabM | 0.1353 [cap 0.1362] | 0.1439 [0.1371] | equal to within 0.0004: the hand weights are about the cross-fold optimum (fitted weights: motor TabM 0.75-1.0, buildings 0.26-0.33, contents 0.17-0.27) |
+| + GLM (fs_glm_v3) | 0.1349 | 0.1440 | no gain (worse on B, +0.0005 on A) |
+| + GLM + XGBoost + wide NN + small TabM | 0.1347 | 0.1440 | no gain; weights unstable between folds |
+Conclusion (D29): no stacking layer or extra components beyond GBM + TabM with per-line weights. The remaining headroom is in better components (features, representations), not in combining.
+
+## 22. Engineered features, GBM (20:18 EDT)
+`--engineered` (src/iaa/engineered.py; label-free): premium per sum insured / vehicle value group, licence age, mileage per vehicle age, history frequency and severity, weather anomalies (vs region-year mean) and year-on-year changes, and the premium residual (log premium minus a cross-fitted regression on the other rating features = the underwriter's load beyond the rating factors).
+`fs_gbm_eng` (LightGBM leaves 4, outlier 5): A 0.1340 [0.1325], B 0.1323 [0.1334] vs the same GBM without: 0.1339 [0.1323] / 0.1323 [0.1333]. No change: trees already find these interactions. Weak linear correlations of the new columns with cost (all below 0.06). The NN (TabM) with the same features and with piecewise-linear encodings of the numeric inputs is being tested next, since neural nets are weaker at ratios and thresholds.
+
+`fs_nn_tabm4_eng` (TabM k=4 + the engineered features): A 0.1420 [0.1330], B 0.1313 [0.1326] vs plain TabM 0.1413 [0.1331] / 0.1328 [0.1338]: motor better (0.0985 vs 0.0954 on A), buildings worse. In the blend with the GBM vs GBM + plain TabM: A +0.0005 (-0.0006..+0.0018), B -0.0006 (-0.0014..+0.0001); with both TabMs: A +0.0015, B -0.0003. Not positive on both folds: rejected (D30). Engineered ratios, weather anomalies and the premium residual do not add signal beyond the raw columns for either model family.
+
+## 23. TabM with piecewise-linear encoding of numeric inputs (helper 3, 20:25 EDT; 19 min for both folds)
+`fs_nn_tabm4_ple` (8 quantile bins per numeric input, added to the standardised value): A 0.1430 [cap250k 0.1364], B 0.1340 [0.1351] vs plain TabM 0.1413 [0.1331] / 0.1328 [0.1338]: better on both folds and both metrics (cap +0.0033 / +0.0013). In the blend (GBM + NN, equal weights) vs GBM + plain TabM: A 0.0000 [cap +0.0010], B +0.0004 (CI -0.0002..+0.0010) [cap +0.0004]; with the per-line weights: A -0.0002 [cap +0.0011], B +0.0004 [cap +0.0005]. Mixing both TabMs (GBM + (TabM + TabM-PLE)/2, per-line weights): A 0.1437 [0.1377], B 0.1359 [0.1369] vs GBM + TabM 0.1435 [0.1369] / 0.1355 [0.1365]: small but positive on both folds and both metrics (+0.0002 / +0.0004 uncapped, +0.0008 / +0.0004 capped). Candidate (D31): final fit of the PLE TabM and blend GBM + (TabM + TabM-PLE)/2 with per-line weights.
+
+## 24. Submitted 2026-10-18 21:12 EDT: GBM + mean(TabM, TabM-PLE), per-line weights
+`blend_gbm_tabm_ple_perline_v4.csv`: public **0.12779** (previous best 0.12718; equal-weight GBM + TabM 0.12679). Local: A 0.1437 [cap 0.1377], B 0.1359 [0.1369]. Public gain +0.0006 over the previous best, same sign as the local gain (+0.0002 / +0.0004). Top public score seen earlier: 0.12815 (gap 0.0004). Current final-submission candidate (D20).
+
+## 25. Alternative categorical encodings for the GBM (21:27 EDT)
+Native = LightGBM categorical splits (reference A 0.1339 [cap250k 0.1323], B 0.1323 [0.1333]). `--cat-encoding both` = frequency-ranked integer label code plus log level count, as numeric columns.
+| Run | Fold A D2 [cap250k] | Fold B D2 [cap250k] | Read |
+|---|---|---|---|
+| `fs_gbm_both` (helper 3) | 0.1368 [0.1353] | 0.1334 [0.1346] | better than native on both folds and both metrics (A +0.0029, B +0.0011); motor 0.0780 vs 0.0717 on A |
+Blend (equal weights) with TabM: replacing the native GBM by the `both` GBM beats GBM + TabM by +0.0010 (CI +0.0004..+0.0015) on A and +0.0002 (-0.0003..+0.0008) on B (cap250k: 0.1370 vs 0.1360, 0.1364 vs 0.1361). Using both GBMs together adds nothing (A -0.0004, B +0.0002). Label, count and target variants still running (`fs_gbm_label` locally, `fs_gbm_count` helper 1); not yet compared.
+
+Update 21:40 EDT: `fs_gbm_label` (frequency-ranked integer label codes only): A 0.1375 [cap250k 0.1354], B 0.1336 [0.1347]: better than `both` (0.1368 / 0.1334) and than native (0.1339 / 0.1323) on both folds and both metrics. Numeric-input encodings for the trees (`--num-encoding lowcard|count|both`, `--max-bin`) and for the NN (`--nn-numtf log|quantile`, PLE already tested) are being tested on top of the label encoding.
+
+## 26. Categorical encodings: summary and public check (21:57 EDT)
+Single GBM (LightGBM leaves 4, outlier 5), local D2 [cap250k] fold A / fold B:
+| Encoding of categoricals | A | B |
+|---|---|---|
+| native categorical splits (reference) | 0.1339 [0.1323] | 0.1323 [0.1333] |
+| label (frequency-ranked integers) | 0.1375 [0.1354] | 0.1336 [0.1347] |
+| count (log level counts; helper 1, log line only) | 0.1377 [0.1357] | 0.1331 [0.1343] |
+| both (label + count) | 0.1368 [0.1353] | 0.1334 [0.1346] |
+| **target (smoothed out-of-fold claim rate)** | **0.1376 [0.1365]** | **0.1339 [0.1350]** |
+Target encoding is the best single model on both folds and both metrics. Submitted alone (`fs_gbm_target.csv`, fitted on 2021-24): public **0.12720** vs 0.12548 for the native GBM (+0.0017; local gain +0.0037 A / +0.0016 B) and equal to the previous best blend (0.12718): the encoding change is a real gain that the public score confirms.
+Blends (per-line weights 0.7/0.4/0.3 on the mean of TabM and TabM-PLE; OOF, A / B): submitted blend (native GBM) 0.1437 [0.1377] / 0.1359 [0.1369]; with the target GBM instead 0.1442 [0.1384] / 0.1361 [0.1371] (+0.0006 (CI +0.0001..+0.0011) A, +0.0001 (-0.0004..+0.0006) B); adding label and/or both and native GBMs on top changes nothing (+/-0.0001): the encoding variants are highly correlated, so averaging them adds little. Candidate: `blend_gbmtarget_tabm_ple_perline_v5.csv`.
+
+## 27. Numeric-input encodings for the GBM (helper 3, 22:06 EDT; on top of label encoding, reference A 0.1375 [0.1354], B 0.1336 [0.1347])
+| Run | Fold A [cap250k] | Fold B [cap250k] | Read |
+|---|---|---|---|
+| `fs_gbm_label_num` (`--num-encoding both`: low-cardinality numerics also as categoricals + log counts of numeric values) | 0.1347 [0.1345] | 0.1308 [0.1324] | worse (-0.0028 on both folds): rejected |
+| `fs_gbm_label_bin1023` (LightGBM max_bin 1023 instead of 255) | 0.1375 [0.1354] | 0.1335 [0.1347] | no change |
+Trees are invariant to monotone transforms of numeric inputs, so only information-adding encodings can matter; the extra copies add noise. Numeric transforms for the NN (rank-gauss, log1p) are running (`fs_nn_tabm4_q`, `fs_nn_tabm4_log`; PLE already helped).
+
+Numeric transforms for the TabM net (22:23 EDT; plain TabM: A 0.1413 [0.1331], B 0.1328 [0.1338]; PLE: A 0.1430 [0.1364], B 0.1340 [0.1351]):
+| Run | Fold A [cap250k] | Fold B [cap250k] | Read |
+|---|---|---|---|
+| `fs_nn_tabm4_q` (rank-gauss / quantile transform) | 0.1397 [0.1336] | 0.1308 [0.1321] | worse than plain on both folds |
+| `fs_nn_tabm4_log` (log1p of right-skewed non-negative inputs) | 0.1420 [0.1338] | 0.1316 [0.1327] | A up, B down: no gain |
+Conclusion (D32): of all numeric encodings tried, only the piecewise-linear encoding (8 quantile bins) helps the NN; extra numeric copies hurt the trees. Categorical encoding is where the gain was (target encoding for the trees: D31 -> see section 26).
+
+## 28. Submitted 2026-10-18 22:28 EDT: v5 = target-encoded GBM + mean(TabM, TabM-PLE), per-line NN weights 0.7/0.4/0.3
+`blend_gbmtarget_tabm_ple_perline_v5.csv`: public **0.12790** (previous best 0.12779; target GBM alone 0.12720; native-GBM blend 0.12779). Local A 0.1442 [cap 0.1384], B 0.1361 [0.1371] (+0.0006 / +0.0001 vs the previous best blend). Gap to the top public score seen (0.12815): 0.0003. Current final-submission candidate (D20). The public gain over the previous blend (+0.0001) is smaller than the single-model gain from target encoding (+0.0017) because the neural nets already carry most of what the encoding adds.
+
+`fs_nn_tabm4_te` (TabM k=4 + target-encoded categorical inputs, 22:41 EDT): A 0.1395 [cap250k 0.1340], B 0.1314 [0.1325] vs plain TabM 0.1413 [0.1331] / 0.1328 [0.1338]: no gain (A -0.0018 uncapped, +0.0009 capped; B -0.0014 / -0.0013). The embeddings already capture what the target encoding adds for the NN; the TE + PLE combination is running on helper 3.
+
+`fs_nn_tabm4_ple_te` (TabM + PLE + target-encoded categorical inputs; helper 3, 22:52 EDT): A 0.1427 [cap250k 0.1352], B 0.1341 [0.1351] vs TabM + PLE 0.1430 [0.1364] / 0.1340 [0.1351]: no gain. Target-encoded inputs do not help the NN (D33): the embeddings already carry it.
+
+`fs_gbm_target_peril` (per-peril claim-rate encodings of the categoricals instead of one any-claim encoding; 23:00 EDT): A 0.1380 [cap250k 0.1362], B 0.1340 [0.1350] vs `fs_gbm_target` 0.1376 [0.1365] / 0.1339 [0.1350]: equal within noise. Not adopted (D34): more code, no gain.
+
+`fs_gbm_target_hl1` (target-encoded GBM, severity trend weighted to recent years, half-life 1 year; 23:10 EDT): A 0.1384 [cap250k 0.1364], B 0.1340 [0.1351] vs `fs_gbm_target` 0.1376 [0.1365] / 0.1339 [0.1350]: equal within noise; calibration (pred / actual) unchanged (A: motor 1.05, buildings 1.02, contents 0.94; B: 1.03, 0.99, 1.00). Trend multipliers x1.5 / x0.5 are running on helper 1.
+
+## 29. Severity trend ('inflation factor') optimisation (23:40 EDT; helper 1 for the multipliers)
+Estimated pooled trend per line (log-linear, peril effects removed, claims capped at the 99.9th percentile; `scripts/trend_check.py`): fitted on 2021-22 / 2021-23 / 2021-24: motor 6.4% / 4.4% / 5.7%; buildings 2.7% / 4.9% / 6.7%; contents 1.8% / 3.5% / 4.3% per year. Realised year-on-year change in severity: motor +6.3%, +2.5%, +9.5% (2022, 2023, 2024); buildings +2.8%, +6.9%, +10.1%; contents +1.8%, +5.0%, +5.7%: inflation is accelerating, so a pooled linear estimate lags the latest year.
+Backtest of the trend multiplier on the target-encoded GBM (calibration = predicted / actual, motor / buildings / contents; fold A 2023, fold B 2024; D2 [cap250k]):
+| Trend | Fold A calibration | Fold B calibration | A D2 [cap] | B D2 [cap] |
+|---|---|---|---|---|
+| x0.5 | 1.014 / 1.007 / 0.929 | 1.006 / 0.950 / 0.972 | 0.1375 [0.1368] | 0.1339 [0.1351] |
+| x1.0 (current) | 1.045 / 1.020 / 0.937 | 1.035 / 0.985 / 0.996 | 0.1376 [0.1365] | 0.1339 [0.1350] |
+| x1.5 | 1.080 / 1.034 / 0.943 | 1.065 / 1.017 / 1.019 | 0.1376 [0.1356] | 0.1336 [0.1346] |
+| recent-weighted (half-life 1 y) | 1.05 / 1.02 / 0.94 | 1.03 / 0.99 / 1.00 | 0.1384 [0.1364] | 0.1340 [0.1351] |
+Reading: D2 does not react to the trend (all within 0.0004); calibration says buildings and contents are about right at x1.0 on both folds (the buildings optimum lies between x1.0 and x1.5 on fold B and below x1.0 on fold A), while motor is over-predicted by 3-5% at x1.0 on both folds and is closest to 1.0 at x0.5. The acceleration seen in the year-by-year changes is not confirmed as a bias by the backtests. Decision (D35): keep the pooled trend (multiplier 1.0); do not raise it on the strength of the 2024 jump alone. A motor-specific multiplier of about 0.5-0.7 would be supported by both folds but is worth under +0.0003 D2 and conflicts with the recent motor change (+9.5%); left unchanged and noted as an open uncertainty in methodology/MODELLING.md.
+
+## 30. Forward-looking inflation for 2025 (00:15 EDT)
+User question: apply a higher severity factor for 2025 than the historical pooled average? Evidence: (a) year-on-year severity change is accelerating in buildings (2.8, 6.9, 10.1%) and contents (1.8, 5.0, 5.7%) but not in motor (6.3, 2.5, 9.5%); (b) backtest of a 'latest year-on-year change' rule (half-life 0.3 y; identical to the pooled estimate on fold A, which has two training years): `fs_gbm_target_hl03` A 0.1382 [cap250k 0.1363], B 0.1338 [0.1350]; fold B calibration (pred / actual) motor 1.02, buildings 1.01, contents 1.01 vs 1.035, 0.985, 0.996 with the pooled trend: closer to 1 for motor and similar elsewhere, D2 unchanged. (c) Level effect on 2025 of switching the final fit to the latest-year trend: motor +5.3% (pooled 5.7% -> 7.7%), buildings +7.6% (6.7% -> 9.6%), contents +3.1% (4.3% -> 5.5%).
+Judgement: motor's latest change (+9.5%) follows +2.5%, so it is noisy, and the backtests show motor over-predicted at the pooled trend: no uplift for motor. Buildings and contents accelerate steadily: uplift supported. Candidate `blend_v5_trend2025_v6.csv` = v5 x (motor 1.0, buildings 1.0757, contents 1.0312) (`scripts/scale_submission.py`). This is a modelling assumption about 2025, backed by the backtest direction; the public score is not used to choose the factor (D21). Not yet submitted.
+Re-weighted blend (NN weights 0.9 / 0.36 / 0.26, average of the per-fold likelihood optima, vs v5 0.7 / 0.4 / 0.3): A +0.0010 (CI -0.0002..+0.0029) [cap 0.0000], B +0.0000 (-0.0002..+0.0002): does not beat v5 on both folds, so not submitted (D36).
+
+Submitted 2026-10-19 00:20 EDT (user approved): `blend_v5_trend2025_v6.csv` (v5 x buildings 1.0757, contents 1.0312): public **0.12761** vs v5 0.12790 (-0.0003). The forward-looking uplift did not help: the pooled historical trend is at least as good for 2025 as the latest-year trend on buildings and contents. Not adopted (D37); v5 remains the final candidate. The uplift was chosen from the year-by-year severity changes and the fold-B backtest, not from the public score, and the public score is not used to search further factors (D21); a downward motor adjustment suggested by the backtests (motor over-predicted 3-5%, worth under +0.0003) is left as an open uncertainty rather than tested on the board.
+
+## 31. Residual scan and richer claim history (15:15 EDT 2026-10-19)
+Residual scan of the v5 blend (`scripts/residual_scan.py`, `docs/data/RESIDUAL_SCAN.md`): calibration (actual / predicted) by prediction decile and by feature bin on the pooled out-of-fold predictions. Findings: (1) motor is over-predicted by about 5-10% in nearly every bin (uniform, not feature-specific); (2) contents: the lowest-prediction decile is under-predicted (actual / predicted 1.6); (3) nothing else systematic. Leave-one-fold-out checks: a per-line level scalar gains only +0.0001..+0.0002 D2 (motor 0.945), and shrinking predictions toward a flat rate per exposure gains nothing (optimal shrinkage 0): the blend is about optimally scaled and shaped.
+`fs_gbm_target_hist` (`--history-extra`: per-peril counts of earlier claims on the policy, days since the last claim, largest earlier cost, open earlier claims): A 0.1380 [cap250k 0.1360], B 0.1339 [0.1351] vs `fs_gbm_target` 0.1376 [0.1365] / 0.1339 [0.1350]: no gain (D38). The policy's own claim history is already captured by the existing history counts.
+
+`fs_gbm_target_l7` (target-encoded GBM, leaves 7; helper 3, 15:36 EDT): A 0.1386 [cap250k 0.1364], B 0.1346 [0.1357] vs leaves 4 (`fs_gbm_target`) 0.1376 [0.1365] / 0.1339 [0.1350]: uncapped +0.0010 / +0.0007, capped -0.0001 / +0.0007: slightly better; target encoding changes the hyperparameter optimum (with native categoricals leaves 31 was worse and leaves 7 about +0.0016 on fold A). Leaves 12, 600 rounds and min-leaf 100 are being screened.
+
+## 32. Multi-seed final NNs and GBM hyper-parameters with target encoding (16:40 EDT 2026-10-19)
+Submitted `blend_gbmtarget_tabm_ple_s3_perline_v7.csv` (v5 recipe, TabM and TabM-PLE finals each averaged over 3 seeds): public **0.12785** vs v5 0.12790: no difference (the 3-seed averaging changes predictions by about 0.1% overall, rank correlation 0.999, so the single-seed finals were not noise-limited). Not adopted over v5 (D39).
+Target GBM re-screen (helper 3; reference leaves 4, 350/300 rounds: A 0.1376 [cap250k 0.1365], B 0.1339 [0.1350]): leaves 7 A 0.1386 [0.1364], B 0.1346 [0.1357]; 600/500 rounds A 0.1374 [0.1366], B 0.1346 [0.1357]; min leaf 100: A 0.1377 [0.1365], B 0.1339 [0.1350]. Leaves 7 is the only candidate better on three of four numbers (+0.0010 / +0.0007 uncapped); testing it in the blend and as a final fit.
+
+Blend test of the leaves-7 target GBM (OOF, equal NN mix, per-line weights): leaves 7 instead of leaves 4: A 0.1442 [0.1382], B 0.1360 [0.1371] vs v5 0.1442 [0.1384] / 0.1361 [0.1371] (diff 0.0000 on both folds); averaging leaves 4 and 7: +0.0001 / +0.0001 (CIs include 0). Saturated: no change to the blend (D40); the leaves-7 final fit is not used.
+
+## 33. Structural checks (2026-10-19 17:30 EDT)
+Leaderboard seen at 17:15 EDT: 1st 0.12996, 2nd 0.12940, 3rd 0.12923, 4th 0.12851, 5th 0.12815; we are 6th with 0.12790 (gap to 1st 0.0021).
+- 2025 weather vs training years: all seven weather variables have 2025 means inside the range of the yearly training means (wind exposure 4.88 vs 4.35-4.60 is the highest) and only 0-4% of 2025 rows lie outside the 1-99% training range: no extrapolation problem.
+- Ultimate-equivalent claim frequency by peril and accident year (completeness-adjusted): flat within noise except mild trends (motor bodily injury -3%/yr, buildings subsidence +11%/yr, motor glass +3%/yr); no case for a frequency trend.
+- Second-stage correction of the blend (`scripts/stage2.py`; LightGBM Tweedie 1.5, init_score = log blend, 60 rounds, 4 leaves, min leaf 3000, trained on the out-of-fold rows of one fold and evaluated on the other): with raw features A -0.0058 (CI -0.0162..+0.0006), B -0.0036 (CI -0.0052..-0.0018); with only the three prediction columns A -0.0002, B -0.0006. A learned correction does not transfer across years: what is left in the residuals is year-specific noise, not structure (D41: no stacking layer, no residual boosting on the blend).
+
+## 34. GBM-offset (CANN-style) TabM-PLE net (17:40 EDT 2026-10-19)
+`fs_nn_tabm4_ple_off` (`--nn-gbm-offset`): the TabM-PLE net gets the cross-fitted (4 customer-hash folds) log rate and log severity of the target-encoded GBM (leaves 4, 350/300 rounds, outlier 5) as offsets and learns only a multiplicative correction (zero-initialised head, so training starts exactly at the GBM). Prediction = full-train GBM x correction.
+- Alone: A 0.1387 [cap250k 0.1366], B 0.1339 [0.1348] (target GBM 0.1376 [0.1365] / 0.1339 [0.1350]; TabM-PLE 0.1430 [0.1364] / 0.1340 [0.1351]). It behaves like the GBM, not like the NN: the correction stays small and does not recover the NN's diversity.
+- In the v5 blend (per-line weights, paired bootstrap vs v5): as a third member of the NN mean A -0.0010, B +0.0001; as a second tree-like member A +0.0002 (CI -0.0002..+0.0006), B -0.0003; 50/50 with v5 A -0.0017, B -0.0004; 20% weight A -0.0004, B +0.0000. None positive on both folds.
+Conclusion: a boosted-residual NN is a GBM-like model and adds nothing the blend does not already have (D42).
+- Helper 3 NN-config screen, 3 hidden layers (192,96,48) dropout 0.15, TabM-PLE (`fs_nn_tabm4_ple_h3`): alone A 0.1443, B 0.1339 (reference TabM-PLE 0.1430 / 0.1340). In the v5 blend, replacing TabM-PLE by it: A +0.0007 (CI -0.0003..+0.0023), B +0.0000; adding it as a third NN member: A +0.0005 (CI -0.0000..+0.0012), B +0.0001. Below the bar (not positive with a CI above 0 on both folds); no final fit. Remaining helper screens (wd 1e-3, dropout 0.25, lr 1e-3, linear-leaf GBM) pending.
+- Helper 3, lr 1e-3 / 24 epochs TabM-PLE (`fs_nn_tabm4_ple_lr1`): alone A 0.1413 [0.1356], B 0.1348 [0.1359] (reference 0.1430 [0.1364] / 0.1340 [0.1351]). Added as a third NN member of the v5 blend: A -0.0005 (CI -0.0014..+0.0001), B +0.0001 (CI 0.0000..+0.0003): mixed, no gain. NN training-config screens (width, depth, lr, dropout, wd) are exhausted: all within +/-0.001 of the reference.
+- Direct Tweedie LightGBM (`lgbm_v2_rebalanced`, A 0.1225 / B 0.1253) mixed into the v5 blend at 10/20/30%: A -0.0003 / -0.0010 / -0.0019, B 0.0000 / -0.0003 / -0.0008 (paired vs v5; B CI excludes 0 at 30%). Worse at every weight on both folds; a target-encoded direct-Tweedie refit would need to gain 0.01+ alone to change this, so it is not run (D43).
+
+## 35. Review of the target construction and data quality (19:00 EDT 2026-10-19)
+Systematic scan of every table (duplicates, sentinels, unit changes, level-by-year recodes, date consistency, claim-to-row matching) and of the D1/D7/D8 assumptions. Defects found (DATA_QUALITY items 11-14, repairs in `src/iaa/cleaning.py`, applied in the loaders, tested in `tests/test_cleaning.py`):
+- 604 exact duplicate claims (11-character ids, 600 in loss year 2022): dropped.
+- 252 claims with the placeholder loss date 2020-12-01 (reported through 2021): loss date imputed from report date and peril lag, so they enter the 2021 target (they were dropped as unmatched).
+- `sum_insured` 1000x too large on 0.2% of buildings/contents rows, train and test (1,395 / 1,402 train, 370 / 360 test rows): divided by 1000.
+- `construction_type`: T (2021-22) is W (2023+) recoded, plus case variants (11 levels -> 4): the 2025 rows contain only W/w, so a model trained before 2023 never saw the test level.
+- D1 check: recoveries are booked only on closed claims, but whether a claim recovers is fixed at the outset (own_damage: 30% of closed claims in every accident year including 2024, always 80% of incurred; theft 13% at 30%). Open own_damage/theft claims therefore carry an expected recovery of 23.6% / 4.0% of incurred, not yet booked: net cost of open claims reduced accordingly (`target.open_recovery_rates`; -1.37M, 1.2% of motor 2024).
+- Checked and clean: duplicate policy rows or periods, overlapping periods, orphan claims, claim line vs policy line, report before loss, ages vs dates of birth, numeric medians by year, level-by-year of every other categorical, near-duplicate claims. `customer_service_contacts` lagged one year carries no information (claim frequency flat in last year's contacts given no claim), confirming D3.
+
+Local effect, target-encoded GBM (A / B pooled D2; paired bootstrap vs the unrepaired `fs_gbm_target` 0.1376 / 0.1339):
+| Repairs | A | B |
+|---|---|---|
+| all four (`fs_gbm_target_clean`) | 0.1369 (-0.0007, CI -0.0022..+0.0003) | 0.1338 (-0.0001, CI -0.0005..+0.0003) |
+| claims only (duplicates, placeholder dates) | 0.1368 (-0.0008, CI -0.0022..+0.0002; motor 0.0795 -> 0.0781) | 0.1338 (-0.0002) |
+| policy rows only (sum_insured, construction) | 0.1376 (0.0000, CI -0.0002..+0.0002) | 0.1338 (-0.0001) |
+| all + expected recoveries on open claims (`fs_gbm_target_clean_rec`, scored on its own y) | 0.1369 (+0.0000 vs clean) | 0.1333 (0.0000 vs clean) |
+No repair changes the validation score measurably (all intervals include 0; the fold-A motor dip comes from the claims repairs and fold A trains on two years only, so its severity trend is the least stable estimate). They are kept because each is a correction whose truth is known from the data, not because they score; a refit on 2021-24 sees all of them and the 2025 rows no longer contain the 730 corrupted sum_insured values (D44).
+
+## 36. v8: the v5 recipe refit on the repaired data (19:55 EDT 2026-10-19)
+`blend_v8_clean_perline.csv` = target-encoded GBM + mean(TabM, TabM-PLE) (single-seed finals, `scripts/queue_final_clean.sh`), per-line NN weights 0.7 / 0.4 / 0.3, all four data repairs and the expected recoveries on open claims. Submitted 23:52 UTC (19:52 EDT) with the lead's go-ahead: public **0.12867**, a new best (v5 0.12790, +0.00077; 5 of 10 submissions used on the 2025-10-19 UTC day before this one).
+Versus v5 the 2025 predictions are 1.7% lower overall (motor -2.5%, buildings -0.6%, contents -0.8%), rank correlation 0.996-0.998. The change is mostly a motor level correction: the pooled motor severity trend falls from 5.7% to 5.1% a year (open own_damage claims in 2024 no longer carry unbooked recoveries, 4% of that peril's 2024 cost, and the 2022 duplicates no longer lift the 2022 level), and the 2024 level it projects from is lower. Locally the same repairs moved the GBM by -0.0007 / -0.0001 (RESULTS 35): the validation folds (calibration motor 1.04-1.05) could not resolve a level shift of this size, the public score did. Not attributed to a single repair (no ablation submissions, D21).
+
+## 37. Regime breaks, level and trend screens on the repaired data (20:50 EDT 2026-10-20)
+New structural facts (scripts inline, numbers from the repaired claims):
+- **Bodily-injury severity steps down on 2023-01-01**: median 13.4k / 13.2k (2021 / 2022) -> 9.8k / 9.9k (2023 / 2024); the whole distribution moves (5th-90th percentiles -25% to -30%), quarterly medians are flat before and after, closed and open claims alike (so it is not case-reserve development). A pooled log-linear trend cannot represent it.
+- **Claim frequency steps on 2023 too** (ultimate-equivalent, per exposure): own_damage 0.0641 / 0.0645 -> 0.0595 / 0.0598, third_party_prop 0.0437 / 0.0441 -> 0.0419 / 0.0409, bodily_injury -9% over four years, glass +9%, buildings subsidence +45% and fire +23% (steady), contents theft +8%. The model assumes none of it (rate = four-year average, no frequency trend), which is why predicted counts are 3-10% above actual in both backtests (motor fold B 1.03-1.05 for every peril; fold A own_damage 1.105).
+- Severity calibration of the production GBM (`scripts/sev_calibration.py`): bodily injury predicted/actual 1.22 (fold A), 1.05 (fold B); other motor perils 0.85-0.99 (under).
+- Backtest of next-year mean severity per peril (train <= 2022 -> 2023, train <= 2023 -> 2024; claim-weighted mean absolute log error): no trend 0.092 / 0.107, pooled trend 0.050 / 0.051, per-peril trend (clipped to [0, 0.12]) 0.038 / 0.035, shrunk per-peril (negative allowed) 0.046 / 0.032. Per-peril trends cut the error by about a third.
+- Paired noise of the public leaderboard: the standard deviation of the D2 difference between two near-identical models on random one-third customer subsets is 0.0003 on fold-B-like data and 0.0010 on fold-A-like data (one 11.9M claim). A 2.5% motor level shift moves local D2 by about 0.0001, so v8's +0.0008 cannot be attributed to the level change.
+
+Screens, target-encoded GBM on the repaired data (reference `fs_gbm_target_clean_rec` A 0.1369 / B 0.1333; paired bootstrap on the same rows):
+| Run | A | B | Verdict |
+|---|---|---|---|
+| rebalance per peril (all years) | -0.0001 | -0.0000 | neutral |
+| per-peril rebalance to recent-weighted cost, half-life 2 y | -0.0001 | -0.0000 | neutral |
+| same, half-life 1 y | -0.0001 | -0.0000 | neutral |
+| line-level rebalance, half-life 1 y | 0.0000 | +0.0000 | neutral |
+| written_premium and sum_insured divided by their median in the row's own year | +0.0000 (CI -0.0003..+0.0003) | -0.0002 (-0.0006..+0.0002) | rejected |
+| policy year as a numeric input (`--year-feature`) | +0.0003 (-0.0007..+0.0017; motor +0.0010) | +0.0002 (-0.0002..+0.0006; buildings +0.0006) | positive on both folds, not significant |
+Level and mix changes are invisible to the folds, as the sensitivity analysis predicts; they can only be judged by the backtest above and, noisily, by the public score.
+- Per-peril severity trends (`--trend-mode peril`, `fs_gbm_c_tpp`): A +0.0003 (CI +0.0000..+0.0005, motor 0.0782 -> 0.0790), B +0.0000. Per-peril trends plus per-peril recent-weighted rebalance (half-life 1 y): A +0.0002, B -0.0000.
+- Per-peril trends plus the policy-year input (`fs_gbm_c_tpp_year`): **A +0.0011 (CI -0.0001..+0.0027; motor 0.0782 -> 0.0804), B +0.0002 (CI -0.0002..+0.0006; buildings +0.0006)**: the best GBM variant, positive on both folds, not significant. Queued: this plus per-peril recent-weighted rebalancing (`fs_gbm_c_all`, so the rebalance target and the year input agree on the post-break level) and the TabM / TabM-PLE nets with per-peril trends and recent-weighted rebalancing.
+- GBM with per-peril trends + policy year + per-peril recent-weighted rebalance (`fs_gbm_c_all`): A +0.0010 (CI -0.0002..+0.0025, motor 0.0782 -> 0.0805), B +0.0002 (CI -0.0003..+0.0006) vs the repaired reference; same as without the rebalance (`fs_gbm_c_tpp_year` +0.0011 / +0.0002). TabM with per-peril trends and recent-weighted rebalance: A -0.0030 (CI -0.0106..+0.0019), B -0.0005; TabM-PLE: A -0.0050 (CI -0.0104..-0.0015), B +0.0010 (CI 0.0000..+0.0020): worse on fold A; cause (repairs vs trend handling) pending the repaired default-setting TabM run.
+- Blend tests (v5 weights 0.7 / 0.4 / 0.3, pooled D2, paired vs GBM-clean + old nets, A 0.1440 / B 0.1355): GBM `c_all` + old nets +0.0003 (CI -0.0001..+0.0006) / +0.0002 (-0.0001..+0.0004); GBM `c_all` + new nets -0.0027 / +0.0001; GBM clean + new nets -0.0031 / 0.0000. The GBM change shrinks to about +0.0003 / +0.0002 in the blend; the nets with per-peril trends do not help.
+
+## 38. v9: v8 with the per-peril-trend / year-feature GBM (07:55 EDT 2026-10-20)
+`blend_v9_perline.csv` = GBM refit with `--trend-mode peril --year-feature --rebalance-level peril --level-halflife 1` (`scripts/queue_final_v9.sh`) + the v8 repaired-data nets, NN weights 0.7 / 0.4 / 0.3. Versus v8: total -0.9% (motor -1.5%, buildings -0.5%, contents +0.8%), rank correlation 0.999. Submitted with the lead's go-ahead (first of the 2026-10-20 UTC day): public **0.12854** vs v8 0.12867 (-0.00013), i.e. no difference within the leaderboard's paired noise (0.0003-0.001). Local blend effect was +0.0003 / +0.0002. The per-peril trend / regime-aware GBM is not adopted (D46); v8 stays the lead candidate.
+
+## 39. More data checks: weather, regional events, year-on-year consistency (13:00 EDT 2026-10-20)
+Checked and clean: weather (no stale or copied years, 5 years for every address), severity by peril x region x year (no cell beyond |z| 3), national daily claim spikes (none once the duplicates are gone), consecutive-year consistency of the policy inputs (renewal_count +1 for every policy, years_licensed +1 for 99.4%, ages +1, vehicle_age +1 for 93%, the same share in the 2025 rows as in training), segment x fold residuals (no segment stands out after the line-level bias).
+Found:
+- **R04 and R05 are one region under two codes**: identical yearly weather means (differences 0.00-0.12 on every column) and identical address attribute distributions (34k and 46k addresses). Harmless for trees; recorded.
+- **A regional claim surge in Oct-Dec 2023, region R07**: buildings storm claims 57 / 60 / 114 per month against a baseline of 7 (231 excess claims, 4x), motor glass_hail 117 / 101 / 105 against 38, contents flood 1.65x. It is not visible in the yearly weather (R07 wind index 2.4 in 2023 and 2.3 in 2024, no surge in 2024; flat across wind bins). The models can only pin it on the region and that year's weather. A second, smaller bump: buildings storm R01 2022-12 (50 vs 19). `iaa.events` detects cells (peril x region x month) at >= 2.5x the cell's median month and >= 25 claims above it and thins them to the baseline for fitting (deterministic by claim id hash; scoring targets untouched). Local effect (`fs_gbm_c_ev`, GBM on the repaired data): A +0.0001, B 0.0000 (buildings B -0.0003): neutral; not adopted into a final (D47), code kept behind `--thin-events`.
+- **The no-claims bonus reveals unrecorded claims**: motor ncb_years drops by 1-2 in the row after a claim (59% of rows after one claim, 0.3% after none); given no recorded claim in the previous row, a drop goes with a claim frequency of 0.23-0.44 against 0.12. Year-on-year change features (`iaa.yoy`: ncb, premium, excess, mileage, sum insured, ...; `fs_gbm_c_yoy`): A -0.0006 (CI -0.0011..-0.0001; buildings -0.0018), B -0.0001: rejected (D47); the affected rows are 0.4% and the existing history features already carry most of it.
+
+## 40. Row length, timing and seasonality (14:45 EDT 2026-10-20)
+Calibration of the OOF predictions by row exposure shows a systematic pattern in both folds: buildings rows under 0.15 years in force have actual / predicted cost 0.43 (A) / 0.57 (B), full-year rows 1.01 / 1.02; contents short rows 2.11 / 1.48; motor flat. Underlying facts: per-peril frequency per exposure for rows under 0.15 years vs full-year rows (training 2021-23): buildings escape_of_water 1.41, storm 1.61, fire 0.29, accidental_damage 0.64, flood 0.67; contents escape_of_water 1.64; motor third_party_prop 1.44. Seasonality is real: relative to the peril's average, buildings escape_of_water 1.39 / 1.56 / 1.55 in Jan / Feb / Dec against 0.77-0.88 in the other months; storm 1.39 / 1.42 / 1.69 in Jan / Feb / Dec; contents escape_of_water 1.41 / 1.42 / 1.59; other perils flat.
+Screens, target-encoded GBM, repaired data (paired bootstrap vs `fs_gbm_target_clean_rec`):
+| Run | A | B | Verdict |
+|---|---|---|---|
+| `exposure_calc` as an input (`--extra-features`) | +0.0009 (CI -0.0006..+0.0029; motor +0.0020) | +0.0002 (-0.0002..+0.0005; contents +0.0006) | positive on both, not significant; does not fix the short-row bias |
+| `exposure_calc`, `start_month`, `end_month` as inputs | +0.0024 (CI -0.0007..+0.0077; motor +0.0056, mostly one heavy-tail row: capped D2 -0.0003) | +0.0003 (CI -0.0001..+0.0007; contents +0.0010) | positive on both, not significant |
+| seasonal frequency offset (`--seasonality`: monthly index per peril from the claims, applied to the days each row is in force) | -0.0000 (CI -0.0002..+0.0002) | -0.0002 (CI -0.0005..+0.0001) | neutral; short-row bias unchanged (buildings 0.38 / 0.50): not the cause (D48) |
+- Stack of the small GBM changes (`fs_gbm_c_combo`: per-peril trends + policy year + exposure / start / end month inputs): A +0.0006 (CI -0.0002..+0.0015), B +0.0002 (CI -0.0005..+0.0008): they do not add up (tpp + year alone: +0.0011 / +0.0002). Every GBM variant since the data repairs sits within +-0.001 on fold A and +-0.0003 on fold B: the noise floor of the validation (D48). Queued: repaired GBM, TabM and TabM-PLE with per-peril outputs (`queue_pp.sh`) to test peril-level blend weights.
+- Repaired-data TabM with per-peril outputs (`fs_nn_tabm4_c_pp`, default pooled trend): A 0.1391 [cap250k 0.1334], B 0.1315 [0.1326] vs the raw-data TabM 0.1413 [0.1331] / 0.1322 [0.1338]: paired A -0.0022 (CI -0.0073..+0.0011; motor 0.0954 -> 0.0903), B -0.0007 (CI -0.0019..+0.0003). The repairs cost the net a little (or single-seed noise: fold A motor hangs on one 11.9M bodily-injury row); v8's nets were built this way.
+- Peril-level blend weights (`scripts/stack_peril.py`, 15 weights fitted by Tweedie likelihood on one fold, shrunk halfway to the fixed line weights, evaluated on the other; TabM standing in for both nets): fitted on A, tested on B -0.0002 (CI -0.0005..+0.0000) vs the fixed line weights 0.7 / 0.4 / 0.3; fitted on B, tested on A -0.0010 (CI -0.0033..+0.0004). The fitted weights disagree between folds (buildings accidental damage 0.41 vs 0.70, motor theft 0.35 vs 0.77): noise; not adopted (D49). The TabM-PLE run with per-peril outputs was stopped.
+- Linear-leaf trees (`--lgb-params linear_tree=true,linear_lambda=10`, `fs_gbm_c_lin`): fold A +0.0003 (CI -0.0003..+0.0008), fold B **unusable**: motor D2 -166 (linear leaves extrapolate wildly on 2024 rows outside the training ranges; a handful of predictions explode). Rejected (D50); would need prediction clipping and gains nothing on A.
+- Row-start timing checked: the +28% motor frequency of rows that start mid-year (0.179 vs 0.140) is the new-business effect (renewal_count 0: 0.196) already carried by `new_business` / `renewal_count`; rows that start on 1 Jan and end early are not riskier (0.138). The short buildings / contents rows that look mis-calibrated hold one to four claims of the heavy perils (e.g. 1 fire and 1 flood claim against 79k and 105k predicted cost in fold A): sampling noise of skewed sums, not a structural bias.
+- Calibration of the blend's dispersion (v5 weights, repaired GBM + raw nets OOF): raising predictions to a power gamma and rescaling to the line total changes pooled D2 by -0.0013 (0.90), -0.0004 (0.95), 0 (1.00), -0.0001 (1.05), -0.0006 (1.10) on A and similarly on B (-0.0014 / -0.0005 / 0 / 0.0000 / -0.0006); per line only buildings gains at gamma 1.05-1.10 (+0.0002 / +0.0003 on both folds). The blend's spread of risk is already right; no calibration step is worth adding.
+
+## 41. Direct pure-premium Tweedie GBM on the adjusted target (17:45 EDT 2026-10-20)
+New model kind `tw` (`--model fs_tw`): one LightGBM Tweedie(1.5) model on each row's ultimate-equivalent trended capped cost (sum over its claims of capped cost x severity-trend factor / completeness of the claim's peril and year), exposure offset, target-encoded categoricals, rebalanced to the line's trended total; predict_observed uses a cost-share-weighted completeness. Leaves 4, 350 rounds (`fs_tw_l4`), repaired data:
+- Alone: A 0.1417 [cap250k 0.1365], B 0.1333 [0.1347] (freq-sev GBM 0.1369 [0.1365] / 0.1333 [0.1350]); paired vs the freq-sev GBM A +0.0048 (CI -0.0014..+0.0144; motor 0.0782 -> 0.0901, mostly one heavy-tail row, capped D2 equal), B +0.0000 (CI -0.0015..+0.0013). The direct model now matches the frequency x severity model (it was 0.1225 / 0.1253 before the trend, completeness and target-encoding work).
+- In the v5 blend (per-line NN weights 0.7 / 0.4 / 0.3; the tree half is the only change), paired vs the freq-sev GBM + raw nets reference (A 0.1440, B 0.1355): **tree half = mean(freq-sev GBM, Tweedie GBM): A +0.0008 (CI -0.0001..+0.0019), B +0.0004 (CI -0.0000..+0.0008)**; Tweedie GBM replacing the freq-sev GBM: +0.0007 / +0.0001; 20% Tweedie added to the whole blend: +0.0003 / +0.0002; NN weights x0.8 with the mean tree half: +0.0003 / pending. The best blend change since v5, positive on both folds with lower bounds at 0.
+- Leaves 8, 300 rounds (`fs_tw_l8`): alone A 0.1399 [0.1355], B 0.1337 [0.1349]. Tree half = mean(freq-sev GBM, Tweedie l4): A +0.0008 (CI -0.0001..+0.0019), B +0.0004 (CI -0.0000..+0.0008); with l8: +0.0006 (-0.0003..+0.0016) / +0.0005 (+0.0001..+0.0009); with the mean of l4 and l8 as the Tweedie half: **A +0.0008 (CI -0.0001..+0.0018), B +0.0005 (CI +0.0001..+0.0008)**. Recipe fixed before the final fits (v10): tree half = mean(freq-sev GBM, mean(Tweedie l4, Tweedie l8)), nets as v8, per-line NN weights 0.7 / 0.4 / 0.3 (`scripts/queue_final_v10.sh`).
+
+## 42. v10 submitted (14:30 EDT 2026-10-20)
+`blend_v10_perline.csv` (tree half = mean(freq-sev GBM, mean(Tweedie l4, Tweedie l8)), nets as v8, NN weights 0.7 / 0.4 / 0.3) vs v8: total +0.6% (motor +0.3%, buildings +0.9%, contents +1.3%), rank correlation 0.996-0.999. Submitted with the lead's go-ahead (2nd of the 2026-10-20 UTC day): public **0.12887** = new best (v8 0.12867, v5 0.12790, v9 0.12854). The local blend gain (+0.0008 / +0.0005) and the public gain (+0.0002) point the same way and are all inside the paired noise (0.0003-0.001); the direct Tweedie model is a genuinely different member (D51).
+
+## 43. Blending the finished blends and recombining components (15:10 EDT 2026-10-20)
+OOF proxies for v5 (raw GBM + raw nets), v8 (repaired GBM + repaired TabM + raw PLE), v9, v10 (v8 with the Tweedie half), scored on the repaired y, paired vs the v10 proxy (A 0.1438 / B 0.1357):
+- Averaging the finished blends gives nothing: v8+v10 A -0.0003 / B -0.0002, v5+v8+v10 +0.0000 / -0.0001, v5+v8+v9+v10 -0.0001 / -0.0001. They share almost all their information (rank correlation > 0.995), so the average only moves the Tweedie share.
+- Recombining components helps a little: the same tree half as v10 with the raw-data nets: A +0.0010 (CI -0.0002..+0.0029), B +0.0002 (CI -0.0001..+0.0005); with the mean of raw and repaired nets (**v11**): A +0.0005 (CI -0.0001..+0.0015), B +0.0001 (CI -0.0000..+0.0003); a four-GBM tree half + both net sets: +0.0004 / +0.0001. The repaired TabM is the weak link locally (RESULTS 40), the raw nets are the better ones, while the public score preferred the repaired build (v8 > v5): a mix of both hedges the two readings.
+- `blend_v11_perline.csv` = v10's tree half + mean(raw nets, repaired nets), NN weights 0.7 / 0.4 / 0.3, built from existing files (no refit). Not submitted yet.
+- **v11 submitted** (14:51 EDT, 3rd of the 2026-10-20 UTC day, with the lead's go-ahead): public **0.12876** vs v10 0.12887 (-0.00011), v8 0.12867: inside the noise; the raw/repaired net mix did not help publicly. v10 stays the lead (D51); v11 is not adopted (D52).
+
+## 44. XGBoost retest on the repaired data (16:15 EDT 2026-10-20)
+XGBoost (Poisson frequency + Gamma severity with exposure offset, target-encoded categoricals, 350 / 300 rounds, eta 0.05), `fs_xgb_c_d2` / `fs_xgb_c_d3`. Depth 2: A 0.1365 [cap250k 0.1364], B 0.1333 [0.1344] = LightGBM leaves 4 (0.1369 / 0.1333); blend effect nil (+0.0001 / +0.0001). **Depth 3: A 0.1389 [0.1374], B 0.1346 [0.1356]**, above LightGBM leaves 4 on both folds and both metrics (+0.0020 / +0.0013 uncapped, +0.0009 / +0.0006 capped). In the blend (v5 weights, nets raw + repaired mix): XGB depth 3 in place of the Tweedie half of v10's tree half: **A +0.0004 (CI +0.0001..+0.0007), B +0.0003 (CI +0.0000..+0.0005)** vs the freq-sev LightGBM reference; as a third tree member next to the Tweedie GBMs: +0.0001 / +0.0001 (CI include 0). Deeper trees help XGBoost (depth 3 allows up to 8 leaves; LightGBM leaves 7 was neutral), so depth 4 and 5 are queued (`queue_xgb4.sh`), after the direct Tweedie net (`queue_twnn.sh`, kind twnn).
+- XGBoost depth 4 (`fs_xgb_c_d4`): A 0.1375 [0.1362], B 0.1340 [0.1351]: worse than depth 3 (0.1389 / 0.1346) and about LightGBM; in the blend +0.0002 / +0.0002 (CIs include 0). Depth 3 is the sweet spot (XGBoost depth 2 = LightGBM, depth 4 overfits); depth 5 was cancelled. Next: direct Tweedie net, then XGBoost Tweedie on the adjusted target (`queue_chain.sh`, `queue_twx.sh`).
+- Direct Tweedie TabM-PLE net on the adjusted pure-premium target (`fs_twnn_tabm4_ple`, kind twnn): A 0.1390 [cap250k 0.1326], B 0.1295 [0.1302] vs the frequency x severity TabM-PLE 0.1430 [0.1364] / 0.1340 [0.1351]: weaker on both folds. As a NN-half member (R = v10 tree half + raw/repaired nets mix, A 0.1444 / B 0.1359): one third of the NN half A -0.0003 / B -0.0002, half A -0.0006 (CI -0.0012..-0.0000) / B -0.0004, 15% of the whole blend A -0.0001 / B -0.0002: rejected (D53). Unlike the Tweedie GBM, the Tweedie net does not add a different view; the nets' strength is the frequency x severity split. XGBoost depth 3 as a third tree member of R: A +0.0001 / B +0.0001 (CIs include 0). Parameter screens for XGBoost depth 3 are running in parallel: locally depth 5 and gamma 1 (2 threads each), on two helper sessions colsample 0.5 / subsample 0.6 / min_child_weight 20 + lambda 30 / eta 0.03.
+- XGBoost depth 3 parameter screens (helper 1, same recipe as the default, reference A 0.1389 [cap250k 0.1374] / B 0.1346 [0.1356]): colsample_bytree 0.5: A 0.1384 [0.1373] / B 0.1342 [0.1352]; subsample 0.6: A 0.1381 [0.1374] / B 0.1338 [0.1348]. Both worse than the default: less randomness is better, so subsample 1.0 + colsample 1.0, reg_lambda 3 and min_child_weight 2 were sent next.
+- XGBoost depth 3 + gamma 1 (`fs_xgb_c_d3_g1`, local): A 0.1400 [cap250k 0.1374], B 0.1344 [0.1354] vs default 0.1389 [0.1374] / 0.1346 [0.1356]: equal on the capped score (uncapped A +0.0011 is the heavy-tail row); no gain.
+- **Single XGBoost depth 3 submitted** (17:00 EDT, 4th of the 2026-10-20 UTC day, at the lead's request; file `fs_xgb_d3_final.csv`: total -1.1% vs the LightGBM single model, rank correlation 0.996): public **0.12732** vs the raw-data LightGBM target-encoded single model 0.12720 (+0.00012): the single-model comparison agrees with the local one (XGBoost depth 3 slightly ahead of LightGBM leaves 4) and sits 0.0015 below the blends, which is the NN half's worth. XGBoost-Tweedie on the adjusted target (`fs_twx_d3`): A 0.1393 [0.1346], B 0.1334 [0.1347], about the LightGBM Tweedie model; tree-half tests vs the v10-like reference R (A 0.1444 / B 0.1359): XGB d3 replacing the LightGBM freq-sev A +0.0003 (CI -0.0000..+0.0005) / B +0.0002 (-0.0001..+0.0004); adding XGB d3 and XGB-Tweedie to the four-model tree half +0.0001 / +0.0002.
+- XGBoost depth 3, subsample 1.0 + colsample 1.0 (`fs_xgb_c_d3_s1c1`, helper 1): A 0.1382 [cap250k 0.1362], B 0.1339 [0.1349]: worse than the default 0.8 / 0.8 (0.1389 [0.1374] / 0.1346 [0.1356]); with colsample 0.5 and subsample 0.6 also worse, the default sampling is a local optimum.
+- XGBoost depth 5 (`fs_xgb_c_d5`): A 0.1360 [cap250k 0.1355], B 0.1327 [0.1338]: worse than depth 3 (0.1389 / 0.1346) and depth 4 (0.1375 / 0.1340); the order depth 2 (= LightGBM) < **3** > 4 > 5 is clean on both folds: depth 3 is the XGBoost optimum.
+- XGBoost depth 3 parameter screens, all vs the default (A 0.1389 [cap250k 0.1374] / B 0.1346 [0.1356]): reg_lambda 3 (`_l3`) A 0.1368 [0.1364] / B 0.1344 [0.1354] worse; min_child_weight 2 (`_mcw2`) A 0.1374 [0.1370] / B 0.1348 [0.1357] no gain; with colsample 0.5, subsample 0.6, subsample 1.0 + colsample 1.0 (worse), gamma 1 (equal) and depth 2/4/5 (worse): the XGBoost defaults (depth 3, eta 0.05, 350 / 300 rounds, subsample 0.8, colsample 0.8, lambda 10) are the optimum of this neighbourhood. Pending: min_child_weight 20 + lambda 30 and eta 0.03 (helper 2). CatBoost with native ordered target statistics: depth 6 running locally (slow), depth 4 sent to helper 1.
+- **v12 built (not submitted):** `blend_v12_perline.csv` = v10 with the XGBoost depth-3 single model in place of the LightGBM frequency x severity model in the tree half (tree half = mean(XGB d3, mean(Tweedie l4, l8)); nets as v10; NN weights 0.7 / 0.4 / 0.3). Local proxy vs the v10-like reference: A +0.0003 (CI -0.0000..+0.0005), B +0.0002 (CI -0.0001..+0.0004). File check: 626,639 rows, ids match, no negatives, total -0.2% vs v10, rank correlation 0.9997. CatBoost depth 6 stopped locally (one fold piece takes ~18 min); depth 4 is on helper 1.
+- CatBoost depth 4 with native ordered target statistics (`fs_cat_c_d4`, helper 1, 64 min): A 0.1163 [cap250k 0.1237], B 0.1191 [0.1198], motor calibration 1.26 on B: far worse than LightGBM (0.1369 / 0.1333) and XGBoost depth 3 (0.1389 / 0.1346); fold A's capped score above the uncapped one is a heavy-tail miss. Same verdict as the first CatBoost test: rejected (D54). Not worth deeper CatBoost tuning or the 5x runtime.
+- **v12 submitted** (18:49 EDT, 5th of the 2026-10-20 UTC day, with the lead's go-ahead): public **0.12863** vs v10 0.12887 (-0.00024), v11 0.12876, v8 0.12867, v9 0.12854: inside the noise, no gain from XGBoost in the tree half. v10 stays the lead (D51); v12 not adopted (D55). Submissions of the day: v9 0.12854, v10 0.12887, v11 0.12876, single XGB d3 0.12732, v12 0.12863.
+
+## 45. Part 2, emerging market, fold E (train 2023 -> validate 2024): transfer from the developed model (2026-10-24 EDT)
+
+Setup: `scripts/p2_dev_predictions.py` trains the Part 1 recipe (frequency x severity LightGBM, leaves 4, target-encoded categoricals, outlier 5, 350/300 rounds, trend, completeness) on the **developed** book restricted to the features both markets share (`src/iaa/market.py`: age band, normalised occupation; no history, no region, no mileage / telematics / credit band), at three cut-offs (A = 2021-22, B = 2021-23, C = 2021-24) and scores every emerging row. `scripts/p2_cv.py` evaluates on the 25,603 + 14,867 + 18,732 = 59,202 emerging 2024 rows (claims immature: predictions scaled by the developed completeness, whose report-lag pattern matches the emerging book, DATA_REVIEW 5.8). Run: `experiments/log.jsonl` name `p2_foldE_v1`. A rerun of the developed models reproduces the first run's predictions to 1e-6 (assertion in the script).
+
+| Variant | Pooled D2 (se) | motor | buildings | contents |
+|---|---|---|---|---|
+| `em_gbm`: emerging-only frequency x severity GBM trained on 2023 | 0.1110 (0.0120) | 0.0799 | 0.0469 | 0.0697 |
+| `dev_raw`: developed model, no calibration | 0.1254 (0.0114) | 0.0764 | 0.0846 | 0.0947 |
+| `dev_cal`: developed model x per-(line, peril) factor from the emerging 2023 rows (credibility k = 100) | **0.1243 (0.0121)** | **0.0868** | 0.0642 | **0.0954** |
+| `em_stack`: emerging GBM with the developed prediction as inputs | 0.1149 (0.0115) | 0.0839 | 0.0488 | 0.0774 |
+| geometric blend 0.7 `dev_cal` + 0.3 `em_gbm` | 0.1240 (0.0119) | 0.0863 | 0.0660 | 0.0920 |
+
+Paired bootstrap on the same rows (customer clusters): `dev_cal` - `em_gbm` +0.0133 (95% +0.0058..+0.0207); `dev_raw` - `em_gbm` +0.0145 (+0.0072..+0.0221); `em_stack` - `em_gbm` +0.0039 (+0.0004..+0.0079); the blends sit between and never beat `dev_cal` alone. Per line `dev_cal` - `em_gbm`: motor +0.0069 (+0.0011..+0.0122), buildings +0.0172 (-0.0018..+0.0376), contents +0.0257 (+0.0115..+0.0392). An emerging-only GLM is far worse (motor -0.021, contents -0.079 vs `em_gbm`).
+
+Findings: (1) with two years and ~1,000 claims in each property line the emerging book cannot estimate its own relativities; the developed model's relativities transfer. (2) The developed model is 30% too expensive in motor (calibration factor 0.70; claim frequency +34% but severity -42%, DATA_REVIEW section 2) and the factors differ by peril (bodily injury 0.64, glass / hail 0.90, theft 0.86). (3) Buildings level is not stable between the two emerging years: raw calibration (predicted / actual) is 1.51 in 2024 after a factor fitted on 2023: fire had 49 claims / 3.2M in 2023 and 21 / 1.1M in 2024, subsidence 32 vs 20; with this noise the buildings D2 has se 0.03 and the line is decided by credibility, not by the two-year level. (4) The calibration shows new-business rows 0.90 times the renewal rows (actual / predicted 0.97 vs 1.08, motor 2024, 3.9k new-business rows): weak evidence that the developed new-business uplift is a little high; to be re-estimated with both years and shrunk (next).
+
+## 46. Part 2 fold E: calibration variants, new-business check, severity trend, gender (2026-10-24 EDT)
+
+All on the 59,202 emerging 2024 rows, developed model B (2021-23) scored with the developed completeness, calibration fitted on the emerging 2023 rows only (`scripts/p2_calib.py`, log names `p2_calib_foldE`, `p2_calib_foldE_v2`). Every variant is renormalised so that the calibration rows' predicted total equals their actual total.
+
+| Variant | Pooled D2 (se 0.012) | note |
+|---|---|---|
+| developed model, line level only (credibility k = infinity) | 0.1239 | the reference for what calibration can add |
+| per-peril cost factor k = 30 / 100 / 300 / 1000 | 0.1219 / 0.1233 / 0.1239 / 0.1240 | peril factors add nothing over the line level (k = 30 is worse, paired -0.0014, CI -0.0023..-0.0001) |
+| frequency / severity split factors (k_freq 20-50, k_sev 100-inf) | 0.1213-0.1225 | worse than the cost factors (-0.0008..-0.0020 paired): not adopted |
+| + new-business multiplier (k = 100 / 400) | 0.1213 / 0.1225 | worse (-0.0020, -0.0008): the multiplier estimated on 2023 (motor 1.57!) does not hold in 2024 |
+| **per-peril k = 300 + gender factor (k = 100 / 300)** | **0.1265 / 0.1264** | paired +0.0032 (95% +0.0013..+0.0055) over cost_k100; motor 0.0900, buildings 0.0649, contents 0.0979 |
+
+Gender (emerging only, allowed for pricing there by the competition's data page): male / female actual-to-developed-prediction ratio is stable across the two emerging years: motor frequency x1.29 (2023) and x1.34 (2024), cost x1.25 / x1.39; buildings frequency x1.13 / x1.11; contents x0.95 / x0.93. Region (E01-E06) and the other emerging features in a residual offset GBM do not help (region -0.0035, region + gender + age band -0.0013, all emerging features -0.0054; paired CIs include 0), gender alone +0.0031 (+0.0011..+0.0052).
+
+New-business relativity: the actual-to-developed-prediction frequency ratio of new-business rows to renewal rows (customer-cluster bootstrap) is motor 1.15 (0.98..1.28, 2023) and 1.02 (0.90..1.12, 2024), buildings 1.15 (0.82..1.54) and 0.71 (0.48..0.98), contents 1.14 (0.76..1.51) and 1.34 (1.03..1.63): around 1 within the noise (315 / 382 new-business motor claims, 37-65 per property year). The developed uplift (motor +45%) holds in the emerging book; the 76% new-business share of the 2025 test is carried by the developed relativity, not by an emerging estimate.
+
+Severity trend 2023 to 2024 (peril fixed effects, claims capped at the 99.9% quantile): emerging motor 4.3% (5-95% bootstrap 0.3..10.3%), buildings 6.9% (0..12%), contents 0.3% (0..11.7%) against developed 6.8% / 10.2% / 5.7% for the same two years; every emerging interval contains the developed value, so the developed trend in the model (5.1% / 6.6% / 4.3% projected to 2025) is kept.
+
+## 47. Part 2 submissions (Kaggle, emerging test rows only)
+
+| Date (EDT) | File | sha256 (first 16) | Local fold E pooled D2 | Public score | Note |
+|---|---|---|---|---|---|
+| 2026-10-24 17:05 | `submissions/p2_t1_gbm.csv` (p2_t1) | a915f87e69dc8d99 | 0.1265 (se 0.012) | **0.16077** | developed LightGBM on shared features + per-line closure, peril factors k = 300, gender factor k = 300; submitted at the project lead's request; first Part 2 submission. The public D2 (0.16077) is higher than the fold E value (0.1265); not explained yet. Possible reasons, untested: different population (2025 test rows, 76% new business) and more claims per row in the new-business mix. |
+
+
+## 48. Part 2 fold E: GBM vs TabM base, interim (motor and buildings only; 2026-10-24 EDT)
+
+Final recipe (peril factors k = 300, line closure, gender factor) on top of each base; 40,468 emerging 2024 motor + buildings rows; `scripts/p2_blend.py`, log name `p2_blend_foldE_tabm_mb`. GBM 0.0803 (motor 0.0897, buildings 0.0629); TabM alone 0.0826 (0.0900, 0.0682); 50/50 0.0823 (0.0911, 0.0660); Part 1 weights (0.7 / 0.4 / 0.3 on the net) 0.0820. Paired vs GBM: nets +0.0023 (95% -0.0026..+0.0073), 50/50 +0.0020 (-0.0003..+0.0044), Part 1 weights +0.0017 (-0.0010..+0.0042). Same sign and size as Part 1 (+0.004) but the intervals include 0. Contents and the TabM-PLE nets are still training (`scripts/queue_p2_nn.sh`, restarts kill it; resumable); not adopted until all three lines and both nets are in.
+
+## 48b. GBM vs TabM base on all three lines (2026-10-24 EDT; supersedes the interim in 48)
+
+Final recipe on each base, fold E, 59,202 rows (`scripts/p2_blend.py`, log `p2_blend_foldE_tabm`): GBM 0.1256 (motor 0.0897, buildings 0.0629, contents 0.0970); TabM 0.1283 (0.0900, 0.0682, 0.1021); 50/50 0.1279 (0.0911, 0.0660, 0.1007); Part 1 weights 0.1274 (0.0910, 0.0654, 0.0994). Paired vs GBM: TabM +0.0027 (-0.0010..+0.0064), **50/50 +0.0023 (+0.0005..+0.0042)**, Part 1 weights +0.0018 (-0.0000..+0.0037). The 50/50 blend is positive in all three lines. TabM-PLE still training; not yet checked in the reverse direction.
+
+## 49. Part 2 exploration: where the emerging market differs, and what is worth doing (2026-10-24 EDT)
+
+Full write-up and recommendations: `docs/part2/EXPLORATION.md`. Scripts: `scripts/p2_explore_ae.py` (A/E by feature level, `docs/part2/ae_by_feature.csv`), `scripts/p2_explore_drift.py`, `scripts/p2_calib2.py`.
+Summary: (1) feature misfit of the developed model in the emerging data is almost entirely motor (gender z 8, occupation chi2 98 on 20 df, age band, voluntary excess, written premium, NCB); the property lines show little. (2) The market differences have a stable structure: peril frequency multipliers (motor +12..+84%, buildings escape of water x0.66, contents escape of water x0.65) and a severity scale per line (median ratio motor ~0.6, buildings ~0.7, contents ~0.75; fire ~1.0). (3) Level calibration tested in both directions: removing the final line closure and using count / median based factors gives +0.0054 (+0.0019..+0.0087) forward and +0.0009 (-0.0023..+0.0044) reverse over closure-only + gender. (4) Extra motor corrections (age band, occupation, excess) help forward (+0.006) but not in the reverse direction (-0.001..+0.001); gender helps in both (+0.0039, +0.0028). (5) Test rows: new-business rows are similar to the new-business rows seen in training (adversarial AUC 0.55-0.61), renewals drift by ageing (0.62-0.69); 53-56% of test rows have exposure 0.75-0.99 (January starts) against 6-8% in training. (6) The public-score gap (0.16077 vs 0.1265) is not explained by new-business vs renewal D2 (0.126 vs 0.119), nor by prediction dispersion (sd of log rate 0.93 both).
+
+## 50. Robust level (count x winsorised-mean factors, no closure) in both directions; candidates t2, t3 (2026-10-24 EDT)
+
+`scripts/p2_calib2.py`, log `p2_calib_*`/stdout. Pooled D2 on the validation year; difference vs the previous recipe (per-line closure + gender) paired on the same rows.
+
+| Severity scale of a peril | Forward 2023 -> 2024 | Reverse 2024 -> 2023 |
+|---|---|---|
+| median ratio | +0.0054 (+0.0019..+0.0087) | +0.0009 (-0.0023..+0.0044) |
+| winsorised mean, 95% | +0.0023 (-0.0011..+0.0053) | +0.0009 (-0.0009..+0.0026) |
+| **winsorised mean, 99% (chosen: closest to the mean, no tuning on the max)** | **+0.0024 (-0.0010..+0.0054)** | **+0.0014 (-0.0004..+0.0031)** |
+
+Median-based factors under-predict the calibration rows of contents by 10-20% (the emerging claim distribution has a heavier tail than the developed one), which is why the winsorised mean is used. With the closure the same factors are worse (forward -0.0031). Base with the TabM nets 50/50 (same recipe, both directions): D2 0.1288 forward / 0.1210 reverse against 0.1281 / 0.1176 for the GBM base, i.e. +0.0007 / +0.0034.
+
+Candidate files (all validated against the sample submission): `submissions/p2_t2_robust_gbm.csv` (GBM base, robust level, gender; sha256 48a794a4da428ca4...; mean per row motor 489, buildings 433, contents 89) and `submissions/p2_t3_robust_gbm_tabm.csv` (50/50 GBM + TabM; sha256 113e521a4e5d013b...; 528 / 472 / 93). p2_t1 for comparison: 471 / 462 / 98.
+Risk found on the way: the net and the GBM agree on expected claim COUNTS for the test rows (ratio 0.93-1.04) but the nets give 8-12% higher cost on the test population, and the level of a single-seed net relative to the GBM moves by +-5% between cut-offs (motor train rows A 1.083, B 0.988, C 0.975). The factors are fitted on cut-offs A and B and applied at C, so this noise enters the level. Mitigation: average more nets (TabM-PLE running) before relying on the net half.
+
+## 51. Scenario sensitivity (2026-10-24 EDT)
+
+`scripts/p2_scenarios.py`, base = GBM + TabM 50/50, robust level, gender; pooled D2 base 0.1288 forward / 0.1210 reverse (`docs/part2/scenarios_foldE.csv`). Change of pooled D2 when the level of a line, or of the new-business rows, is scaled on the validation rows:
+
+| Scenario | Forward 2023 -> 2024 | Reverse 2024 -> 2023 |
+|---|---|---|
+| buildings x0.8 / x1.2 | +0.0069 / -0.0086 | -0.0112 / +0.0057 |
+| motor x0.8 / x1.2 | -0.0045 / -0.0018 | +0.0006 / -0.0059 |
+| contents x0.8 / x1.2 | -0.0018 / -0.0004 | -0.0016 / -0.0004 |
+| new-business rows x0.8 / x1.2 | +0.0003 / -0.0015 | -0.0036 / +0.0018 |
+
+The buildings level is the only large uncertainty and it points in opposite directions in the two years; motor and contents are near their optimum; the new-business relativity matters little for D2 at +-20%. On the 2025 test predictions of t3: motor +-20% changes the predicted total by +-12.2%, buildings +-6.3%, contents +-1.6%, new-business rows +-10% by +-8.0%; motor is 60.8% of the predicted total, buildings 31.4%, contents 7.8%, new business 80.2%.
+
+## 52. p2_t2 submitted (2026-10-24 20:28 EDT)
+
+`submissions/p2_t2_robust_gbm.csv` (sha256 48a794a4da428ca4...), GBM base + robust level + gender, submitted at the project lead's request. Public **0.16314** against p2_t1 0.16077 (+0.00237). Local two-direction difference of the level method was +0.0024 forward / +0.0014 reverse, so the public gain has the same sign and size; both are inside the Part 1 noise of paired public differences (0.0003-0.001 SD for similar files, larger here because the files differ by 4-9% in level per line), so it is a consistent signal, not a proof. Submissions used on 2026-10-24 EDT / 2026-10-25 UTC: p2_t1 (21:05 UTC Oct 24), p2_t2 (00:28 UTC Oct 25).
+
+## 53. p2_t3 submitted (2026-10-24 20:45 EDT)
+
+`submissions/p2_t3_robust_gbm_tabm.csv` (sha256 113e521a4e5d013b...), GBM + TabM 50/50 base + robust level + gender, submitted at the project lead's request. Public **0.16360** vs p2_t2 0.16314 (+0.00046) and p2_t1 0.16077. Local difference net base vs GBM base under the same level method: +0.0007 forward / +0.0034 reverse. The public gain is inside the noise (a +8% level difference between the two files moves it little); the ordering t1 < t2 < t3 agrees with the local ordering. Submissions so far on the 2026-10-25 UTC day: t2, t3 (2 of 10).
+
+## 54. Premium-free base and the MIX construction reading (2026-10-25 EDT)
+
+Developed GBM refits (helper sessions, `scripts/p2_dev_predictions.py`), then `scripts/p2_calib2.py --gbm-name <variant>` (robust level, winsorised 99%, no closure, gender; GBM-only base). Pooled D2 forward 2023 -> 2024 / reverse 2024 -> 2023:
+
+| Variant | Forward | Reverse | Note |
+|---|---|---|---|
+| baseline GBM (MIX read as non_standard) | 0.1281 | 0.1176 | |
+| without `written_premium` and `discount_applied` (`nopremium`) | 0.1297 (+0.0016) | 0.1159 (-0.0017) | forward gain comes from buildings (+0.005), reverse loss from contents and motor: opposite signs |
+| MIX read as `w` (timber) | 0.1271 | 0.1171 | buildings only changes |
+| MIX read as `brick` | 0.1270 | 0.1166 | |
+| MIX read as `stone` | 0.1270 | 0.1172 | |
+
+Conclusions: no reading of MIX beats non-standard (all three are -0.0010 / -0.0004..-0.0010); the premium-free base is not better in both directions. Both rejected (D63). The A/E signal that MIX is under-predicted (+26%) is therefore not a mapping problem; it is a level difference of that segment that the data cannot resolve (173 claims).
+
+## 55. Engineered feature sets and GBM settings on the developed base (2026-10-25 EDT)
+
+Same test as RESULTS 54 (robust level, winsorised 99%, no closure, gender; GBM-only base; developed GBM trained up to 2022 and 2023 on the shared features plus the set). Baseline 0.1281 forward / 0.1176 reverse. Difference to baseline, forward / reverse (pooled D2):
+
+| Variant | Forward | Reverse | Sum | Where it moves |
+|---|---|---|---|---|
+| `xline` (lines held, bundle flag) | -0.0001 | +0.0002 | +0.0001 | nowhere |
+| `mktnorm` (premium and sum insured / median of line, market, year) | +0.0037 | -0.0018 | +0.0019 | buildings +0.0127 forward, -0.0044 reverse; motor and contents within +-0.0007 |
+| `pct` (percentile ranks of the same two) | +0.0037 | -0.0019 | +0.0018 | same as mktnorm |
+| `l8` (8 leaves) | +0.0022 | -0.0020 | +0.0002 | buildings forward, contents -0.0075 reverse |
+| `slow` (lr 0.03, 600 / 500 rounds) | +0.0015 | -0.0007 | +0.0008 | |
+| `minleaf1000` | -0.0005 | -0.0003 | -0.0008 | |
+| `ratios` | not finished | | | |
+
+Every variant that gains forward loses in reverse, and the movement is in buildings (about 1,000 claims, the line whose level moves 1.5x between the two years): validation noise, not signal. On motor and contents alone no variant moves more than +-0.0008. Adoption rule (both directions >= 0 and a clearly positive sum, > +0.002) is met by none. The developed base is at its ceiling relative to what fold E can resolve; the remaining engineering effort is better spent on the level and on averaging bases (nets) than on features or tree settings (D64).
+
+## 56. Two averaged nets in the base; candidate t4 (2026-10-25 EDT)
+
+All nine TabM-PLE fits (three lines x cut-offs A, B, C) are in. Two-direction test as in RESULTS 50 (robust level, winsorised 99%, no closure, gender), pooled D2 forward 2023 -> 2024 / reverse 2024 -> 2023:
+
+| Base | Forward | Reverse |
+|---|---|---|
+| GBM only | 0.1281 | 0.1176 |
+| GBM + TabM, 50/50 | 0.1288 | 0.1210 |
+| GBM + TabM-PLE, 50/50 | 0.1283 | 0.1223 |
+| **GBM + (TabM, TabM-PLE averaged), 50/50** | **0.1289** | **0.1220** |
+| GBM + (TabM, TabM-PLE), 70% nets | 0.1286 | 0.1223 |
+
+Averaged nets 50/50 vs GBM only: +0.0008 forward, +0.0044 reverse (paired vs the closure recipe +0.0009 / +0.0015, intervals include 0). Chosen: 50% nets, both nets averaged (no tuning on the maximum; 70% is no better). Candidate `submissions/p2_t4_robust_gbm_2nets.csv` (sha256 9bffbfe583d20340...; mean per row motor 505, buildings 480, contents 92; total mean 367.6): level between t2 (GBM only: 489 / 433 / 89) and t3 (TabM only: 528 / 472 / 93), as expected when the net's level noise is averaged out; row ranking agrees with t3 (Spearman 0.996-0.998). Not yet submitted.
+
+## 57. p2_t4 submitted (2026-10-24 22:33 EDT)
+
+`submissions/p2_t4_robust_gbm_2nets.csv` (sha256 9bffbfe583d20340...), GBM + (TabM, TabM-PLE) 50/50, robust level, gender, submitted at the project lead's request. Public **0.16336** against p2_t3 0.16360 (-0.00024), p2_t2 0.16314, p2_t1 0.16077. The three robust-level files t2, t3, t4 lie within 0.0005 of each other, which is inside the noise of public differences (Part 1: 0.0003-0.001); the local ordering (t4 best by +0.0001 forward / +0.0010 reverse over t3) is likewise within noise. The only separation visible is the level method (t1 vs t2/t3/t4, +0.0024 / +0.0028 / +0.0026). Submissions on the 2026-10-25 UTC day: t2, t3, t4 (3 of 10); total Part 2: 4.
+
+## 58. Part 2: extra motor corrections on top of gender, both directions (2026-10-25 EDT)
+
+`scripts/p2_calib2.py --extra`, base GBM + (TabM, TabM-PLE) 50/50, robust level, gender; paired difference to the same recipe, pooled D2, forward / reverse: gender x age band +0.0001 / -0.0001; gender x cover type -0.0003 / -0.0005; no-claims bonus bands -0.0015 / -0.0017; age band -> identical to gender x age band; voluntary excess -0.0018 / -0.0011; occupation -0.0008 / -0.0003; gender x age band x cover type -0.0003 / -0.0003. None helps: the gender factor stays flat per line (D57), and the reviewer's age-dependent gender effect (M/F 1.70 at 17-24, 1.08 at 35-49) does not improve the validation score. A domain-shift weighted developed GBM (`--adv 0.5`, variant `adv05`) is still training.
+
+## 59. Domain-shift weighted developed GBM (2026-10-25 EDT)
+
+`--adv 0.5` (developed rows weighted by the odds that they look like emerging rows, features only; the Part 1 mechanism), GBM-only base, robust level, gender: pooled D2 forward 0.1280 / reverse 0.1159 against 0.1281 / 0.1176 for the unweighted GBM: -0.0001 / -0.0017. Contents calibration moves from 0.97 to 1.19 forward, i.e. the weighting shifts the level of the line it distorts most. No gain in either direction: rejected (D67), as in Part 1.
+
+## 60. One-year claim-history inputs in the developed base (2026-10-25 EDT)
+
+Inputs (`hist1`, `iaa.p2_features.add_history1`): the policy's own claims of the previous year (this line), the claims at the same address, and the customer's claims over all lines in the previous year (reported by 31 December of that year). One-year windows are used because the emerging book starts in 2023 (all-time counts would mean different things); the first year of each market (developed 2021, emerging 2023) is set to missing, not to zero. Motivation (A/E screen on emerging 2024 renewals): motor last-year claimants 1.195 vs non-claimants 0.944, i.e. +27% not captured by the model; buildings and contents customers with a claim on another line 1.59 / 1.43 vs 0.92 / 0.95.
+
+Two-direction test (robust level, winsorised 99%, no closure, gender), pooled D2 forward 2023 -> 2024 / reverse 2024 -> 2023:
+
+| Base | Forward | Reverse | Motor fwd / rev | Buildings fwd / rev | Contents fwd / rev |
+|---|---|---|---|---|---|
+| GBM, no history (baseline) | 0.1281 | 0.1176 | 0.0899 / 0.0443 | 0.0706 / 0.0586 | 0.0975 / 0.1134 |
+| **GBM with history** | **0.1304 (+0.0023)** | **0.1197 (+0.0021)** | 0.0924 / 0.0456 | 0.0733 / 0.0625 | 0.0993 / 0.1144 |
+| t4: GBM + (TabM, TabM-PLE) 50/50, no history | 0.1289 | 0.1220 | | | |
+| GBM with history + the same nets without history | 0.1303 (+0.0014 vs t4) | 0.1231 (+0.0011 vs t4) | 0.0938 / 0.0464 | 0.0673 / 0.0723 | 0.1046 / 0.1130 |
+
+All three lines are better in both directions with history (the first time any change is non-negative everywhere). Adopted for the tree half (D68). The nets with history inputs are being trained (helpers); the Tweedie GBM part is being trained (helper).
+
+## 61. p2_t5a submitted (2026-10-25 01:34 EDT)
+
+`submissions/p2_t5a_hist1_gbm_2nets.csv` (sha256 81a7da62e28934e4...): GBM with one-year claim history + (TabM, TabM-PLE) without history 50/50, robust level, gender. Submitted under the standing approval (local validation better than t4 in both directions: +0.0014 forward, +0.0011 reverse). Public **0.16299** against t4 0.16336 (-0.00037), t3 0.16360, t2 0.16314. Row order agrees with t4 almost exactly (Spearman 0.999: about 76% of the test rows are new business with no claim history to use, only 24% renewals can move), predicted level -0.9% (motor 498 vs 505). The public differences among t2-t5a (0.16299-0.16360) are all inside the noise (Part 1: 0.0003-0.001); local two-direction validation, which showed +0.0011..+0.0014, stays the selection criterion (D20); no public-score conclusion is drawn. Submissions on the 2026-10-25 UTC day: t2, t3, t4, t5a (4 of 10).
+
+## 62. Nets with history, direct Tweedie part; candidate t6 submitted (2026-10-25 09:13 EDT)
+
+All 9 TabM and 9 TabM-PLE fits with the `hist1` inputs (helpers) and the direct Tweedie GBM (4 leaves / 350 rounds and 8 leaves / 300 rounds, averaged; helper) are in. Two-direction test (robust level, winsorised 99%, no closure, gender), pooled D2 forward 2023 -> 2024 / reverse 2024 -> 2023:
+
+| Base | Forward | Reverse |
+|---|---|---|
+| t4: GBM + 2 nets, no history | 0.1289 | 0.1220 |
+| t5a: GBM with history + 2 nets without | 0.1303 | 0.1231 |
+| t5: GBM + 2 nets, all with history | 0.1313 | 0.1229 |
+| **t6 = t5 + Tweedie part 25%** | **0.1336** | **0.1237** |
+| t5 + Tweedie part 50% (not used) | 0.1352 | 0.1236 |
+
+Tweedie part vs the same base without it (paired): 25%: +0.0023 (+0.0009..+0.0036) forward, +0.0008 (-0.0014..+0.0036) reverse; 50%: +0.0039 / +0.0007. The 25% share follows the Part 1 recipe (tree half 50/50 frequency x severity and Tweedie, tree weight 50% -> Tweedie 25% of the total); the larger share was not chosen although its forward score is higher (the gain is in buildings, the line with the unstable level). The Tweedie GBM contributes relativities only; its level is tied to the robust frequency x severity level on the calibration rows (`calibrate_robust(tw_...)`). t6 vs t4: +0.0047 forward / +0.0017 reverse; vs t5a +0.0033 / +0.0006: neither direction worse.
+
+`submissions/p2_t6_hist1_all_tw.csv` (sha256 c172f6cb985b69aa...), mean per row motor 508, buildings 477, contents 90, row order vs t5a Spearman 0.994-0.997. Submitted under the standing approval. Public **0.16450**: the best of all Part 2 submissions (t3 0.16360, t4 0.16336, t5a 0.16299, t2 0.16314, t1 0.16077), +0.0009 over t3. The local ordering agrees; the gap is at the edge of the public noise, so the choice rests on the two-direction local validation (D20). Submissions on the 2026-10-25 UTC day: t2, t3, t4, t5a, t6 (5 of 10).
+
+## 63. Weather-response check, hail-slope correction, new-business subset (2026-10-25 EDT)
+
+**Weather response in the emerging book** (A/E of the developed base per quintile of the weather index, claim counts of the peril): glass / hail vs hail days 0.74, 0.80, 0.94, 1.06, 1.37 (1,345 claims, log-slope +0.027 per day); storm (buildings) vs hail days 0.85 ... 1.53 (+0.028); storm vs wind index +0.034; escape of water vs freezing days -0.010 (buildings) / +0.008 (contents), i.e. flat; subsidence vs dry summer index and fire vs wildfire index are noise (52 / 70 claims). Year level A/E is 0.99 / 1.01 (glass / hail) for hail means 13.9 / 17.1 days: the developed model follows the year-to-year movement, only the cross-section between addresses is steeper. 2025 weather differs (hail 11.4 days vs 13.9 / 17.1, freezing 28.8 vs 21.0 / 17.5, wind 5.1 vs 4.7 / 5.4).
+**Hail-slope correction** (slope re-estimated on the calibration year, centred within each year, glass / hail in motor and storm in buildings; `p2_calib2.py --weather-slope`) on the t6 base: forward 0.1336 -> 0.1336 (+0.0000), reverse 0.1237 -> 0.1226 (-0.0011; buildings -0.0035): the slope does not carry over to the other year; rejected (D70).
+**t4 vs t6 recipe on the new-business subset** (the 2025 test is 76% new business, the validation years 12-15%): forward new business 0.1267 -> 0.1301, renewals 0.1243 -> 0.1293, reweighted to 76% new business 0.1341 -> 0.1379; reverse new business 0.1234 -> 0.1216 (5,974 rows, history unknown in 2023 so only the nets / Tweedie part differ), renewals 0.1213 -> 0.1234, reweighted 0.1239 -> 0.1230. The history gain sits in the renewals; on a new-business-heavy book the expected gain of t6 over t4 is smaller (about +0.0015 averaged over the two directions) than the +0.0032 average of the full-sample test, which fits the small public gain (+0.0011 over t4).
+**Noise fields** (previous insurer, campaign, segment, branch, email domain): same levels in both markets (40 / 15 / 12 / 25 / 5); not tested further (excluded in Part 1 without loss, and no count-based screen was run).
+
+## 64. Three seeds per model (2026-10-25 EDT)
+
+Part 1's final used 3-seed nets. Part 2: LightGBM frequency x severity with history and both direct Tweedie GBMs trained with 3 bagging seeds (helper `p2-gbm-s3`) and TabM with history trained with 3 nets averaged (helper `p2-tabm-s3`); TabM-PLE 3 seeds was stopped before it finished. Two-direction test of the t6 recipe, pooled D2 forward / reverse:
+
+| Base | Forward | Reverse |
+|---|---|---|
+| t6: single seeds | 0.1336 | 0.1237 |
+| 3-seed GBM and Tweedie, single-seed nets | 0.1334 | 0.1234 |
+| 3-seed GBM, Tweedie and TabM, single-seed TabM-PLE | 0.1333 | 0.1233 |
+
+Averaging seeds does not improve validation (-0.0002 / -0.0003 and -0.0003 / -0.0004): the validation noise is far larger than the seed noise, and the bagging seeds of a 4-leaf GBM barely differ. t6 stays (D71). Compute spent: about 9 helper-hours.
+
+## 65. Post-hoc corrections and credibility constants; candidate t7 (2026-10-25 EDT)
+
+**Post-hoc corrections on the t6 predictions** (factor fitted on the other year's predictions, tested on this year's; pooled D2 change forward / reverse): shrinking predictions toward the line mean by 5% / 10% / 20%: -0.0012 / -0.0005, -0.0025 / -0.0012, -0.0057 / -0.0035; the opposite (expanding the spread by 5% / 10%): +0.0011 / +0.0002 and +0.0019 / 0.0000, but the gain is buildings forward only (+0.0060 at 10%; buildings reverse -0.0001); exposure-bucket factors -0.0014 / -0.0001. No correction is positive in both directions: none adopted.
+**Credibility constants of the robust level** (t6 base; pooled D2 forward / reverse), frequency constant k_freq (claims) with k_sev = 30: 5: 0.1314 / 0.1208; **20 (t6): 0.1336 / 0.1237**; 60: 0.1364 / 0.1259; 150: 0.1384 / 0.1269; 400: 0.1396 / 0.1273; 5000 (line level only): 0.1403 / 0.1272. The gain is entirely the buildings line (forward 0.0772 -> 0.0978 at 400, reverse 0.0723 -> 0.0823); motor is flat and contents slightly worse at the extreme (0.1058 -> 0.1042 forward), so contents keeps k = 20. Evidence that the buildings peril ratios are noise: fire 2.32 then 0.84, storm 1.30 then 1.66, subsidence 1.11 then 0.85 between the two years (EXPLORATION 1). Severity constant k_sev: 10: 0.1313 / 0.1246; 100: 0.1367 / 0.1229; 300: 0.1384 / 0.1226 (forward up, reverse down: not adopted, kept at 30).
+**t7** = t6 with `--k-freq motor=20,buildings=400,contents=20`: local 0.1397 forward / 0.1271 reverse (+0.0061 / +0.0034 over t6, neither direction worse, D72). `submissions/p2_t7_t6_buildings_k400.csv` (sha256 90d870023f9edca4...); only buildings changes (mean per row 477 -> 482, Spearman 0.9992 with t6). Submitted (same approval pattern as t5 / t6). Public **0.16474** vs t6 0.16450 (+0.00024, inside the noise). The constant was chosen as 400 (not the maximum 5000) on the monotone curve; it is a hyper-parameter tuned on the two directions of fold E, so its local gain is an optimistic estimate. Submissions on the 2026-10-25 UTC day: t2, t3, t4, t5a, t6, t7 (6 of 10).
+
+## 66. Blend-weight grid of the t7 recipe (2026-10-25 EDT)
+
+Net weight 0.3 / 0.5 / 0.7 / 0.85 x Tweedie share 0.0 / 0.15 / 0.25 / 0.35 (`scripts/p2_weight_grid.sh`, output `artifacts/p2_weight_grid.txt`), pooled D2 forward / reverse. The surface is flat: the sum of the two directions runs from 0.2638 to 0.2674 over all 16 cells, t7 (0.5, 0.25) is 0.2668 (forward 0.1397, reverse 0.1271). Best cells: net 0.7 / Tweedie 0.35 (0.1402 / 0.1272, sum +0.0006 over t7), net 0.5 / 0.35 (0.1400 / 0.1272). Per line the optimum differs a little (motor prefers fewer nets and no Tweedie part: 0.0951 / 0.0474 at 0.5 / 0.0 against 0.0942 / 0.0470; contents prefers more nets going forward but loses in reverse; buildings prefers the Tweedie part: 0.0996 / 0.0829 at 0.35 against 0.0978 / 0.0823), but every per-line difference is below 0.0015 in one direction and of opposite sign in the other. Per-line weights would be tuned on noise: no change (D73); t7 keeps the Part 1 structure (net 0.5, Tweedie 0.25 of the total).
+
+
+## 67. History inputs split by line (hist2) rejected (2026-10-25 EDT)
+
+hist2 = hist1 plus the customer's last-year claims split by line. GBM only, robust level without closure plus gender, pooled D2 forward / reverse: hist1 0.1329 / 0.1192; hist2 0.1317 / 0.1157 (-0.0012 / -0.0035). Both directions worse, mostly buildings (forward 0.0818 -> 0.0770; reverse 0.0637 -> 0.0540). Not adopted (D74); nets are not retrained. Fits ran in a helper session (`helper/p2-hist2`, 6 fits).
+
+## 68. Clipping the highest predictions rejected (2026-10-25 EDT)
+
+t7 recipe reproduced (0.1397 forward / 0.1271 reverse). Capping each line's predictions at its 99.9 / 99.5 / 99 / 98 percentile (line total rescaled): forward 0.0000 / -0.0002 / -0.0005 / -0.0015, reverse -0.0002 / -0.0004 / -0.0006 / -0.0011. Worse or equal in both directions, so the top of the prediction range carries real signal. Not adopted (D75).
+
+## 69. Pre-registered rules for the GLM blend and per-line severity constants (2026-10-25 EDT)
+
+Written before measuring. (a) Severity credibility constant k_sev per line, one line changed at a time from 30 to 10 / 100 / 300 on the t7 recipe: adopt a value for a line only if that line's D2 is not lower in either direction and the pooled gain summed over both directions is above +0.002; otherwise keep 30. (b) GLM (frequency x severity, developed data, hist1 inputs) added to the tree base at a share of 10% / 20% / 30%: adopt only if both directions are not lower and the summed gain is above +0.002; otherwise the GLM is rejected for Part 2 and stays rejected.
+
+## 70. Per-line severity constants and GLM in the blend, both rejected (2026-10-25 EDT)
+
+Rules were written first (RESULTS 69). **k_sev per line** (t7 recipe, one line changed from 30; pooled D2 forward / reverse, t7 = 0.1397 / 0.1271): motor 10 / 100 / 300: 0.1397 / 0.1271, 0.1397 / 0.1272, 0.1397 / 0.1272; contents 10 / 100 / 300: 0.1397 / 0.1272, 0.1397 / 0.1270, 0.1397 / 0.1269; buildings 10 / 100 / 300: 0.1384 / 0.1277, 0.1413 / 0.1265, 0.1421 / 0.1262. Motor and contents are flat (at most 0.0003); buildings moves the two directions in opposite directions (300: +0.0024 forward, -0.0009 reverse), so it is not both-non-negative. Rejected (D76); k_sev stays 30.
+**GLM** (frequency x severity, quantile bands, hist1 inputs, developed data; `p2_dev_predictions.py --model glm`, stem `glm_hist1`) mixed into the frequency x severity base at 10 / 20 / 30%: forward 0.1391 / 0.1385 / 0.1378, reverse 0.1276 / 0.1280 / 0.1282 (t7 0.1397 / 0.1271). Forward falls by 0.0006 / 0.0012 / 0.0019, reverse rises by 0.0005 / 0.0009 / 0.0011; the sum is negative at every share and forward is worse. Rejected (D77), consistent with Part 1 (D24, D29). The reverse-direction gain is buildings only (0.0823 -> 0.0868) and forward loses there too (0.0978 -> 0.0929), i.e. the GLM moves the buildings level, not the ranking.
+
+## 71. Pooled training (developed + emerging rows, market flag): pre-registered rule (2026-10-25 EDT)
+
+Written before measuring. The GBM (frequency x severity, hist1 inputs, 4 leaves) is trained on developed rows plus the labelled emerging rows with a `market_emerging` input and emerging row weight W in {1, 5, 20}. Forward: developed 2021-23 + emerging 2023 (tag PF), level calibrated on emerging 2023, scored on 2024. Reverse: developed 2021-23 + emerging 2024 (tag PR), level calibrated on 2024, scored on 2023. Compared with the same GBM without emerging rows (hist1, `robust_fs_noclose+gender`: 0.1329 forward / 0.1192 reverse). Adopt a W only if neither direction is lower and the summed gain is above +0.002; then the nets would be pooled the same way. Caveat noted in advance: the calibration rows are in the pooled model's training set, so the level calibration sees in-sample predictions (the final model has the same structure: trained and calibrated on the same emerging 2023-24 rows).
+
+## 72. Pooled training result: rejected, monotone in the emerging weight (2026-10-25 EDT)
+
+Rule in RESULTS 71. Built: `p2_dev_predictions.py --pool PF|PR|PC --pool-weight W` (developed rows plus labelled emerging rows with a `market_emerging` input and row weight W; completeness table from developed claims only), `p2_calib2.py --pool-stem` and `--force-tag`. **Control** = the unpooled hist1 GBM scored with the same developed cut-off (tag B for both years, `--force-tag B`), because the pooled models also see developed 2023: control closure+gender 0.1322 forward / 0.1225 reverse. Metric `closure_only+gender` (the robust level is not valid for a pooled model: its severity factor divides by developed medians and the pooled model has already absorbed the emerging severity, and the frequency factor is in-sample).
+Pooled, closure_only+gender (forward / reverse): W=1 0.1298 / 0.1174 (-0.0024 / -0.0051); W=5 0.1235 / 0.1080 (-0.0087 / -0.0145); W=20 0.1178 / 0.0933 (-0.0144 / -0.0292). Worse in both directions and worse with every step up in the emerging weight (buildings falls most: 0.0819 -> 0.0728 -> 0.0584 -> 0.0451 forward). Rejected (D78): emerging labels are too few and too noisy to learn from directly, which is the same reason emerging-only models lose (RESULTS 45) and why the level is credibility-weighted. Nets not pooled. (Run time: 6 fits per W, 3 minutes each.)
+**Side finding:** with the developed cut-off moved from 2022 to 2023 (tag B instead of A) the unpooled reverse score of the same GBM rises from 0.1192 to 0.1230 (+0.0038; robust level, gender). Scoring emerging 2023 with a model that has seen developed 2023 is mildly optimistic, so the standing reverse direction (tag A for 2023) is the fair one and the pooled runs had to be compared with the tag-B control.
+
+## 73. Shared peril multipliers across lines: look and pre-registered rule (2026-10-25 EDT)
+
+Look (`scripts/p2_explore_shared.py`, ratio = actual emerging claims / developed t7-base expected claims x completeness, 2023 / 2024): accidental damage buildings 0.79 / 0.89, contents 0.72 / 0.83 (two lines, two years all between 0.72 and 0.89); escape of water buildings 0.85 / 1.02, contents 1.03 / 1.00; flood buildings 0.84 / 0.84, contents 1.57 / 0.99; theft motor 1.50 / 1.33, contents 1.19 / 1.28; storm (buildings) 1.35 / 1.45 and glass-hail (motor) 1.35 / 1.31; the other motor perils 1.15-1.37. Hypothesis: the emerging book differs from the developed one by a multiplier per peril that is shared across lines, so a peril name present in more than one line (accidental damage, escape of water, flood, theft) should borrow strength across lines.
+Rule (written before measuring). Frequency prior of a peril whose name occurs in more than one line = the pooled actual/expected ratio of that name over all lines of the calibration year (instead of the line ratio); perils that exist in one line keep the line ratio; the peril-specific data enter with the credibility constant k. Variants: k_freq of buildings in {400, 100, 20}, motor and contents 20. Compared with t7 (0.1397 forward / 0.1271 reverse). Adopt only if neither direction is lower and the summed gain is above +0.002; a gain confined to buildings or to one direction is not adopted.
+
+## 74. Shared peril multipliers across lines: rejected (2026-10-25 EDT)
+
+Rule in RESULTS 73. Implemented `transfer.shared_peril_prior`, `robust_factors(..., freq_prior=)` and `p2_calib2.py --shared-freq` (tests added). Pooled D2 forward / reverse on the t7 recipe (t7 0.1397 / 0.1271), buildings frequency constant 400 / 100 / 20 with the shared prior: **0.1400 / 0.1252** (+0.0003 / -0.0019), 0.1378 / 0.1249 (-0.0019 / -0.0022), 0.1337 / 0.1228 (-0.0060 / -0.0043). Motor unchanged (its only shared name, theft, has data enough); contents -0.0002 / -0.0005; buildings reverse falls 0.0823 -> 0.0769. Reverse is worse in every variant, so none is adopted (D79).
+Reading: the ratios of the shared names look alike across lines and years in the table of RESULTS 73 (accidental damage 0.72-0.89 in four cells), but accidental damage, escape of water and flood are small perils in buildings, and the cross-line prior moves them by about 0.1-0.2 on perils that carry little of the cost, while it also moves the weights of the large perils through the line closure of the factors. The gain that matters (buildings fire / storm level) is not touched by this prior. The 'the organisers used one multiplier per peril' idea is not rejected as a description of the data (the table is consistent with it); it adds nothing to the score on top of the line level and the credibility constants.
+
+## 75. Simulation test of the level method: pre-registered rule (2026-10-25 EDT)
+
+Purpose: check how the credibility constants behave across many simulated emerging books with a KNOWN truth, because they were tuned on one pair of real years. Written before running. Simulator: per line and direction, the t7 base's expected counts and costs of the calibration year; true frequency multipliers per peril T_f and severity multipliers T_s (scenarios: A = one multiplier for the whole line; B = the observed per-peril values; C = line value x lognormal(0, 0.25) per peril, redrawn every book); claim counts Poisson(expected count x T_f), claim costs bootstrapped from the developed claims of the peril x T_s; 400 books per cell. Estimators: line closure; robust level with frequency constant k_freq in {20, 100, 400, 5000} and severity constant k_sev in {30, 300}. Truth for the validation year: mu_i = sum over perils of expected cost x T_f x T_s; loss = sum of Tweedie(1.5) unit deviances d(mu_i, m_i) (the expected excess deviance of predicting m instead of mu, no outcome noise), divided by the null deviance of the real validation year to put it in D2 points.
+Decision rule: the simulation can reject, not choose. If buildings k_freq = 400 has a mean regret more than 0.002 D2 above the best constant in scenario B or C, the constant is reconsidered (replaced by the simulation's best in the scenario where it is robust); otherwise 400 stays. It is not used to move any constant that is already better on the real data in both directions.
+
+## 76. Simulation test of the level method: result (2026-10-25 EDT)
+
+`scripts/p2_simulate_level.py --sims 400` (seed 20261025; raw table `docs/experiments/raw/p2/p2_simulation_level.csv`, printout `p2_simulation_level.log`). Mean regret in D2 points, pooled over the three lines, average of the two directions (lower is better):
+| estimator | A one multiplier per line | B observed per-peril | C line x lognormal(0.25) |
+|---|---|---|---|
+| line closure | 0.0022 | 0.0036 | 0.0041 |
+| robust k_freq 20, k_sev 30 | 0.0010 | 0.0020 | 0.0014 |
+| robust k_freq 100, k_sev 30 | 0.0009 | 0.0021 | 0.0017 |
+| robust k_freq 400, k_sev 30 (t7 buildings) | 0.0009 | 0.0025 | 0.0024 |
+| robust k_freq 5000, k_sev 30 | 0.0009 | 0.0030 | 0.0032 |
+| robust k_sev 300 (any k_freq) | 0.0007-0.0009 | 0.0031-0.0043 | 0.0020-0.0040 |
+Buildings alone, k_freq 400 vs 20 (k_sev 30): A 0.0014 vs 0.0016, B 0.0047 vs 0.0042, C 0.0038 vs 0.0025.
+Reading. (1) The robust level beats the line closure in every scenario (by 0.0012-0.0027 pooled), which agrees with the real two-direction result (D60). (2) k_sev 30 is better than 300 when the peril severities really differ (B, C), which agrees with D76. (3) k_freq: 400 is best only when all perils share one multiplier (A); with real per-peril differences (B, C) 20 is better, by 0.0005 (B) and 0.0010 (C) pooled, and 0.0005 / 0.0013 on buildings. These gaps are below the 0.002 threshold set in RESULTS 75, so the rule keeps k_freq 400 for buildings; it is a bet that the buildings peril ratios are noise (fire 2.32 then 0.84 is the evidence, EXPLORATION 1), which scenario A encodes and scenarios B and C do not. The simulation cannot say which scenario is true. The real data prefer 400 in both directions (+0.0061 / +0.0034 over 20, D72). (4) Every estimator is biased low on the buildings total in the simulation (log bias -0.04 to -0.06 in A; -0.11 to -0.20 in B): see RESULTS 77.
+
+## 77. Winsorised severity ratio is biased low at small claim counts: pre-registered check (2026-10-25 EDT)
+
+The simulation (RESULTS 76) shows every robust estimator under-predicting the buildings total (log bias -0.04..-0.06 even when the truth is one common multiplier). Hypothesis: the emerging winsorised mean (capped at the 99% quantile of the few emerging claims) is lower than the developed one (capped at the 99% quantile of thousands of claims) for the same true severity distribution, because the sample 99% quantile of n claims sits below the population one when n is a few hundred. Fix to test: compare the emerging winsorised mean with the developed winsorised mean of a resample of the SAME size n (average of 200 resamples of the developed claims of the year), peril by peril. Rule, written before: (1) in the simulation the size-matched estimator must remove most of the bias in scenario A (|log bias| below 0.02); (2) on the real data (p2_calib2, both directions) adopt only if neither direction is lower and the summed gain is above +0.002.
+
+## 78. Correction of RESULTS 76 and result of the size-matched check (2026-10-25 EDT)
+
+**Correction.** The simulator of RESULTS 76 drew claim costs from the developed claims of ALL years but compared them with the winsorised mean of the developed claims of the calibration YEAR. Through the severity trend the all-years pool is cheaper, so every estimator looked biased low by 4-6% on buildings; that was a simulator defect, not an estimator flaw, and point (4) of RESULTS 76 is withdrawn. The size-matched winsorisation of RESULTS 77 did not change the bias (`... sizematch` rows), so its premise failed before the real-data step and it is not tried on the real data (rule of RESULTS 77, step 1 not met). The simulator now draws from the same year's pool (`scripts/p2_simulate_level.py`, 400 books per cell, seed 20261025; raw `docs/experiments/raw/p2/p2_simulation_level.csv` and `.log`). Bias is now -0.002..-0.006 (A) and about +0.02 (C) on buildings; in B it stays at about -0.07 because that truth applies winsorised-mean ratios as full-severity multipliers (a property of the scenario).
+Corrected pooled regret (D2 points, average of two directions):
+| estimator | A | B | C |
+|---|---|---|---|
+| line closure | 0.0028 | 0.0042 | 0.0047 |
+| robust k_freq 20, k_sev 30 | 0.0008 | 0.0014 | 0.0012 |
+| robust k_freq 100, k_sev 30 | 0.0006 | 0.0016 | 0.0016 |
+| robust k_freq 400, k_sev 30 | 0.0006 | 0.0019 | 0.0021 |
+| robust k_freq 5000, k_sev 30 | 0.0006 | 0.0023 | 0.0028 |
+| robust k_freq 20, k_sev 300 | 0.0005 | 0.0021 | 0.0020 |
+| robust k_freq 400, k_sev 300 | 0.0004 | 0.0026 | 0.0029 |
+Buildings alone, k_freq 400 vs 20 (k_sev 30): A 0.0009 vs 0.0012; B 0.0039 vs 0.0032; C 0.0036 vs 0.0023.
+Reading (same as RESULTS 76 (1)-(3)): the robust level beats the closure in every scenario (0.0020-0.0035 pooled); k_sev 30 beats 300 whenever severities differ by peril (B, C); k_freq 400 is best only if all perils share one multiplier (A), and costs 0.0005 (B) / 0.0009 (C) pooled, 0.0007 / 0.0013 on buildings, against 20 when they do not. Both gaps are below the 0.002 threshold, so 400 stays (D80); the choice rests on the real two-direction result (+0.0061 / +0.0034) and on the fire ratio 2.32 then 0.84, which is evidence for scenario A in buildings. If the project lead wants the more conservative constant, k_freq 100 costs 0.0000 / -0.0003 in simulation and was +0.0050 / +0.0030 in the real data (RESULTS 65: 150 gives 0.1384 / 0.1269 against 0.1396 / 0.1273 at 400).
+
+## 79. Residual-structure search and new-business check on the final base (2026-10-25 EDT)
+
+**Residual search** (`scripts/p2_explore_ae2.py`, raw `docs/experiments/raw/p2/ae2_levels.csv`): actual / expected claim counts of the t7 base by level of every shared feature (numbers in 8 quantile bins), per year, line level removed per line and year. 973 levels tested; 3 pass the two-year rule (same sign, |z| >= 2 in each year, combined |z| >= 3.5): motor gender M (A/E 1.13, z 5.2 / 5.5) and F (0.87, z -5.1 / -5.5), which the gender factor already handles, and motor occupation 'builder' (A/E 1.30 on 295 claims, z 2.4 / 4.0). About one level in 800 would pass by chance, i.e. about one in 973. The occupation factor was already tested on top of this base and rejected (D66). No other level, including all buildings and contents levels, deviates in both years: after the gender factor the base shows no feature structure left to correct.
+**New business** (`scripts/p2_check_new_business.py`, forward validation 2024: 9,063 new-business rows, 50,139 renewals; the 2025 test is 76% new business): D2 of t7 0.1303 new / 0.1293 renewals; t4 (no history, two nets) 0.1267 / 0.1243. The history-input base is better than the no-history base on new business too (+0.0036, against +0.0050 on renewals), so its gain does not depend on renewal rows. The files use different level methods, so only the within-split comparison is meaningful. Nothing to change.
+
+## 80. Third net (TabM with quantile-transformed inputs) and a more conservative buildings constant: pre-registered rules (2026-10-26 EDT)
+
+Written before measuring. (a) A third net, TabM-quantile (`nn_tabm_q`: the TabM of the base with rank-gauss numeric inputs instead of winsorised z-scores; hist1 inputs; tags A, B for validation), joins the net half as the equal-weight mean of three nets (t7: two). Adopt only if neither direction is lower than t7 (0.1397 forward / 0.1271 reverse) and the summed gain is above +0.002. Expected gain at most +0.001 (seed averaging gave nothing, RESULTS 64), so rejection is the likely outcome. If adopted it needs tag C (the final fit) before a candidate can be built. (b) Buildings k_freq 100 or 200 instead of 400: not a candidate to adopt by the same rule (they are lower locally by construction); computed so the project lead can see the price of the hedge and decide.
+
+## 81. Third net and the price of a conservative buildings constant: results (2026-10-26 EDT)
+
+Rules in RESULTS 80. `nn_tabm_q` (TabM, rank-gauss numeric inputs, hist1; 6 fits, about 20 minutes in total; `scripts/queue_p2_nn_q.sh`, log `docs/experiments/raw/p2/p2_dev_nn_tabm_q.log`). Pooled D2 forward / reverse on the t7 recipe (nets only change; GBM 50%, nets 50%, Tweedie 25%, robust level, buildings k_freq 400):
+| net half | forward | reverse | vs t7 (sum) |
+|---|---|---|---|
+| TabM + TabM-PLE (t7) | 0.1397 | 0.1271 | |
+| TabM + TabM-PLE + TabM-quantile (registered candidate) | 0.1405 | 0.1278 | +0.0008 / +0.0007 (+0.0015) |
+| TabM-quantile alone (post hoc, not registered) | 0.1411 | 0.1284 | +0.0014 / +0.0013 (+0.0027) |
+| TabM alone | 0.1396 | 0.1265 | -0.0001 / -0.0006 |
+By line, the registered candidate vs t7 (forward / reverse): motor -0.0005 / +0.0003, buildings +0.0009 / +0.0019, contents +0.0039 / -0.0006. The registered three-net candidate is better in both directions but its summed gain (+0.0015) is below the +0.002 rule, so it is **not adopted by the rule** (D81). The quantile net alone passes the sum but it is one of four variants looked at and was not the registered candidate; it is noted as the most promising direction, not adopted. Adopting either would need tag C fits of the quantile net (about 10 minutes) and a rebuild.
+**Price of a conservative buildings constant** (t7 recipe; forward / reverse; t7 = k 400): k 50: 0.1359 / 0.1255; 100: 0.1376 / 0.1264 (-0.0021 / -0.0007); 150: 0.1384 / 0.1268 (-0.0013 / -0.0003); 200: 0.1389 / 0.1269 (-0.0008 / -0.0002); 400: 0.1397 / 0.1271; 1000: 0.1403 / 0.1272. In the simulation (RESULTS 78) 100 beats 400 by 0.0000 (A) / 0.0003 (B) / 0.0005 (C) pooled, i.e. the simulation gain of the hedge is smaller than its local price. Kept at 400.
+
+## 82. Candidates with the quantile net built, not submitted (2026-10-26 EDT)
+
+Tag C fit of `nn_tabm_q` (hist1) done (`scripts/queue_p2_nn_q_c.sh`). Same command as t7 (`p2_make_submission.py --level robust --gbm-name hist1 --nn-share motor=0.5,buildings=0.5,contents=0.5 --tw-names twl4,twl8 --tw-share 0.25 --k-freq motor=20,buildings=400,contents=20`) with `--nn-models` changed; the t7 rebuild reproduces sha256 90d870023f9edca4 exactly.
+* **t8a** `submissions/p2_t8a_quantile_net.csv` (sha256 78f415e3eb62759b..., nets = quantile TabM only): local 0.1411 / 0.1284 (+0.0014 / +0.0013 vs t7, post hoc variant). Against t7: mean prediction x0.969 (motor x0.952, buildings x0.982, contents x1.040), Spearman 0.997 (per line 0.991-0.996).
+* **t8b** `submissions/p2_t8b_three_nets.csv` (sha256 f1cf3946ebad3f0f..., TabM + TabM-PLE + quantile TabM): local 0.1405 / 0.1278 (+0.0008 / +0.0007, below the +0.002 rule). Against t7: mean x0.989 (motor x0.984, buildings x0.994, contents x1.014), Spearman 0.9997.
+Reading: the single quantile net moves the 2025 line levels by -5% (motor) to +4% (contents) relative to t7, the effect D61 / D65 warned about (a single net moves the level; averaging nets halves it). The validation does not test that move, because it comes from the tag C fit that projects to 2025. t8b moves levels by at most 1.6% and ranks almost identically to t7. Neither file is submitted yet; the decision is the project lead's.
+
+## 83. Submissions t8a and t8b (2026-10-26 EDT, 01:18 UTC = 2026-10-25 21:18 EDT)
+
+Submitted at the project lead's request (`scripts/submit.py ... --part2 --confirm`). Public scores: **t8a 0.16369** (quantile TabM alone; sha256 78f415e3eb62759b...), **t8b 0.16458** (TabM + TabM-PLE + quantile TabM; sha256 f1cf3946ebad3f0f...), against t7 0.16474 (two nets) and t6 0.16450. Local was t8a 0.1411 / 0.1284, t8b 0.1405 / 0.1278, t7 0.1397 / 0.1271. Reading: t8b is inside the noise of t7 (-0.00016). t8a is lower by 0.00105, about the size of the 3-5% line-level shifts it carries (motor x0.952, contents x1.040); its higher local score did not carry to the public set, and the single-net level risk that D61 / D65 describe is the likely reason. The public score is a claim read from `check_submissions.py`, one set of rows, and the difference between t8b and t7 is below the 0.001 noise level seen in Part 1, so nothing is concluded about t8b; t8a's drop is borderline. Both confirm that the local gains of this size (+0.001) are not visible on the public set. t7 stays the final candidate (D20: local validation plus public score; t7 is best on both when the post-hoc t8a is excluded and tied with t8b). Submissions on the 2026-10-26 UTC day: t8a, t8b (2 of 10).
+
+## 84. Ceiling analysis: what a perfect level would be worth (2026-10-26 EDT)
+
+`p2_calib2.py --oracle` calibrates the t7 recipe on the validation year itself (in-sample line level and gender factor) instead of the other year; raw printout in `docs/experiments/raw/p2/calib2_runs.log`. Pooled D2, line closure + gender with the in-sample level: **0.1449 for 2024 and 0.1330 for 2023**, against 0.1397 and 0.1271 out of sample (t7): the whole level problem, including the buildings swings, is worth at most **+0.0052 / +0.0059**. The robust level calibrated in-sample is lower (0.1441 / 0.1311) because it carries the winsorisation and the credibility shrinkage. The oracle line-level score of the emerging market (0.133-0.145) is the same size as the developed-market validation scores of the same model family (0.13-0.14, folds A / B of Part 1), so the ranking of the developed model transfers essentially in full; what is left to gain is ranking power common to both markets (the Part 1 ceiling), not market adaptation. No decision follows from this; it bounds the value of any further level or calibration work at about 0.005 D2 even with perfect knowledge.
+
+## 85. The quantile net was already rejected on the developed folds (2026-10-26 EDT)
+
+RESULTS section 27 (Part 1, developed market folds A / B, 2.4 million rows): `fs_nn_tabm4_q` (TabM with rank-gauss numeric inputs, the same net as `nn_tabm_q`) scored 0.1397 / 0.1308 against plain TabM 0.1413 / 0.1328, worse on both folds (D32). The emerging validation of RESULTS 81 preferred it by +0.0014 / +0.0013 and the public set by -0.0010 (t8a 0.16369 vs t7 0.16474): the emerging gain was noise, the developed-fold verdict and the public score agree. Lesson recorded for the rest of Part 2: ideas about the RANKING of risks (nets, features, encodings, GBM settings) are screened on the developed folds A / B, where the paired bootstrap has 20 times the claims; the emerging folds (59,202 and 50,094 rows) are used only for level, transfer and calibration questions. I did not check the Part 1 record before building the quantile net; the check would have saved a rebuild and two submissions.
+
+## 86. Ranking idea Part 1 never tried: cross-line covariates of the same customer (pre-registered, 2026-10-26 EDT)
+
+Search of the Part 1 record (RESULTS 1-44, D1-D55) for ranking ideas: tried and rejected there are encodings (categorical, numeric, quantile, log, PLE kept), engineered ratios / weather anomalies / premium residual, richer claim history, yoy, seasonality, entity embeddings, recency and domain weights, second-stage corrections, GLM, XGBoost, CatBoost, linear trees, direct Tweedie nets, GBM-offset nets. Not tried: (1) policy ATTRIBUTES of the customer's other lines (premium, sum insured, vehicle value) in the same year as inputs (Part 2 only tested the count of lines held, on the emerging folds); (2) per-peril boosting rounds; (3) separate shrinkage exponents of the frequency and severity relativities. This section tests (1) on the developed folds A / B (the low-noise screen, RESULTS 85): `iaa.crossline.add_crossline`, `run_cv.py --crossline`, target-encoded GBM of the Part 1 recipe, with and without the flag, same code, folds A and B. Rule: adopt for Part 2 only if the paired difference is positive on both folds and on both metrics (uncapped, cap250k) with the gain on the sum of the two folds above +0.001; otherwise rejected. Reason it may carry signal: the 76% new-business share of the 2025 test has no claim history, so static covariates are where ranking can still improve.
+
+**Result (RESULTS 86).** Developed folds, target-encoded GBM, with vs without cross-line covariates (raw `docs/experiments/raw/p2/crossline_screen.txt`): fold A 0.1369 -> 0.1373 (+0.0004, 95% CI -0.0012..+0.0026), fold B 0.1333 -> 0.1335 (+0.0002, CI -0.0003..+0.0007), 626,000 rows each. By line (xline minus base): buildings A -0.0009 / B +0.0005, contents A -0.0002 / B +0.0003, motor A +0.0015 / B -0.0001; every CI includes 0 and the lines disagree between folds. The summed gain of +0.0006 is below the +0.001 rule, so cross-line covariates are not adopted (D82). The customer's other policies carry no usable ranking signal beyond what the customer fields and the claim history already give; this also agrees with the Part 2 emerging-fold result for the lines-held count (D64).
+
+## 87. Final-day ensemble: rule written before measuring (2026-10-30 EDT, 10:40)
+
+Requested by the project lead with 13 hours left: average as many validated members as possible and submit it. Ensembling is variance reduction (members are averaged with equal weights inside each group, group weights unchanged from t7: tree half GBM, nets 50%, direct Tweedie GBM 25% of the total), not a tuned choice. Earlier evidence says the gain is small: 3-seed refits -0.0002..-0.0004 (RESULTS 64), third net +0.0008 / +0.0007 local and -0.00016 public (RESULTS 81, 83). So: the ensemble is built and submitted as a candidate for the record; it replaces t7 as the final only if its local score is not lower than t7 in either direction by more than 0.0005 and its public score is not lower than t7's by more than 0.0005 (D20, noise level about 0.001). Otherwise t7 stays. Members: E1 = existing fits (GBM hist1 + hist1s3; nets TabM, TabM 3 seeds, TabM-PLE, TabM-quantile; Tweedie l4, l8, l4 3 seeds, l8 3 seeds). E2 adds TabM-PLE 3 seeds, TabM-quantile 3 seeds and a GBM with 8 leaves (`scripts/queue_p2_ensemble.sh`, started 10:37 EDT).
+
+**E1 result and submission (2026-10-30 10:50 EDT).** E1 locally 0.1402 forward / 0.1273 reverse (t7 0.1397 / 0.1271: +0.0005 / +0.0002; rule: not lower). File `submissions/p2_t9_ensemble_e1.csv` (sha256 a851c2e2932ff691...): against t7 the mean prediction is x0.989 (motor x0.987, buildings x0.993, contents x1.015), Spearman 0.9997, per-row ratio between 0.85 and 1.27. Submitted as p2_t9 at the project lead's request (public score to be added below). Scripts `p2_calib2.py` and `p2_make_submission.py` now take a comma list in `--gbm-name` (equal weights); t7 rebuilt with the changed scripts gives the same local scores.
+
+**t9 public score 0.16460** (t7 0.16474, -0.00014: noise). Both conditions of the rule hold (local not lower in either direction; public not lower by more than 0.0005), so E1 qualifies to replace t7 as the final candidate; the two are indistinguishable on the public set and E1 has the variance-reduction argument. 10:45 EDT. Submissions on the 2026-10-30 UTC day: t9 (1 of 10).
+
+**E2 (t10), 2026-10-30 13:45 EDT.** Added TabM-PLE 3 seeds, TabM-quantile 3 seeds and a GBM with 8 leaves (`scripts/queue_p2_ensemble.sh`, about 5 hours of compute, log `docs/experiments/raw/p2/p2_dev_ens.log`). Intermediate: E1 + PLE 3 seeds 0.1403 / 0.1272; GBM 8 leaves alone in the t7 recipe 0.1403 / 0.1261, averaged with the 4-leaf GBM 0.1400 / 0.1267. **E2 = GBM {hist1, hist1 3-seed, hist1 8 leaves} (equal weights, 50% of the base) + nets {TabM, TabM 3-seed, TabM-PLE, TabM-PLE 3-seed, TabM-quantile, TabM-quantile 3-seed} (equal weights, 50%) + direct Tweedie {l4, l8, l4 3-seed, l8 3-seed} (25% of the total), robust level, buildings k_freq 400, gender**: local **0.1408 forward / 0.1272 reverse** (t7 0.1397 / 0.1271; +0.0011 / +0.0001). `submissions/p2_t10_ensemble_e2.csv`, sha256 89b3f660f2343056..., rebuild command in HANDOFF. Against t7: mean x0.981 (motor x0.978, buildings x0.985, contents x1.008), Spearman 0.9996; against t9 mean x0.992, Spearman 0.9999. Submitted as p2_t10: **public 0.16462** (t9 0.16460, t7 0.16474, t8b 0.16458). Public differences among t7, t8b, t9, t10 are 0.00016 or less: indistinguishable. Submissions on the 2026-10-30 UTC day: t9, t10 (2 of 10).
+
+## 88. Ensemble E3: more members, rule written before measuring (2026-10-30 14:25 EDT)
+
+Requested by the project lead ("continue to work on the ensemble"). New members, all with hist1 inputs, trained on the developed market, tags B, C, A: XGBoost depth 3 (`--model xgb`, the Part 1 second tree library, D54), a GBM with 4 leaves and feature_fraction 0.7 (`--feature-fraction`, variant `hist1ff`), and a wide TabM net (hidden 384,192, dropout 0.2; `nn_tabm_w`, Part 1 `fs_nn_tabm4_wide`). Each is first scored alone in the t7 recipe; E3 = E2 plus the new members, equal weights inside the tree and net groups (group weights unchanged). E3 replaces t10 as the final only if its local score is not lower than t10 in either direction by more than 0.0005 and its public score is not lower than t10 by more than 0.0005. Expectation from E1 / E2: local gain of 0.0005 or less, public gain not visible; the point is variance reduction. Queue: `scripts/queue_p2_ensemble3.sh`.
+
+**E3 result (2026-10-30 15:50 EDT).** Alone in the t7 recipe (forward / reverse; t7 0.1397 / 0.1271): XGBoost depth 3 0.1398 / 0.1247, GBM feature_fraction 0.7 0.1395 / 0.1265, wide TabM 0.1386 / 0.1274. Added to E2 (0.1408 / 0.1272): + XGBoost 0.1408 / 0.1268, + feature_fraction GBM 0.1407 / 0.1271, + both 0.1408 / 0.1268, E3 (everything: 5 tree bases, 7 nets, 4 Tweedie fits) **0.1405 / 0.1268** (-0.0003 / -0.0004 vs E2, inside the 0.0005 rule). The ensemble is saturated: every added member moves the score by 0.0004 or less in either direction. `submissions/p2_t11_ensemble_e3.csv` (sha256 5013e6c952154dd8...) vs t10: mean x1.000, Spearman 0.99995. Submitted as p2_t11 at the project lead's request: **public 0.16458** (t10 0.16462, t9 0.16460, t7 0.16474). The four files are within 0.00016 of each other. t10 stays the final candidate (D83): E3 is not better locally and not better publicly, and has more members to explain. Submissions on the 2026-10-30 UTC day: t9, t10, t11 (3 of 10); 12 Part 2 submissions in total.
+
+## 89. Ensemble members with a different input view: no gain (2026-10-30 16:10 EDT)
+
+Existing fits with full tags A, B, C and a different input view added to E3 (forward / reverse; E3 0.1405 / 0.1268): GBM without history inputs and GBM without premium variables 0.1404 / 0.1268; TabM and TabM-PLE without history inputs 0.1403 / 0.1268; all four 0.1402 / 0.1267. Each addition changes the score by -0.0003 or less. The ensemble is saturated (RESULTS 88). Composition counts: t10 has 13 members (3 tree bases, 6 nets, 4 Tweedie fits; 25 fitted model sets per line counting the 3-seed members three times); t11 has 16 members (5 tree bases, 7 nets, 4 Tweedie fits; 28 fitted model sets per line). Each TabM is a BatchEnsemble of 4 sub-members inside one net. No new submission.

@@ -4,7 +4,7 @@ Target definition (from the competition Description/Submissions pages):
   ultimate cost of all claims with a loss date in the row's period,
   net of policy excess and net of recoveries, excluding declined claims.
 
-Decisions, each verified against the data (see docs/DATA_QUALITY.md):
+Decisions, each verified against the data (see docs/data/DATA_QUALITY.md):
   * `paid_to_date` is already net of excess, so net cost = incurred_to_date - recoveries.
   * Recoveries only appear on closed motor own_damage/theft claims (about 80% of incurred).
   * Repudiated claims carry zero amounts and are excluded.
@@ -35,9 +35,24 @@ def exposure_mismatch(df: pd.DataFrame, tol: float = 0.002) -> pd.Series:
     return (df["exposure"] - recompute_exposure(df)).abs() > tol
 
 
+def open_recovery_rates(claims: pd.DataFrame) -> pd.Series:
+    """Expected recoveries as a share of incurred, per (line, peril), from the closed claims of `claims`.
+
+    Recoveries are booked only when a claim closes, but whether a claim recovers is fixed at the outset: the share of closed
+    own_damage claims with a recovery is 30% in every accident year (also in 2024, when most claims closed fast), always 80% of
+    incurred (theft: 13%, 30%). An open claim therefore carries the same expected recovery, not yet booked."""
+    closed = claims[claims["status"] == "closed"]
+    return (closed["recoveries"].groupby([closed["line"], closed["peril"]]).sum() / closed["incurred_to_date"].groupby([closed["line"], closed["peril"]]).sum())
+
+
 def claim_net_cost(claims: pd.DataFrame) -> pd.Series:
-    """Net cost of each claim as valued: incurred - recoveries, zero if repudiated, floored at 0."""
+    """Net cost of each claim: incurred - recoveries, zero if repudiated, floored at 0.
+
+    Open claims have no booked recoveries yet; they get the expected recovery of their (line, peril) (open_recovery_rates)."""
     net = (claims["incurred_to_date"] - claims["recoveries"]).clip(lower=0.0)
+    rate = pd.MultiIndex.from_frame(claims[["line", "peril"]]).map(open_recovery_rates(claims).to_dict().get)
+    rate = pd.Series(rate, index=claims.index).fillna(0.0).astype(float)
+    net = net.where(claims["status"] != "open", net * (1.0 - rate))
     return net.where(claims["status"] != "repudiated", 0.0)
 
 

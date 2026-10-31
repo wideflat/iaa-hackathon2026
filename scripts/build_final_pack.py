@@ -1,6 +1,6 @@
 """Build the files for the final submission form into artifacts/final_submission/ (and small copies of the text files into docs/final/).
 
-  python scripts/build_final_pack.py [--team-name NAME] [--members "A, B"] [--w2-private "text"] [--w2-file submissions/p2_t10_ensemble_e2.csv]
+  python scripts/build_final_pack.py [--team-name NAME] [--members "A, B"] [--w2-private "text"] [--w2-file submissions/p2_t11_ensemble_e3.csv]
 
 * week1_prediction.csv / week2_prediction.csv: copies of the chosen prediction files (checked against the sample submissions; sha256 printed)
 * writeup.docx / writeup.pdf: docs/part2/REPORT.md with the team line filled in (pandoc, then LibreOffice for the PDF)
@@ -84,11 +84,11 @@ def slide_base(prs, title, notes):
 
 def build_deck(path: Path, team: str, w2_private: str) -> None:
     prs = Presentation(); prs.slide_width, prs.slide_height = Inches(13.333), Inches(7.5)
-    s = slide_base(prs, "One engine, two markets: pricing with an AI-assisted workflow", f"Result. Week 1: private rank 3 of 54, D2 0.13864. Week 2: the same engine, adapted to a market with two years of data. {w2_private}")
+    s = slide_base(prs, "One engine, two markets: pricing with an AI-assisted workflow", f"Result. Week 1: private rank 3 of 54, D2 0.13864. Week 2: the same engine, adapted to a market with two years of data; public 0.16458 for the final ensemble. Private: {w2_private}.")
     text_box(s, 0.6, 1.3, 12, 0.6, f"Team: {team}", 20, True, TEAL)
     card(s, 0.6, 2.2, 3.9, 2.0, "Rank 3 of 54", "Week 1 private leaderboard, pooled Tweedie D2 0.13864")
-    card(s, 4.7, 2.2, 3.9, 2.0, "0.16462", "Week 2 public score of the final ensemble (first file 0.16077)")
-    card(s, 8.8, 2.2, 3.9, 2.0, w2_private, "Week 2 private result", fill=RGBColor(0xFF, 0xF4, 0xD6))
+    card(s, 4.7, 2.2, 3.9, 2.0, "0.16458", "Week 2 public score of the final ensemble (first file 0.16077)")
+    card(s, 8.8, 2.2, 3.9, 2.0, w2_private, "Week 2 private leaderboard", fill=RGBColor(0xFF, 0xF4, 0xD6))
     text_box(s, 0.6, 4.6, 12, 2.2, ["Week 1: developed market, 2.4 million policy rows.", "Week 2: emerging market, two years of data, 76% new business in the test book.", "The emerging data decides how much; the developed data decides who."], 20)
 
     s = slide_base(prs, "What changed in the new market", "Three numbers: motor frequency +34% and cost -42%; 76% of the test book is new business; no history before 2023. The new market is the old market times stable peril multipliers: we measured that, we did not assume it.")
@@ -99,7 +99,7 @@ def build_deck(path: Path, team: str, w2_private: str) -> None:
     text_box(s, 0.6, 6.0, 12, 1, "Ratios are stable between the two emerging years, except for the rare buildings perils (fire 2.3x then 0.8x).", 16)
 
     s = slide_base(prs, "Method", "Developed model on shared variables, add last-year claim history, blend three tree models, a direct Tweedie GBM and six nets, take the level from the emerging book with counts and winsorised severity per peril, credibility-weighted, no closing to the training total, then a gender factor. The emerging data decides how much, the developed data decides who.")
-    steps = [("Developed model", "2021-24, 2.4M rows, variables both markets record"), ("+ claim history", "last year's claims of the policy, address and customer"), ("Ensemble", "3 tree models, 6 nets, 4 Tweedie GBMs, equal weights in groups"), ("Level from emerging book", "claim counts x winsorised severity per peril, credibility-weighted"), ("Gender factor", "one flat factor per line, credibility 300 claims")]
+    steps = [("Developed model", "2021-24, 2.4M rows, variables both markets record"), ("+ claim history", "last year's claims of the policy, address and customer"), ("Ensemble", "5 tree models, 7 nets, 4 Tweedie GBMs, equal weights in groups"), ("Level from emerging book", "claim counts x winsorised severity per peril, credibility-weighted"), ("Gender factor", "one flat factor per line, credibility 300 claims")]
     for i, (a, b) in enumerate(steps):
         x = 0.4 + i * 2.55
         box = s.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(x), Inches(1.8), Inches(2.3), Inches(2.6))
@@ -108,10 +108,10 @@ def build_deck(path: Path, team: str, w2_private: str) -> None:
         text_box(s, x + 0.08, 2.8, 2.15, 1.6, b, 14, False, GREY, PP_ALIGN.CENTER)
         if i < 4:
             ar = s.shapes.add_shape(MSO_SHAPE.RIGHT_ARROW, Inches(x + 2.32), Inches(2.9), Inches(0.2), Inches(0.4)); ar.fill.solid(); ar.fill.fore_color.rgb = TEAL; ar.line.fill.background()
-    text_box(s, 0.6, 4.9, 12, 2, ["No emerging-only model: it scores 0.1110 against 0.1408 for the transfer.", "Frequency x severity per peril, trended and completeness-adjusted; the direct Tweedie GBM adds ranking, not level.", "Level from claim counts, not from a few large claims: closing to the training total copied large-loss noise."], 17)
+    text_box(s, 0.6, 4.9, 12, 2, ["No emerging-only model: it scores 0.1110 against 0.1405 for the transfer.", "Frequency x severity per peril, trended and completeness-adjusted; the direct Tweedie GBM adds ranking, not level.", "Level from claim counts, not from a few large claims: closing to the training total copied large-loss noise."], 17)
 
     s = slide_base(prs, "How we trust it", "Both-direction validation, forward and reverse, because with two years a single split mistakes noise for signal. More than thirty ideas were rejected because they helped in one direction only. A simulation of the level method with a known truth and a ceiling analysis bound what more tuning could give. Part 1 shake-up: public and private agree overall (0.997) but not inside the top group (0.20): we select by local validation.")
-    table(s, 0.6, 1.3, 7.4, [["Step", "Forward", "Reverse"], ["Emerging-only GBM", "0.1110", ""], ["Developed model + closure + gender", "0.1256", "0.1162"], ["+ robust level (no closure)", "0.1281", "0.1176"], ["+ nets", "0.1289", "0.1220"], ["+ claim history", "0.1313", "0.1229"], ["+ Tweedie part", "0.1336", "0.1237"], ["+ buildings credibility 400", "0.1397", "0.1271"], ["+ ensemble (final)", "0.1408", "0.1272"]], [4.2, 1.6, 1.6], 14)
+    table(s, 0.6, 1.3, 7.4, [["Step", "Forward", "Reverse"], ["Emerging-only GBM", "0.1110", ""], ["Developed model + closure + gender", "0.1256", "0.1162"], ["+ robust level (no closure)", "0.1281", "0.1176"], ["+ nets", "0.1289", "0.1220"], ["+ claim history", "0.1313", "0.1229"], ["+ Tweedie part", "0.1336", "0.1237"], ["+ buildings credibility 400", "0.1397", "0.1271"], ["+ ensemble (final)", "0.1405", "0.1268"]], [4.2, 1.6, 1.6], 14)
     text_box(s, 8.4, 1.3, 4.5, 5.5, ["Forward: calibrate 2023, score 2024. Reverse: calibrate 2024, score 2023.", "Adopt only if neither direction is worse.", "Simulation, known truth: robust level beats the line closure in every scenario.", "Ceiling: a perfect level adds at most 0.005 D2.", "Residual search: no feature structure left after the gender factor (973 levels)."], 16)
 
     s = slide_base(prs, "AI in the workflow", "Claude Code did EDA, code with tests (125), experiments; helper sessions ran refits in parallel; a blind second agent compared the markets from raw tables and found two things we missed. Every number traces to a command.")
@@ -128,7 +128,7 @@ def main() -> None:
     ap.add_argument("--members", default="[TEAM MEMBERS' NAMES]")
     ap.add_argument("--w2-private", default="[add private result]")
     ap.add_argument("--w1-file", default="submissions/blend_v10_perline.csv")
-    ap.add_argument("--w2-file", default="submissions/p2_t10_ensemble_e2.csv")
+    ap.add_argument("--w2-file", default="submissions/p2_t11_ensemble_e3.csv")
     a = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True); DOCS.mkdir(parents=True, exist_ok=True)
     from iaa import data

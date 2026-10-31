@@ -1,127 +1,131 @@
 1
-00:00:00,600 --> 00:00:04,722
-Most of this model was built on a bus.
+00:00:00,600 --> 00:00:05,999
+I'm Kohei, and this is one pricing engine applied to two markets.
 
 2
-00:00:04,880 --> 00:00:08,577
-No laptop. Just my phone, and my voice.
-
-3
-00:00:08,734 --> 00:00:17,963
-I spoke, Claude Code transcribed it, ran the experiments in the cloud, and sent back results I could read between stops.
-
-4
-00:00:18,120 --> 00:00:23,945
-This is what AI-assisted actuarial work looks like when it leaves the desk.
-
-5
-00:00:25,002 --> 00:00:26,997
-Two weeks, two markets.
-
-6
-00:00:27,154 --> 00:00:34,255
+00:00:06,156 --> 00:00:13,257
 Week one: a developed market with two point four million policy rows. Rank three of fifty-four.
 
-7
-00:00:34,413 --> 00:00:43,641
-Week two: a new emerging market, only two years of data, and a test book that is seventy-six percent new business.
+3
+00:00:13,415 --> 00:00:23,920
+Week two: an emerging market with only two years of data, and a test book that is seventy-six percent new business. We finished second.
 
-8
-00:00:43,799 --> 00:00:45,368
-We finished second.
+4
+00:00:24,078 --> 00:00:32,881
+The approach: keep what transfers from the developed market, re-measure what does not, and test every step in both directions.
 
-9
-00:00:46,426 --> 00:00:49,697
+5
+00:00:33,038 --> 00:00:43,544
+And AI works alongside me through all of it: exploring the data, writing and testing the code, running experiments, and checking its own work.
+
+6
+00:00:44,601 --> 00:00:47,872
 So what changed in the new market?
 
-10
-00:00:49,854 --> 00:00:54,828
+7
+00:00:48,030 --> 00:00:53,003
 Motor claims are thirty-four percent more frequent, but forty-two percent cheaper.
 
-11
-00:00:54,985 --> 00:01:01,661
+8
+00:00:53,161 --> 00:00:59,836
 Glass, third-party and injury claims are far more frequent. Escape of water is far less.
 
-12
-00:01:01,818 --> 00:01:07,642
+9
+00:00:59,994 --> 00:01:05,818
 And three out of four test policies are brand-new customers with no history.
 
-13
-00:01:07,800 --> 00:01:14,050
+10
+00:01:05,976 --> 00:01:12,225
 We measured that these differences are stable across both years, instead of assuming it.
 
-14
-00:01:15,107 --> 00:01:19,655
+11
+00:01:13,283 --> 00:01:17,831
 The method keeps what transfers, and re-measures what does not.
 
-15
-00:01:19,813 --> 00:01:28,616
+12
+00:01:17,988 --> 00:01:26,791
 A developed-market model, trained on the variables both markets share, ranks who is risky. I add last year's claim history.
 
-16
-00:01:28,773 --> 00:01:36,300
+13
+00:01:26,949 --> 00:01:34,475
 An ensemble of five tree models, seven neural nets and four Tweedie models averages out the noise.
 
-17
-00:01:36,457 --> 00:01:45,261
+14
+00:01:34,633 --> 00:01:43,436
 Then the emerging book sets the level: claim counts and winsorised severities for each peril, credibility-weighted, plus one gender factor.
 
-18
-00:01:45,418 --> 00:01:50,391
+15
+00:01:43,594 --> 00:01:48,567
 The emerging data decides how much. The developed data decides who.
 
-19
-00:01:51,449 --> 00:01:57,273
+16
+00:01:49,624 --> 00:01:55,449
 With two years of data, a single split can mistake noise for signal.
 
-20
-00:01:57,431 --> 00:02:08,787
+17
+00:01:55,606 --> 00:02:06,963
 So every change is tested in both directions: calibrate on 2023 and score 2024, then the reverse. We keep it only if neither direction gets worse.
 
-21
-00:02:08,945 --> 00:02:17,748
+18
+00:02:07,120 --> 00:02:15,923
 That took the score from point one one one oh, for an emerging-only model, to point one four oh five.
 
-22
-00:02:17,905 --> 00:02:26,283
+19
+00:02:16,081 --> 00:02:24,458
 More than thirty ideas were rejected this way, including pooled training, a GLM blend and clipping of high predictions.
 
-23
-00:02:26,440 --> 00:02:38,222
+20
+00:02:24,616 --> 00:02:36,398
 A simulation with a known truth confirmed the level method, and a ceiling analysis showed that a perfect level is worth at most half of one hundredth.
 
-24
-00:02:39,280 --> 00:02:42,125
-AI was part of every step.
+21
+00:02:37,455 --> 00:02:40,727
+Here is how that looked in practice.
 
-25
-00:02:42,283 --> 00:02:54,490
+22
+00:02:40,884 --> 00:02:53,091
 Claude Code explored both markets, wrote the code with one hundred and twenty-five tests, and ran the experiments, while more than ten helper sessions refit models in parallel.
 
-26
-00:02:54,648 --> 00:03:00,047
+23
+00:02:53,249 --> 00:02:58,648
 A blind second agent compared the markets from the raw tables alone.
 
-27
-00:03:00,204 --> 00:03:12,837
+24
+00:02:58,805 --> 00:03:11,438
 And verification caught real errors: unsupported statements in a first draft, a simulator bug that looked like a model bias, and a net that Part one had already rejected.
 
-28
-00:03:12,995 --> 00:03:15,840
+25
+00:03:11,596 --> 00:03:14,441
 Every number traces to a command.
 
+26
+00:03:15,499 --> 00:03:20,047
+One example of how this changes the way I work.
+
+27
+00:03:20,204 --> 00:03:26,880
+Part of week two was modelled from my phone, on a bus, with no laptop.
+
+28
+00:03:27,037 --> 00:03:37,117
+I spoke my instructions, Claude Code transcribed them, ran the experiments in the cloud, and sent back results I could read between stops.
+
 29
-00:03:16,898 --> 00:03:22,722
-Guardrails: a leak alarm, reproducibility checks, a model card, and eighty-four recorded decisions.
+00:03:37,274 --> 00:03:41,397
+That is AI-assisted actuarial work, away from the desk.
 
 30
-00:03:22,880 --> 00:03:31,257
-The biggest uncertainty is the buildings level. Plus or minus twenty percent is about one hundredth of a point.
+00:03:42,454 --> 00:03:48,279
+Guardrails: a leak alarm, reproducibility checks, a model card, and eighty-four recorded decisions.
 
 31
-00:03:31,415 --> 00:03:35,112
-And gender rating is flagged for regulatory review.
+00:03:48,436 --> 00:03:56,814
+The biggest uncertainty is the buildings level. Plus or minus twenty percent is about one hundredth of a point.
 
 32
-00:03:35,269 --> 00:03:40,243
+00:03:56,971 --> 00:04:00,668
+And gender rating is flagged for regulatory review.
+
+33
+00:04:00,826 --> 00:04:05,799
 Built with an AI teammate, from a bus seat. Thank you.

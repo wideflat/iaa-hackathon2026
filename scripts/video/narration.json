@@ -1,0 +1,98 @@
+{
+ "scenes": [
+  {
+   "id": "approach",
+   "chapter": "01 · The approach",
+   "sents": [
+    "I'm Kohei, and this is one pricing engine applied to two markets.",
+    "Week 1: a developed market with 2.4 million policy rows. Rank 3 of 54.",
+    "Week 2: an emerging market with only 2 years of data, and a test book that is 76% new business. Our final file scored 0.1646 on the public leaderboard.",
+    "The approach: keep what transfers from the developed market, re-measure what does not, and test every step in both directions.",
+    "And AI works alongside me throughout: I used Claude Code, steered from my phone by voice, to explore the data, write and test code, run experiments, and verify its own work."
+   ],
+   "oneliner": "One engine, two markets: keep what transfers, re-measure the rest, test both ways."
+  },
+  {
+   "id": "changed",
+   "chapter": "02 · What changed",
+   "sents": [
+    "So what changed in the new market?",
+    "Motor claims are 34% more frequent, but 42% cheaper.",
+    "Glass, third-party and injury claims are far more frequent. Escape of water is far less.",
+    "And 3 out of 4 test policies are brand-new customers with no history.",
+    "We measured that these differences are stable across both years, instead of assuming it."
+   ],
+   "oneliner": "The new market differs by peril and by customer mix, not by one level factor."
+  },
+  {
+   "id": "method",
+   "chapter": "03 · The method",
+   "sents": [
+    "The method keeps what transfers, and re-measures what does not.",
+    "A developed-market model, trained on the variables both markets share, ranks who is risky. I add last year's claim history.",
+    "An ensemble of 5 tree models, 7 neural nets and 4 Tweedie models averages out the noise.",
+    "Then the emerging book sets the level: claim counts and winsorised severities for each peril, credibility-weighted, plus one gender factor.",
+    "The emerging data decides how much. The developed data decides who."
+   ],
+   "oneliner": "The developed market decides who is risky; the emerging book decides how much."
+  },
+  {
+   "id": "ensemble",
+   "chapter": "04 · The final ensemble",
+   "oneliner": "Final submission: 16 models in three groups, averaged, then calibrated to the emerging book.",
+   "sents": [
+    "Here is the structure of the final submission.",
+    "5 tree models: LightGBM with 4 and 8 leaves, single and 3-seed fits, a column-sampled variant, and an XGBoost model.",
+    "7 neural nets: TabM, TabM with piecewise-linear encoding, and TabM with quantile inputs, each as a single and a 3-seed fit, plus one wider TabM.",
+    "4 direct Tweedie models complete it, at 4 and 8 leaves, single and 3-seed.",
+    "Each group is averaged with equal weights: trees and nets 37.5% each, Tweedie 25%. Then the emerging level and the gender factor are applied."
+   ]
+  },
+  {
+   "id": "trust",
+   "chapter": "05 · How we trust it",
+   "sents": [
+    "With 2 years of data, a single split can mistake noise for signal.",
+    "So every change is tested in both directions, calibrating on 2023 and scoring 2024 and the reverse, and kept only if neither gets worse.",
+    "That took the score from 0.1110, for an emerging-only model, to 0.1405.",
+    "More than 30 ideas were rejected this way, including pooled training and a GLM blend.",
+    "A simulation with a known truth confirmed the level method, and a ceiling analysis showed that a perfect level is worth at most 0.005."
+   ],
+   "oneliner": "Every change is kept only if it improves the score in both time directions."
+  },
+  {
+   "id": "ai",
+   "chapter": "06 · AI in the workflow",
+   "sents": [
+    "Here is how that looked in practice.",
+    "Claude Code explored both markets, wrote the code with 125 tests, and ran the experiments, while more than 10 helper sessions refit models in parallel.",
+    "A blind second agent compared the markets from the raw tables alone.",
+    "And verification caught real errors: unsupported statements in a first draft, a simulator bug that looked like a model bias, and a net that Part 1 had already rejected.",
+    "Every number traces to a command."
+   ],
+   "oneliner": "AI does the legwork; verification and decisions stay with me, and are recorded."
+  },
+  {
+   "id": "bus",
+   "chapter": "07 · A new way to work",
+   "sents": [
+    "One example of how this changes the way I work.",
+    "Part of Week 2 was done from my phone, on a bus, with no laptop. Claude Code ran in the cloud, and I controlled it remotely from the Claude app.",
+    "I gave my instructions by voice. The app transcribes my speech, Claude Code picks it up, runs the work, and reports back while I am on the move.",
+    "That is AI-assisted actuarial work, away from the desk."
+   ],
+   "oneliner": "Example: Claude Code, remote-controlled from my phone by voice, on a bus."
+  },
+  {
+   "id": "guard",
+   "chapter": "08 · Guardrails and uncertainty",
+   "sents": [
+    "Guardrails: a leak alarm, reproducibility checks, a model card, and 84 recorded decisions.",
+    "The biggest uncertainty is the buildings level. Plus or minus 20% is about 0.01 of D².",
+    "And gender rating is flagged for regulatory review.",
+    "Built with an AI teammate, from a bus seat. Thank you."
+   ],
+   "oneliner": "Guardrails and stated limits: what could go wrong, and how we would notice."
+  }
+ ]
+}

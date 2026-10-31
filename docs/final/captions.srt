@@ -1,0 +1,151 @@
+1
+00:00:00,600 --> 00:00:05,598
+I'm Kohei, and this is one pricing engine applied to two markets.
+
+2
+00:00:05,756 --> 00:00:11,539
+Week 1: a developed market with 2.4 million policy rows. Rank 3 of 54.
+
+3
+00:00:11,696 --> 00:00:23,361
+Week 2: an emerging market with only 2 years of data, and a test book that is 76% new business. Our final file scored 0.1646 on the public leaderboard.
+
+4
+00:00:23,519 --> 00:00:31,654
+The approach: keep what transfers from the developed market, re-measure what does not, and test every step in both directions.
+
+5
+00:00:31,812 --> 00:00:44,261
+And AI works alongside me throughout: I used Claude Code, steered from my phone by voice, to explore the data, write and test code, run experiments, and verify its own work.
+
+6
+00:00:45,319 --> 00:00:48,356
+So what changed in the new market?
+
+7
+00:00:48,514 --> 00:00:52,336
+Motor claims are 34% more frequent, but 42% cheaper.
+
+8
+00:00:52,493 --> 00:00:58,668
+Glass, third-party and injury claims are far more frequent. Escape of water is far less.
+
+9
+00:00:58,825 --> 00:01:04,216
+And 3 out of 4 test policies are brand-new customers with no history.
+
+10
+00:01:04,374 --> 00:01:10,156
+We measured that these differences are stable across both years, instead of assuming it.
+
+11
+00:01:11,214 --> 00:01:15,428
+The method keeps what transfers, and re-measures what does not.
+
+12
+00:01:15,585 --> 00:01:23,721
+A developed-market model, trained on the variables both markets share, ranks who is risky. I add last year's claim history.
+
+13
+00:01:23,878 --> 00:01:30,838
+An ensemble of 5 tree models, 7 neural nets and 4 Tweedie models averages out the noise.
+
+14
+00:01:30,995 --> 00:01:39,131
+Then the emerging book sets the level: claim counts and winsorised severities for each peril, credibility-weighted, plus one gender factor.
+
+15
+00:01:39,288 --> 00:01:43,894
+The emerging data decides how much. The developed data decides who.
+
+16
+00:01:44,952 --> 00:01:48,382
+Here is the structure of the final submission.
+
+17
+00:01:48,539 --> 00:01:56,675
+5 tree models: LightGBM with 4 and 8 leaves, single and 3-seed fits, a column-sampled variant, and an XGBoost model.
+
+18
+00:01:56,832 --> 00:02:06,929
+7 neural nets: TabM, TabM with piecewise-linear encoding, and TabM with quantile inputs, each as a single and a 3-seed fit, plus one wider TabM.
+
+19
+00:02:07,086 --> 00:02:12,869
+4 direct Tweedie models complete it, at 4 and 8 leaves, single and 3-seed.
+
+20
+00:02:13,026 --> 00:02:22,731
+Each group is averaged with equal weights: trees and nets 37.5% each, Tweedie 25%. Then the emerging level and the gender factor are applied.
+
+21
+00:02:23,788 --> 00:02:29,179
+With 2 years of data, a single split can mistake noise for signal.
+
+22
+00:02:29,336 --> 00:02:39,041
+So every change is tested in both directions, calibrating on 2023 and scoring 2024 and the reverse, and kept only if neither gets worse.
+
+23
+00:02:39,198 --> 00:02:44,196
+That took the score from 0.1110, for an emerging-only model, to 0.1405.
+
+24
+00:02:44,354 --> 00:02:50,529
+More than 30 ideas were rejected this way, including pooled training and a GLM blend.
+
+25
+00:02:50,686 --> 00:03:00,391
+A simulation with a known truth confirmed the level method, and a ceiling analysis showed that a perfect level is worth at most 0.005.
+
+26
+00:03:01,448 --> 00:03:04,486
+Here is how that looked in practice.
+
+27
+00:03:04,643 --> 00:03:14,740
+Claude Code explored both markets, wrote the code with 125 tests, and ran the experiments, while more than 10 helper sessions refit models in parallel.
+
+28
+00:03:14,897 --> 00:03:19,895
+A blind second agent compared the markets from the raw tables alone.
+
+29
+00:03:20,053 --> 00:03:31,718
+And verification caught real errors: unsupported statements in a first draft, a simulator bug that looked like a model bias, and a net that Part 1 had already rejected.
+
+30
+00:03:31,875 --> 00:03:34,521
+Every number traces to a command.
+
+31
+00:03:35,578 --> 00:03:39,793
+One example of how this changes the way I work.
+
+32
+00:03:39,950 --> 00:03:52,007
+Part of Week 2 was done from my phone, on a bus, with no laptop. Claude Code ran in the cloud, and I controlled it remotely from the Claude app.
+
+33
+00:03:52,165 --> 00:04:03,438
+I gave my instructions by voice. The app transcribes my speech, Claude Code picks it up, runs the work, and reports back while I am on the move.
+
+34
+00:04:03,595 --> 00:04:07,417
+That is AI-assisted actuarial work, away from the desk.
+
+35
+00:04:08,475 --> 00:04:13,865
+Guardrails: a leak alarm, reproducibility checks, a model card, and 84 recorded decisions.
+
+36
+00:04:14,023 --> 00:04:20,590
+The biggest uncertainty is the buildings level. Plus or minus 20% is about 0.01 of D².
+
+37
+00:04:20,747 --> 00:04:24,177
+And gender rating is flagged for regulatory review.
+
+38
+00:04:24,334 --> 00:04:28,941
+Built with an AI teammate, from a bus seat. Thank you.

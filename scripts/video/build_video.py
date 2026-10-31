@@ -114,7 +114,7 @@ def main() -> None:
     ap.add_argument("--preview", default="")
     ap.add_argument("--render", action="store_true")
     ap.add_argument("--workers", type=int, default=4)
-    ap.add_argument("--font", default="inter", choices=sorted(FONTS))
+    ap.add_argument("--font", default="inter-display", choices=sorted(FONTS))
     a = ap.parse_args()
     tl = timeline()
     print(f"total {tl['total']:.1f}s ({int(tl['total'] // 60)}:{tl['total'] % 60:04.1f}); scenes:", [(s['id'], round(s['start'], 1)) for s in tl['scenes']])
@@ -135,7 +135,7 @@ def main() -> None:
             pg.evaluate("tl => setTimeline(tl)", tl)
             for t in [float(x) for x in a.preview.split(",")]:
                 pg.evaluate("t => renderAtAsync(t)", t)
-                pg.screenshot(path=str(pv / f"p{t:06.1f}{'_' + a.font if a.font != 'inter' else ''}.png"))
+                pg.screenshot(path=str(pv / f"p{t:06.1f}{'_' + a.font if a.font != 'inter-display' else ''}.png"))
             b.close()
         return
     if a.render:

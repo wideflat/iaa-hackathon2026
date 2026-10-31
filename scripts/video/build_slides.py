@@ -9,7 +9,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 sys.path.insert(0, str(HERE))
-from build_video import H, W, timeline  # noqa: E402
+from build_video import H, W, apply_font, footage, timeline  # noqa: E402
 from PIL import Image  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 from pptx import Presentation  # noqa: E402
@@ -27,6 +27,8 @@ def main() -> None:
         b = p.chromium.launch(executable_path="/opt/pw-browsers/chromium")
         pg = b.new_page(viewport={"width": W, "height": H})
         pg.goto((HERE / "scene.html").as_uri())
+        pg.evaluate("f => setFootage(f)", footage())
+        apply_font(pg, "inter-display")
         pg.evaluate("tl => setTimeline(tl)", tl)
         for s in tl["scenes"]:
             notes = " ".join(e["text"] for e in s["sents"])
@@ -36,7 +38,7 @@ def main() -> None:
             if s["id"] == "guard":
                 times = [(s["sents"][3]["start"] - 0.3, " ".join(e["text"] for e in s["sents"][:3])), (s["end"] - 0.2, s["sents"][3]["text"])]
             for k, (t, n) in enumerate(times):
-                pg.evaluate("t => renderAt(t)", t)
+                pg.evaluate("t => renderAtAsync(t)", t)
                 pg.evaluate("() => {document.getElementById('captxt').style.opacity=0;document.getElementById('clock').textContent='Week 1 → Week 2';}")
                 path = png_dir / f"slide_{s['id']}_{k}.png"
                 pg.screenshot(path=str(path))

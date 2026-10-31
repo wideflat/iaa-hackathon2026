@@ -37,3 +37,7 @@ Hello, our team ([team name], Kaggle) completed both weeks' predictions and the 
 * Everything is generated from code: `python scripts/video/build_video.py --render` (about 3 minutes), `python scripts/video/build_slides.py`; text in `scripts/video/narration.json`, design in `scripts/video/scene.html`, music in `scripts/video/make_music.py`.
 * The phone screens are re-created from the text of your screenshots (session names and messages are real). To use the real screenshots instead, put them into `scripts/video/assets/phone/` (jpg or png, shown in file-name order) and re-run the render.
 * There is no synthetic voice: installing a text-to-speech package was not permitted in this session, so the narration is captions plus the script for your own voice.
+
+## One-liners (added 2026-10-31)
+* Every video scene and slide carries a one-line storyline next to the chapter chip (`oneliner` in `scripts/video/narration.json`); every section of the write-up starts with `*In one line: ...*` (docs/part2/REPORT.md). The write-up is now 7 pages (the first 5 are graded: sections 1 to 5 plus the start of section 6).
+* Real phone footage: the Drive folder holds 9 phone screenshots (no video files), and the sandbox cannot download from Drive. Attach the screenshots (or a screen-recording video) to the chat, or put them into `scripts/video/assets/phone/`, to replace the re-created phone screens.

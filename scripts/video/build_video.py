@@ -32,7 +32,7 @@ def timeline() -> dict:
             dur = len(x.split()) / WPS + GAP
             sents.append({"text": x, "start": round(t, 3), "end": round(t + dur - GAP * 0.35, 3)})
             t += dur
-        scenes.append({"id": s["id"], "chapter": s["chapter"], "start": round(start, 3), "end": round(t + SCENE_PAD, 3), "sents": sents})
+        scenes.append({"id": s["id"], "chapter": s["chapter"], "oneliner": s["oneliner"], "start": round(start, 3), "end": round(t + SCENE_PAD, 3), "sents": sents})
         t += SCENE_PAD
     scenes[-1]["end"] = round(t - SCENE_PAD + OUTRO, 3)
     return {"scenes": scenes, "total": scenes[-1]["end"]}

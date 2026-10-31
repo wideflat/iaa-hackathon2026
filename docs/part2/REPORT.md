@@ -4,6 +4,8 @@ Team: Kohei Kudo (Kaggle team name); members and reviewers: [to be filled in by 
 
 ## 1. Summary
 
+*In one line: Two markets, one engine: rank 3 in Week 1 and rank 2 in Week 2, by keeping what transfers and re-measuring what does not.*
+
 | | Result |
 |---|---|
 | Week 1 (developed market) | Private leaderboard rank 3 of 54 teams, pooled Tweedie D2 0.13864 (top team 0.13923); selected file `blend_v10_perline.csv`. Public rank 14: the public order inside the top group did not predict the private order (section 6). |
@@ -13,6 +15,8 @@ Team: Kohei Kudo (Kaggle team name); members and reviewers: [to be filled in by 
 **Approach in one paragraph.** The emerging book has two years and about 1,000 claims per property line, too little to learn its own relationships. We therefore keep the developed market's frequency-by-severity model (trained on 2021-24 with 2.4 million policy rows) for the *relationships between rating factors and cost*, restricted to variables both markets record, and re-estimate only the *level* of each peril and one market-specific rating factor (gender) on the emerging data, with credibility weighting. Every change was judged on the two emerging years in both time directions and on paired bootstrap differences; more than twenty plausible ideas were rejected on that evidence (section 4).
 
 ## 2. What changed in the new market
+
+*In one line: The emerging book differs by peril, severity scale and customer mix (76% new business), so one level factor is not enough.*
 
 | Topic | Developed | Emerging | Consequence |
 |---|---|---|---|
@@ -27,6 +31,8 @@ Data quality (all in `docs/part2/DATA_REVIEW.md`): the Part 1 duplicates and pla
 
 ## 3. Method
 
+*In one line: The developed market decides who is risky; the emerging book decides how much, with a gender factor on top.*
+
 1. **Developed model on shared variables** (`src/iaa/market.py`): exact ages are cut into the emerging bands, occupation is normalised to 20 values plus a self-employed flag, region, mileage, telematics and credit band are left out. LightGBM frequency (Poisson, exposure offset) by severity (Gamma on claims capped at the 99.9% quantile, trended to the predicted year, excess load added back) per peril, completeness offset for immature years, repaired data (`src/iaa/cleaning.py`, fail-fast count bands).
 2. **One-year claim history** (`src/iaa/p2_features.py`): the policy's own claims of the previous year, the claims at the address and the customer's claims over all lines. Windows are exactly one year because the emerging book starts in 2023; the first year of each market is *unknown*, not zero. Renewals with a claim last year were 27% above the model (actual / expected 1.195 vs 0.944 in motor); the gain is +0.0023 forward and +0.0021 reverse.
 3. **Base blend** (the Part 1 recipe): 50% frequency-by-severity GBM, 25% direct pure-premium Tweedie GBM (two settings), 25% two neural nets (TabM and TabM-PLE), all with the history inputs.
@@ -34,6 +40,8 @@ Data quality (all in `docs/part2/DATA_REVIEW.md`): the Part 1 duplicates and pla
 5. **Gender** (allowed for pricing in the emerging market by the competition; regulatory status elsewhere must be checked): one credibility-weighted factor per line, motor male / female 1.118 / 0.880. It is stable in both emerging years (motor frequency +29% and +34%); the file without it is one switch away.
 
 ## 4. Validation, and what was rejected
+
+*In one line: Every change is kept only if neither time direction gets worse; more than thirty ideas failed that test.*
 
 **Design.** Fold E is the only design the data allows: calibrate on one emerging year, score the other, in both directions ("forward" 2023 -> 2024, "reverse" 2024 -> 2023), because with two years a single split mistakes noise for signal (buildings moves by a factor of 1.5 between the years). A change is adopted only if neither direction is worse and the combined gain is clearly positive; paired customer-cluster bootstrap on the same rows.
 
@@ -54,6 +62,8 @@ The ensemble averages members with equal weights inside each group (single-seed 
 
 ## 5. Uncertainty
 
+*In one line: The ranking of risks transfers; the level, above all for buildings, is what two years of data cannot pin down.*
+
 | Source | Effect | Treatment |
 |---|---|---|
 | Buildings level (two years: fire 49 vs 21 claims) | +-20% moves the validation score by +0.0069 / -0.0086 (forward) and -0.0112 / +0.0057 (reverse) | stated risk; the level uses both years, buildings peril ratios taken from the developed model |
@@ -63,6 +73,8 @@ The ensemble averages members with equal weights inside each group (single-seed 
 
 ## 6. Effective use of AI, and its verification
 
+*In one line: AI did the legwork across the workflow; tests, a blind second agent and recorded checks caught its errors.*
+
 * **Where AI worked:** reading the competition pages, profiling both markets, writing the harmonisation, transfer and calibration code test-first (125 automated tests), running experiments, drafting documents. 11 helper sessions in separate containers ran the hours-long refits in parallel (nets, GBM variants) and an independent agent compared the two markets from the raw tables without seeing our results.
 * **Verification, with examples of what it caught:** (i) three unsupported statements in the first draft of the data review (an exposure explanation, invented new-business counts, a leak pattern) were replaced by measured values before commit; (ii) the blind review's suggestion that the developed model over-spreads risk was tested and rejected (consistent in one direction only); (iii) a helper correctly refused a stop instruction that was not from the lead, which we then handled by archiving the session; (iv) every number in the documents traces to a command or a log line (`RESULTS.md` sections 45-65).
 * **Two more catches in the last days:** (iv) our first simulation of the level method showed every estimator biased low on buildings; the plain line closure showed the same bias, which led to a defect in the simulator itself (claims drawn from all years, compared with one year), and the wrong conclusion was withdrawn before it reached any decision; (v) a net we built and submitted had already been rejected in Part 1 on the large developed folds, and the public score agreed with the old result; we now screen ranking ideas on the developed folds first and search the record before building (`docs/workflow/AI_USAGE.md`).
@@ -70,9 +82,13 @@ The ensemble averages members with equal weights inside each group (single-seed 
 
 ## 7. Trust, validation, guardrails
 
+*In one line: Automated tests, a leak alarm, reproducibility checks and 84 recorded decisions make every number traceable.*
+
 Automated: 125 tests on every push (CI), fail-fast data bands for the repairs, a leak alarm (pooled D2 above 0.35 stops a run; `customer_service_contacts` excluded in both markets), a reproducibility assertion (the developed model re-run reproduces its first run to 1e-6), submission-format validation, scenario analysis (`scripts/p2_scenarios.py`). Governance: 83 numbered decisions with evidence, a model card (`docs/part2/MODEL_CARD.md`) with monitoring triggers (actual / expected by line and by new-business flag; escalate outside 0.85-1.15), a one-command reproduction (`scripts/reproduce_part2.sh`), human sign-off by the project lead on every submission and decision (reviewer and approver names: to be filled in by the team). Standing rules: no forum posts, no leaderboard probing (D21), fixed validation design.
 
 ## 8. From risk premium to office premium (20 reference policies)
+
+*In one line: How a predicted claim cost becomes an office premium for 20 reference policies, and why the loadings matter.*
 
 Office premium = (risk + 12% x risk for property + 85 x exposure) / (1 - 15% variable - commission 20% broker or 0% direct - 8% tax - 8% margin), `src/iaa/office_premium.py`; full table `docs/part2/office_premium_reference.csv`. Example rows (CU; risk premium from the latest candidate):
 
@@ -86,10 +102,14 @@ Median risk premium of the 20 policies is 0.88 of the written premium and the me
 
 ## 9. Limitations
 
+*In one line: What two emerging years, a 76% new-business test book and a gender factor cannot support.*
+
 Two emerging years; 76% of the test book is new business and has no claim history; the buildings level is uncertain by a factor that the validation cannot narrow; gender rating may not be permissible outside this competition; the construction code MIX and the developed claim-reporting pattern are assumptions that tested neutral; the public leaderboard score (0.16474) is on a different population from our validation and is used only as a level check.
 
 ---
 
 ## Appendix (not graded): where to look
+
+*In one line: Where to find the evidence in the repository.*
 
 `docs/part2/DATA_REVIEW.md` (data), `VARIABLES.md` (every variable by market and how it is treated), `EXPLORATION.md` and `SECOND_OPINION.md` (differences and the blind review), `PART2_STRATEGY.md` (plan), `MODEL_CARD.md`, `EVIDENCE_MAP.md` (rubric to evidence), `docs/experiments/RESULTS.md` (all results), `docs/workflow/DECISIONS.md` and `AI_USAGE.md`.

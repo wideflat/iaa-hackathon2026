@@ -9,7 +9,8 @@
     "Week two: an emerging market with only two years of data, and a test book that is seventy-six percent new business. We finished second.",
     "The approach: keep what transfers from the developed market, re-measure what does not, and test every step in both directions.",
     "And AI works alongside me through all of it: exploring the data, writing and testing the code, running experiments, and checking its own work."
-   ]
+   ],
+   "oneliner": "One engine, two markets: keep what transfers, re-measure the rest, test both ways."
   },
   {
    "id": "changed",
@@ -20,7 +21,8 @@
     "Glass, third-party and injury claims are far more frequent. Escape of water is far less.",
     "And three out of four test policies are brand-new customers with no history.",
     "We measured that these differences are stable across both years, instead of assuming it."
-   ]
+   ],
+   "oneliner": "The new market differs by peril and by customer mix, not by one level factor."
   },
   {
    "id": "method",
@@ -31,7 +33,8 @@
     "An ensemble of five tree models, seven neural nets and four Tweedie models averages out the noise.",
     "Then the emerging book sets the level: claim counts and winsorised severities for each peril, credibility-weighted, plus one gender factor.",
     "The emerging data decides how much. The developed data decides who."
-   ]
+   ],
+   "oneliner": "The developed market decides who is risky; the emerging book decides how much."
   },
   {
    "id": "trust",
@@ -42,7 +45,8 @@
     "That took the score from point one one one oh, for an emerging-only model, to point one four oh five.",
     "More than thirty ideas were rejected this way, including pooled training, a GLM blend and clipping of high predictions.",
     "A simulation with a known truth confirmed the level method, and a ceiling analysis showed that a perfect level is worth at most half of one hundredth."
-   ]
+   ],
+   "oneliner": "Every change is kept only if it improves the score in both time directions."
   },
   {
    "id": "ai",
@@ -53,7 +57,8 @@
     "A blind second agent compared the markets from the raw tables alone.",
     "And verification caught real errors: unsupported statements in a first draft, a simulator bug that looked like a model bias, and a net that Part one had already rejected.",
     "Every number traces to a command."
-   ]
+   ],
+   "oneliner": "AI does the legwork; verification and decisions stay with me, and are recorded."
   },
   {
    "id": "bus",
@@ -63,7 +68,8 @@
     "Part of week two was modelled from my phone, on a bus, with no laptop.",
     "I spoke my instructions, Claude Code transcribed them, ran the experiments in the cloud, and sent back results I could read between stops.",
     "That is AI-assisted actuarial work, away from the desk."
-   ]
+   ],
+   "oneliner": "Example: part of week 2 was done from my phone, by voice, on a bus."
   },
   {
    "id": "guard",
@@ -73,7 +79,8 @@
     "The biggest uncertainty is the buildings level. Plus or minus twenty percent is about one hundredth of a point.",
     "And gender rating is flagged for regulatory review.",
     "Built with an AI teammate, from a bus seat. Thank you."
-   ]
+   ],
+   "oneliner": "Guardrails and stated limits: what could go wrong, and how we would notice."
   }
  ]
 }

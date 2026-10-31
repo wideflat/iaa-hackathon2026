@@ -3,7 +3,7 @@
   python scripts/video/build_video.py --preview 4,20,45     # PNGs of single timestamps into artifacts/video_preview/
   python scripts/video/build_video.py --render              # all frames -> artifacts/video_frames/, then ffmpeg -> artifacts/final_submission/demo_video*.mp4
 
-Timeline: narration.json gives the scenes and sentences; each sentence lasts words / 2.35 + 0.45 s (a relaxed speaking pace) so a voice-over can be recorded on top.
+Timeline: narration.json gives the scenes and sentences; each sentence lasts words / 2.35 + 0.45 s (about 153 words per minute) so a voice-over can be recorded on top.
 Outputs: demo_video.mp4 (music + captions), demo_video_no_music.mp4 (captions only), captions.srt, voiceover_script.md (timecoded), music.wav.
 Needs Playwright with Chromium, ffmpeg, numpy/scipy; no network and no external packages.
 """
@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 FPS = 30
 W, H = 1920, 1080
-WPS, GAP, SCENE_PAD, INTRO, OUTRO = 2.35, 0.45, 0.9, 0.6, 3.4
+WPS, GAP, SCENE_PAD, INTRO, OUTRO = 2.55, 0.45, 0.9, 0.6, 3.0
 
 
 def timeline() -> dict:
@@ -61,6 +61,22 @@ def phone_images() -> list:
     return [p.as_uri() for p in sorted(d.glob("*")) if p.suffix.lower() in (".jpg", ".jpeg", ".png")] if d.exists() else []
 
 
+FOOT_DIR = ROOT / "artifacts" / "video_footage"
+
+
+def footage() -> dict:
+    """The two phone screen recordings (Claude app, remote control, voice): extracted to 15 fps JPEG frames once. Source clips: artifacts/video_footage/clip_a.mp4 (keyboard dictation) and clip_b.mp4 (in-app voice input)."""
+    out = {"fps": 15, "base": FOOT_DIR.as_uri() + "/"}
+    for key, clip in (("a", "clip_a.mp4"), ("b", "clip_b.mp4")):
+        d = FOOT_DIR / key
+        if not any(d.glob("f*.jpg")):
+            d.mkdir(parents=True, exist_ok=True)
+            subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(FOOT_DIR / clip), "-vf", "fps=15,scale=420:-2", "-q:v", "4", str(d / "f%04d.jpg")], check=True)
+        out[key] = key
+        out["n" + key] = len(list(d.glob("f*.jpg")))
+    return out
+
+
 def render_chunk(args):
     frames, tl, outdir = args
     from playwright.sync_api import sync_playwright
@@ -69,9 +85,10 @@ def render_chunk(args):
         pg = b.new_page(viewport={"width": W, "height": H})
         pg.goto((HERE / "scene.html").as_uri())
         pg.evaluate("a => setPhoneImages(a)", phone_images())
+        pg.evaluate("f => setFootage(f)", footage())
         pg.evaluate("tl => setTimeline(tl)", tl)
         for i in frames:
-            pg.evaluate("t => renderAt(t)", i / FPS)
+            pg.evaluate("t => renderAtAsync(t)", i / FPS)
             pg.screenshot(path=str(outdir / f"f{i:06d}.jpg"), type="jpeg", quality=93)
         b.close()
     return len(frames)
@@ -97,9 +114,10 @@ def main() -> None:
             pg = b.new_page(viewport={"width": W, "height": H})
             pg.goto((HERE / "scene.html").as_uri())
             pg.evaluate("a => setPhoneImages(a)", phone_images())
+            pg.evaluate("f => setFootage(f)", footage())
             pg.evaluate("tl => setTimeline(tl)", tl)
             for t in [float(x) for x in a.preview.split(",")]:
-                pg.evaluate("t => renderAt(t)", t)
+                pg.evaluate("t => renderAtAsync(t)", t)
                 pg.screenshot(path=str(pv / f"p{t:06.1f}.png"))
             b.close()
         return

@@ -40,6 +40,13 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#e9edf3;font-fam
 .msg li{margin-left:20px;margin-top:4px}
 .me{position:absolute;right:18px;max-width:300px;background:var(--blue);color:#fff;border-radius:20px 20px 4px 20px;padding:12px 16px;font-size:18px;font-weight:600}
 .compose{position:absolute;left:16px;right:16px;bottom:18px;height:56px;border-radius:28px;background:#f0f2f7;display:flex;align-items:center;padding:0 22px;font-size:17px;color:#8a93a6}
+/* footage phones */
+.ph2{position:absolute;width:350px;height:730px;border-radius:46px;background:#0f1524;box-shadow:0 30px 60px rgba(20,43,77,.32),inset 0 0 0 2px #2a3350;padding:12px}
+.ph2 .screen{position:relative;width:100%;height:100%;border-radius:36px;background:#fff;overflow:hidden}
+.fimg{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover}
+.fpill{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(20,43,77,.88);color:#fff;font-size:15px;font-weight:700;padding:7px 14px;border-radius:99px;white-space:nowrap;z-index:3}
+.callout{position:absolute;left:900px;width:920px;height:100px;background:#fff;border-radius:18px;box-shadow:0 12px 32px rgba(20,43,77,.12);border:1px solid #e4e9f1}
+.chipm{display:inline-block;margin:0 10px 10px 0;padding:9px 16px;border-radius:14px;font-size:20px;font-weight:700;color:var(--navy);background:#fff;border:2px solid var(--line)}
 /* voice pill */
 #voice{position:absolute;display:flex;align-items:center;gap:16px;height:84px;border-radius:42px;background:#fff;box-shadow:0 12px 34px rgba(20,43,77,.2);padding:0 28px 0 18px;border:1px solid #e1e7f0;font-size:27px;font-weight:700;color:var(--navy)}
 #voice .mic{width:52px;height:52px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;font-size:26px}
@@ -53,29 +60,17 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#e9edf3;font-fam
 <div id="chip"><span id="chiptxt">01</span><span class="dots" id="chipdots"></span></div>
 <div id="one"></div>
 
-<!-- SCENE 1 -->
+<!-- SCENE bus (footage) -->
 <div class="scene" id="s_bus">
-  <div class="phone" id="phone" style="left:200px;top:168px;transform-origin:top left">
-    <div class="screen">
-      <div class="notch"></div>
-      <div class="sb"><span>12:31</span><span>●●● 68</span></div>
-      <div class="app-h"><span>Code</span><span style="font-size:20px;color:var(--blue)">+ New</span></div>
-      <div id="ph_list"></div><img id="ph_img" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;opacity:0;z-index:3" alt="">
-      <div id="ph_chat" style="opacity:0">
-        <div class="msg" style="top:150px"><h4>Why claim history looks promising</h4>Among motor renewals, customers who claimed last year run about <b>27% above</b> what our model predicts (actual-to-expected 1.195 against 0.944 for non-claimants).<ul><li>the policy's own claims last year</li><li>claims at the same address</li><li>the customer's claims across all lines</li></ul></div>
-        <div class="msg" style="top:520px"><b>What's running</b><ul><li>Local: GBM with history features</li><li>Helper: Tweedie GBM, 4 and 8 leaves</li></ul></div>
-        <div class="compose">Type / for commands</div>
-      </div>
-    </div>
-  </div>
-  <div id="voice" style="left:796px;top:790px;opacity:0"><div class="mic">🎙️</div><div class="wave" id="wave"></div><div id="vtxt" style="white-space:nowrap">…</div></div>
-  <div class="abs big" id="b_head" style="left:790px;top:230px;font-size:104px;line-height:1.02;width:1000px">Modelled<br>on the move.</div>
-  <div class="abs" id="b_sub" style="left:796px;top:480px;font-size:38px;font-weight:600;color:var(--mute);line-height:1.35;width:900px">Part of week 2, on a bus · phone only · voice only<br><span style="color:var(--blue)">AI-assisted actuarial work, away from the desk.</span></div>
-  <div class="card" id="b_c1" style="left:796px;top:610px;width:260px;height:150px"><div class="abs big" id="b_n1" style="left:26px;top:20px;font-size:62px">0</div><div class="abs lab" style="left:26px;top:100px">parallel helper sessions</div></div>
-  <div class="card" id="b_c2" style="left:1080px;top:610px;width:260px;height:150px"><div class="abs big" id="b_n2" style="left:26px;top:20px;font-size:62px">0</div><div class="abs lab" style="left:26px;top:100px">Part 2 submissions</div></div>
-  <div class="card" id="b_c3" style="left:1364px;top:610px;width:260px;height:150px"><div class="abs big" id="b_n3" style="left:26px;top:20px;font-size:62px">0</div><div class="abs lab" style="left:26px;top:100px">automated tests</div></div>
-  <div class="abs" id="road" style="left:640px;right:0;top:222px;height:10px"></div>
-  <div class="abs" id="bus" style="left:640px;top:158px;font-size:70px">🚌</div>
+  <div class="ph2" id="phA" style="left:110px;top:168px"><div class="screen"><img id="fa" class="fimg" alt=""><div class="fpill">keyboard dictation</div></div></div>
+  <div class="ph2" id="phB" style="left:490px;top:168px"><div class="screen"><img id="fb" class="fimg" alt=""><div class="fpill">voice input in the Claude app</div></div></div>
+  <div class="abs big" id="b_head" style="left:900px;top:196px;font-size:92px;line-height:1.02;width:960px">Claude Code,<br>from my phone.</div>
+  <div class="abs" id="b_sub" style="left:906px;top:392px;font-size:31px;font-weight:600;color:var(--mute);line-height:1.35;width:900px">Part of week 2, on a bus · my own screen recordings<br><span style="color:var(--blue)">Remote control · voice · cloud sessions</span></div>
+  <div class="callout" id="b_k1" style="top:500px"><div class="abs" style="left:24px;top:22px;font-size:46px">📱</div><div class="abs" style="left:100px;top:16px;font-size:27px;font-weight:800;color:var(--navy)">Remote control</div><div class="abs lab" style="left:100px;top:56px;font-size:21px;width:790px">the Claude app on my phone steers a Claude Code session in the cloud</div></div>
+  <div class="callout" id="b_k2" style="top:616px"><div class="abs" style="left:24px;top:22px;font-size:46px">🎙️</div><div class="abs" style="left:100px;top:16px;font-size:27px;font-weight:800;color:var(--navy)">Voice dictation</div><div class="abs lab" style="left:100px;top:56px;font-size:21px;width:790px">I speak; the app transcribes; I send: no keyboard, no laptop</div></div>
+  <div class="callout" id="b_k3" style="top:732px"><div class="abs" style="left:24px;top:22px;font-size:46px">☁️</div><div class="abs" style="left:100px;top:16px;font-size:27px;font-weight:800;color:var(--navy)">Claude Code works, then reports back</div><div class="abs lab" style="left:100px;top:56px;font-size:21px;width:790px">experiments run in the cloud while I am on the move</div></div>
+  <div class="abs" id="road" style="display:none;left:900px;right:0;top:170px;height:10px"></div>
+  <div class="abs" id="bus" style="display:none;left:900px;top:108px;font-size:60px">🚌</div>
 </div>
 
 <!-- SCENE 2 (approach) -->
@@ -88,8 +83,8 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#e9edf3;font-fam
   </div>
   <div class="card" id="r_c2" style="left:940px;top:282px;width:860px;height:262px;background:linear-gradient(135deg,#142B4D,#1F4A9A);border:none">
     <div class="abs pill" style="left:34px;top:22px;background:rgba(255,255,255,.16);color:#fff;font-size:21px;padding:7px 18px">WEEK 2 · EMERGING MARKET</div>
-    <div class="abs big" id="r_n2" style="left:34px;top:70px;font-size:130px;color:#fff;line-height:1">#2</div>
-    <div class="abs" style="left:270px;top:84px;font-size:29px;font-weight:700;color:#fff;line-height:1.4">private leaderboard<br><span style="color:#B8CCF3;font-weight:600;font-size:24px">public D² 0.16458<br>2 years of data · 76% new business</span></div>
+    <div class="abs big" id="r_n2" style="left:34px;top:84px;font-size:104px;color:#fff;line-height:1">0.1646</div>
+    <div class="abs" style="left:420px;top:84px;font-size:29px;font-weight:700;color:#fff;line-height:1.4">public leaderboard D²<br><span style="color:#B8CCF3;font-weight:600;font-size:24px">final file, 12 submissions in total<br>2 years of data · 76% new business</span></div>
   </div>
   <div id="r_intro" class="abs" style="left:120px;top:300px;width:1680px;opacity:0"><div style="font-size:34px;font-weight:700;color:var(--mute)">Kohei Kudo · sole team member · actuarial pricing with an AI teammate</div><div style="margin-top:44px;display:flex;gap:40px"><div class="card" style="position:relative;width:520px;height:150px;padding:26px 34px"><div style="font-size:50px">🌍</div><div style="font-size:34px;font-weight:800;color:var(--navy);margin-top:4px">Developed market</div></div><div class="abs" style="position:relative;font-size:70px;color:var(--blue);font-weight:800;line-height:150px">→</div><div class="card" style="position:relative;width:520px;height:150px;padding:26px 34px"><div style="font-size:50px">🌱</div><div style="font-size:34px;font-weight:800;color:var(--navy);margin-top:4px">Emerging market</div></div></div></div>
   <div id="r_steps"></div>
@@ -120,6 +115,14 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#e9edf3;font-fam
     <div id="m_dots"></div>
   </div>
   <div class="abs big" id="m_tag" style="left:120px;top:800px;width:1680px;text-align:center;font-size:48px;color:var(--blue)">The emerging data decides <u>how much</u>. The developed data decides <u>who</u>.</div>
+</div>
+
+<!-- SCENE ensemble -->
+<div class="scene" id="s_ensemble">
+  <div id="e_rows"></div>
+  <svg class="abs" id="e_svg" style="left:0;top:0" width="1920" height="1080" viewBox="0 0 1920 1080"></svg>
+  <div id="e_stack"></div>
+  <div class="abs lab" id="e_note" style="left:120px;top:728px;font-size:23px;width:1250px;opacity:0">16 members · 28 fitted model sets per line (a 3-seed member counts three times) · every model sees the developed market 2021-24 and the claim-history inputs</div>
 </div>
 
 <!-- SCENE 5 -->
@@ -160,7 +163,7 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#e9edf3;font-fam
   <div id="g_end" style="position:absolute;inset:0;background:linear-gradient(135deg,#142B4D,#1F4A9A);opacity:0;z-index:20">
     <div class="abs" style="left:0;right:0;top:300px;text-align:center;font-size:36px;font-weight:700;color:#B8CCF3">Kohei Kudo · IAA AI-Assisted Hackathon 2026</div>
     <div class="abs big" style="left:0;right:0;top:370px;text-align:center;font-size:96px;color:#fff;line-height:1.1">Built with an AI teammate,<br>from a bus seat.</div>
-    <div class="abs" style="left:0;right:0;top:650px;text-align:center;font-size:36px;font-weight:700;color:#fff">Week 1 · #3 of 54 &nbsp;&nbsp;|&nbsp;&nbsp; Week 2 · #2</div>
+    <div class="abs" style="left:0;right:0;top:650px;text-align:center;font-size:36px;font-weight:700;color:#fff">Week 1 · #3 of 54 &nbsp;&nbsp;|&nbsp;&nbsp; Week 2 · public D² 0.16458</div>
     <div class="abs" style="left:0;right:0;top:720px;text-align:center;font-size:30px;font-weight:600;color:#B8CCF3">github.com/wideflat/iaa-hackathon2026</div>
   </div>
 </div>
@@ -174,7 +177,7 @@ const P=(t,a,b)=>clamp((t-a)/(b-a));
 const eo=x=>1-Math.pow(1-x,3), eio=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2, eb=x=>{const c1=1.70158,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2)};
 const $=id=>document.getElementById(id);
 let TL=null;
-window.PHONE_IMGS=[];window.setPhoneImages=(a)=>{window.PHONE_IMGS=a;};
+window.FOOT=null;window.setFootage=(f)=>{window.FOOT=f;};window.PHONE_IMGS=[];window.setPhoneImages=(a)=>{window.PHONE_IMGS=a;};
 window.setTimeline=(tl)=>{TL=tl;init();};
 
 // perspective grid like the reference stage
@@ -183,18 +186,19 @@ window.setTimeline=(tl)=>{TL=tl;init();};
 function init(){
   // chapter dots
   const d=$('chipdots');d.innerHTML=TL.scenes.map(()=>'<i></i>').join('');
-  // phone session list
-  const names=[['Kaggle IAA hackathon strategy','Waiting'],['p2 helper: 3-seed GBM and Tweedie','New'],['p2 helper: 3-seed TabM with history','New'],['p2 helper: TabM nets with history','New'],['p2 helper: TabM-PLE nets with history','New'],['p2 helper: direct Tweedie GBM base','New'],['p2 helper: MIX construction reading','New'],['p2 helper: GBM settings screen','New']];
-  $('ph_list').innerHTML=names.map((n,i)=>`<div class="sess" style="top:${150+i*84}px" data-i="${i}"><b></b>${n[0]}<em>${n[1]}</em></div>`).join('');
-  // wave
-  $('wave').innerHTML=Array.from({length:18}).map(()=>'<i></i>').join('');
   // road dashes
   $('road').innerHTML='<div style="position:absolute;left:0;right:0;top:4px;height:4px;background:repeating-linear-gradient(90deg,#9aa6ba 0 36px,transparent 36px 72px)"></div>';
+  // ensemble structure
+  const egrp=[['Tree models','37.5%','7.5% each','var(--green)','#E6F5EE',['LightGBM, 4 leaves','LightGBM, 4 leaves, 3 seeds','LightGBM, 8 leaves','LightGBM, 70% of columns','XGBoost, depth 3']],['Neural nets','37.5%','5.4% each','var(--blue)','#E9F0FE',['TabM','TabM, 3 seeds','TabM-PLE','TabM-PLE, 3 seeds','TabM-quantile','TabM-quantile, 3 seeds','TabM, wider']],['Tweedie GBMs','25%','6.25% each','var(--amber)','#FDF1DD',['4 leaves','8 leaves','4 leaves, 3 seeds','8 leaves, 3 seeds']]];
+  $('e_rows').innerHTML=egrp.map((g,i)=>`<div class="card erow" data-i="${i}" style="left:120px;top:${190+i*178}px;width:1250px;height:160px;border-left:8px solid ${g[3]}"><div class="abs" style="left:26px;top:20px;width:240px"><div style="font-size:27px;font-weight:800;color:var(--navy)">${g[0]}</div><div class="big" style="font-size:44px;color:${g[3]};margin-top:2px">${g[1]}</div><div class="lab" style="font-size:19px">${g[2]}</div></div><div class="abs" style="left:290px;top:18px;width:940px">${g[5].map((m,k)=>`<span class="chipm emem" data-g="${i}" data-k="${k}" style="background:${g[4]};border-color:${g[3]}">${m}</span>`).join('')}</div></div>`).join('');
+  const stk=[['Weighted average','equal weights inside each group'],['× level per peril','claim counts × winsorised severity, emerging book'],['× gender factor','one flat factor per line'],['Prediction','expected claim cost per policy row']];
+  $('e_stack').innerHTML=stk.map((x,i)=>`<div class="card estk" data-i="${i}" style="left:1450px;top:${190+i*128}px;width:350px;height:100px;${i==3?'background:linear-gradient(135deg,#142B4D,#1F4A9A);border:none':''}"><div class="abs" style="left:20px;top:12px;font-size:25px;font-weight:800;color:${i==3?'#fff':'var(--navy)'}">${x[0]}</div><div class="abs lab" style="left:20px;top:50px;font-size:17px;line-height:1.2;width:315px;color:${i==3?'#B8CCF3':'var(--mute)'}">${x[1]}</div></div>`).join('');
+  $('e_svg').innerHTML=[0,1,2].map(i=>`<path class="eflow" data-i="${i}" d="M1370 ${270+i*178} C1410 ${270+i*178}, 1410 240, 1450 240" fill="none" stroke="${['#2E9E6B','#2F6FDE','#F2A33A'][i]}" stroke-width="5" stroke-linecap="round" stroke-dasharray="200" stroke-dashoffset="200"/>`).join('')+[0,1,2].map(i=>`<path class="earrow" data-i="${i}" d="M1625 ${290+i*128} L1625 ${318+i*128}" stroke="#2F6FDE" stroke-width="5" stroke-linecap="round" opacity="0"/>`).join('');
   // approach strips
   const st=[['1','Keep what transfers','ranking of risk from the developed market'],['2','Re-measure what does not','level and mix from the emerging book'],['3','Test every step both ways','forward and reverse; neither may get worse']];
   $('r_steps').innerHTML=st.map((x,i)=>`<div class="card rstep" data-i="${i}" style="left:${120+i*567}px;top:574px;width:547px;height:112px"><div class="abs pill" style="left:20px;top:28px;width:52px;height:52px;background:var(--blue);color:#fff;font-size:28px;text-align:center;line-height:52px">${x[0]}</div><div class="abs" style="left:92px;top:16px;font-size:27px;font-weight:800;color:var(--navy)">${x[1]}</div><div class="abs lab" style="left:92px;top:58px;font-size:19px;width:440px;line-height:1.25">${x[2]}</div></div>`).join('');
   const ai=[['🔎','explore the data'],['🧪','code + 125 tests'],['⚙️','experiments'],['✅','verify its own work']];
-  $('r_ai').innerHTML=`<div class="abs lab" id="r_ailab" style="left:120px;top:712px;font-size:22px;font-weight:800;color:var(--blue);opacity:0">AI ALONGSIDE ME, AT EVERY STEP</div>`+ai.map((x,i)=>`<div class="card rai" data-i="${i}" style="left:${120+i*425}px;top:748px;width:395px;height:96px;background:#fff"><div class="abs" style="left:20px;top:20px;font-size:40px">${x[0]}</div><div class="abs" style="left:90px;top:28px;font-size:26px;font-weight:800;color:var(--navy)">${x[1]}</div></div>`).join('');
+  $('r_ai').innerHTML=`<div class="abs lab" id="r_ailab" style="left:120px;top:712px;font-size:22px;font-weight:800;color:var(--blue);opacity:0">CLAUDE CODE · REMOTE CONTROL FROM MY PHONE · VOICE: AT EVERY STEP</div>`+ai.map((x,i)=>`<div class="card rai" data-i="${i}" style="left:${120+i*425}px;top:748px;width:395px;height:96px;background:#fff"><div class="abs" style="left:20px;top:20px;font-size:40px">${x[0]}</div><div class="abs" style="left:90px;top:28px;font-size:26px;font-weight:800;color:var(--navy)">${x[1]}</div></div>`).join('');
   // donut
   let dn='<circle cx="180" cy="180" r="130" fill="none" stroke="#e4e9f1" stroke-width="44"/><circle id="dring" cx="180" cy="180" r="130" fill="none" stroke="var(--blue)" stroke-width="44" stroke-linecap="butt" stroke-dasharray="0 817" transform="rotate(-90 180 180)"/>';
   $('donut').innerHTML=dn;
@@ -227,6 +231,7 @@ function init(){
   $('gauge').innerHTML=gg;
 }
 
+window.renderAtAsync=async(t)=>{renderAt(t);const im=[$('fa'),$('fb')].filter(e=>e&&e.src);await Promise.all(im.map(e=>e.decode().catch(()=>{})));};
 function setCaption(t){
   let txt='',op=0;
   for(const s of TL.scenes){for(const e of s.sents){if(t>=e.start&&t<e.end){txt=e.text;op=Math.min(1,(t-e.start)/0.15,(e.end-t)/0.15);}}}
@@ -257,32 +262,30 @@ function renderAt(t){
 }
 
 function scene_bus(L,S,sc){
-  // phone screens: list then chat
-  const sw=P(L,S[2]-0.2,S[2]+0.5);
-  const im=window.PHONE_IMGS;if(im.length){const k=Math.min(im.length-1,Math.floor(L/(sc.end-sc.start)*im.length));if($('ph_img').dataset.k!=String(k)){$('ph_img').src=im[k];$('ph_img').dataset.k=k;}$('ph_img').style.opacity=1;$('ph_list').style.display='none';$('ph_chat').style.display='none';}else{$('ph_list').style.opacity=1-sw;$('ph_chat').style.opacity=sw;}
-  document.querySelectorAll('#ph_list .sess').forEach((e,i)=>{const p=eb(P(L,0.3+i*0.12,0.9+i*0.12));e.style.opacity=p;e.style.transform=`translateX(${(1-p)*80}px)`});
-  const ph=$('phone');ph.style.transform=`translateY(${Math.sin(L*1.6)*6}px) scale(.9)`;
-  // voice pill
-  const vs=S[2], ve=S[3];const vp=P(L,vs-0.2,vs+0.4)*(1-P(L,ve-0.2,ve+0.3));
-  const v=$('voice');v.style.opacity=vp;v.style.top=(800-vp*6)+'px';
-  const q=Math.floor(clamp((L-vs)/(ve-vs))*QUOTES.length*0.999);const qs=QUOTES[Math.min(q,2)];
-  const ql=(ve-vs)/QUOTES.length;const qp=P(L,vs+q*ql,vs+q*ql+ql*0.7);
-  $('vtxt').textContent=qs.slice(0,Math.floor(qs.length*qp));
-  [...$('wave').children].forEach((b,i)=>{b.style.height=(8+ (vp>0.1? (Math.abs(Math.sin(L*7+i*0.9))*0.7+Math.abs(Math.sin(L*3.1+i*1.7))*0.3):0)*38)+'px'});
-  // headline etc
-  const h=$('b_head');const hp=eo(P(L,0.15,0.9));h.style.opacity=hp;h.style.transform=`translateX(${(1-hp)*-60}px)`;
-  const sp=eo(P(L,S[1]-0.1,S[1]+0.6));$('b_sub').style.opacity=sp;$('b_sub').style.transform=`translateY(${(1-sp)*30}px)`;
-  [['b_c1','b_n1',10,'+'],['b_c2','b_n2',12,''],['b_c3','b_n3',125,'']].forEach((c,i)=>{const p=eb(P(L,S[1]+0.9+i*0.25,S[1]+1.6+i*0.25));$(c[0]).style.opacity=clamp(p);$(c[0]).style.transform=`translateY(${(1-p)*50}px) scale(${.9+.1*clamp(p)})`;$(c[1]).textContent=Math.round(c[2]*eo(P(L,S[1]+1.0+i*0.25,S[1]+2.3+i*0.25)))+c[3]});
-  // bus
-  const bp=L/ (sc.end-sc.start);$('bus').style.left=(560+bp*1500)+'px';$('bus').style.transform=`translateY(${Math.sin(L*9)*2}px)`;
-  const rd=$('road').firstChild;rd.style.backgroundPosition=(-L*160)+'px 0';
+  const F=window.FOOT;
+  if(F){const t0=S[1];const fa=clamp(Math.floor((L-t0)*F.fps),0,Math.min(F.na-1,112)),fb=clamp(Math.floor((L-t0)*F.fps),0,F.nb-1);
+    [['fa',F.a,fa],['fb',F.b,fb]].forEach(x=>{const el=$(x[0]);const u=F.base+x[1]+'/f'+String(x[2]+1).padStart(4,'0')+'.jpg';if(el.dataset.u!==u){el.src=u;el.dataset.u=u;}});}
+  [['phA',0.2],['phB',0.5]].forEach(x=>{const p=eb(P(L,x[1],x[1]+0.8));const el=$(x[0]);el.style.opacity=clamp(p);el.style.transform=`translateY(${(1-p)*80}px)`});
+  const hp=eo(P(L,0.3,1.1));$('b_head').style.opacity=hp;$('b_head').style.transform=`translateX(${(1-hp)*60}px)`;
+  const sp=eo(P(L,S[1]-0.1,S[1]+0.6));$('b_sub').style.opacity=sp;
+  [['b_k1',S[1]+0.4],['b_k2',S[2]-0.1],['b_k3',S[2]+4.5]].forEach(x=>{const p=eb(P(L,x[1],x[1]+0.7));const el=$(x[0]);el.style.opacity=clamp(p);el.style.transform=`translateX(${(1-p)*120}px)`});
+  const bp=L/(sc.end-sc.start);$('bus').style.left=(900+bp*900)+'px';$('bus').style.transform=`translateY(${Math.sin(L*9)*2}px)`;
+  $('road').firstChild.style.backgroundPosition=(-L*160)+'px 0';
+}
+function scene_ensemble(L,S,sc){
+  document.querySelectorAll('.erow').forEach(e=>{const i=+e.dataset.i;const p=eb(P(L,S[1+i]-0.2,S[1+i]+0.7));e.style.opacity=clamp(p);e.style.transform=`translateX(${(1-p)*-100}px)`});
+  document.querySelectorAll('.emem').forEach(e=>{const g=+e.dataset.g,k=+e.dataset.k;const t0=S[1+g]+0.3+k*0.22;const p=eb(P(L,t0,t0+0.4));e.style.opacity=clamp(p);e.style.transform=`scale(${.7+.3*clamp(p)})`});
+  document.querySelectorAll('.eflow').forEach(e=>{const i=+e.dataset.i;const p=eo(P(L,S[4]-0.4+i*0.2,S[4]+0.6+i*0.2));e.setAttribute('stroke-dashoffset',200*(1-p))});
+  document.querySelectorAll('.estk').forEach(e=>{const i=+e.dataset.i;const t0=S[4]-0.2+i*0.9;const p=eb(P(L,t0,t0+0.7));e.style.opacity=clamp(p);e.style.transform=`translateY(${(1-p)*40}px)`});
+  document.querySelectorAll('.earrow').forEach(e=>{const i=+e.dataset.i;e.setAttribute('opacity',eo(P(L,S[4]+0.5+i*0.9,S[4]+1.0+i*0.9)))});
+  $('e_note').style.opacity=eo(P(L,S[4]+2.5,S[4]+3.3));
 }
 function scene_approach(L,S){
   const ip=eo(P(L,0.5,1.3))*(1-eo(P(L,S[1]-0.1,S[1]+0.5)));$('r_intro').style.opacity=ip;$('r_intro').style.transform=`translateY(${(1-eo(P(L,0.5,1.3)))*30}px)`;
   const p0=eo(P(L,0.1,0.8));$('r_head').style.opacity=p0;$('r_head').style.transform=`translateY(${(1-p0)*30}px)`;
   const c1=eb(P(L,S[1],S[1]+0.8));$('r_c1').style.opacity=clamp(c1);$('r_c1').style.transform=`translateX(${(1-c1)*-120}px)`;
   const c2=eb(P(L,S[2]-0.2,S[2]+0.8));$('r_c2').style.opacity=clamp(c2);$('r_c2').style.transform=`translateX(${(1-c2)*120}px)`;
-  $('r_n2').textContent='#'+(L<S[2]+2.2?'—':'2');
+  $('r_n2').textContent=L<S[2]+2.2?'—':'0.1646';
   document.querySelectorAll('.rstep').forEach(e=>{const i=+e.dataset.i;const p=eb(P(L,S[3]+0.2+i*0.7,S[3]+0.9+i*0.7));e.style.opacity=clamp(p);e.style.transform=`translateY(${(1-p)*40}px)`});
   const lp=eo(P(L,S[4]-0.1,S[4]+0.5));$('r_ailab').style.opacity=lp;
   document.querySelectorAll('.rai').forEach(e=>{const i=+e.dataset.i;const p=eb(P(L,S[4]+0.3+i*0.45,S[4]+1.0+i*0.45));e.style.opacity=clamp(p);e.style.transform=`translateY(${(1-p)*40}px) scale(${.92+.08*clamp(p)})`});

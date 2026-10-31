@@ -31,6 +31,8 @@ def main() -> None:
         for s in tl["scenes"]:
             notes = " ".join(e["text"] for e in s["sents"])
             times = [(s["end"] - 0.9, notes)]
+            if s["id"] == "bus":
+                times = [(s["sents"][2]["start"] + 6.0, notes)]
             if s["id"] == "guard":
                 times = [(s["sents"][3]["start"] - 0.3, " ".join(e["text"] for e in s["sents"][:3])), (s["end"] - 0.2, s["sents"][3]["text"])]
             for k, (t, n) in enumerate(times):

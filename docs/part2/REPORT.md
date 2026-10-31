@@ -4,12 +4,12 @@ Team: Kohei Kudo (Kaggle team name); members and reviewers: [to be filled in by 
 
 ## 1. Summary
 
-*In one line: Two markets, one engine: rank 3 in Week 1 and rank 2 in Week 2, by keeping what transfers and re-measuring what does not.*
+*In one line: Two markets, one engine: rank 3 in Week 1 (final) and a public score of 0.16458 in Week 2, by keeping what transfers and re-measuring what does not.*
 
 | | Result |
 |---|---|
 | Week 1 (developed market) | Private leaderboard rank 3 of 54 teams, pooled Tweedie D2 0.13864 (top team 0.13923); selected file `blend_v10_perline.csv`. Public rank 14: the public order inside the top group did not predict the private order (section 6). |
-| Week 2 (emerging market), public leaderboard | 0.16458 for the final ensemble (selected on Kaggle), from 0.16077 for the first (twelve submissions; the last eight, 0.16450 to 0.16474, differ by less than the noise of the public board; the best single file, 0.16474, is within 0.00016 of the final). **Week 2 private leaderboard: rank 2; Week 1: rank 3 of 54.** |
+| Week 2 (emerging market), public leaderboard | 0.16458 for the final ensemble (selected on Kaggle), from 0.16077 for the first (twelve submissions; the last eight, 0.16450 to 0.16474, differ by less than the noise of the public board; the best single file, 0.16474, is within 0.00016 of the final). |
 | Week 2 local validation (two emerging years, both time directions) | Pooled D2 0.1405 forward (calibrate 2023, score 2024) and 0.1268 reverse for the final ensemble (0.1397 / 0.1271 before ensembling), against 0.1110 forward for a model fitted on the emerging data alone. |
 
 **Approach in one paragraph.** The emerging book has two years and about 1,000 claims per property line, too little to learn its own relationships. We therefore keep the developed market's frequency-by-severity model (trained on 2021-24 with 2.4 million policy rows) for the *relationships between rating factors and cost*, restricted to variables both markets record, and re-estimate only the *level* of each peril and one market-specific rating factor (gender) on the emerging data, with credibility weighting. Every change was judged on the two emerging years in both time directions and on paired bootstrap differences; more than twenty plausible ideas were rejected on that evidence (section 4).
@@ -35,7 +35,15 @@ Data quality (all in `docs/part2/DATA_REVIEW.md`): the Part 1 duplicates and pla
 
 1. **Developed model on shared variables** (`src/iaa/market.py`): exact ages are cut into the emerging bands, occupation is normalised to 20 values plus a self-employed flag, region, mileage, telematics and credit band are left out. LightGBM frequency (Poisson, exposure offset) by severity (Gamma on claims capped at the 99.9% quantile, trended to the predicted year, excess load added back) per peril, completeness offset for immature years, repaired data (`src/iaa/cleaning.py`, fail-fast count bands).
 2. **One-year claim history** (`src/iaa/p2_features.py`): the policy's own claims of the previous year, the claims at the address and the customer's claims over all lines. Windows are exactly one year because the emerging book starts in 2023; the first year of each market is *unknown*, not zero. Renewals with a claim last year were 27% above the model (actual / expected 1.195 vs 0.944 in motor); the gain is +0.0023 forward and +0.0021 reverse.
-3. **Base blend** (the Part 1 recipe): 50% frequency-by-severity GBM, 25% direct pure-premium Tweedie GBM (two settings), 25% two neural nets (TabM and TabM-PLE), all with the history inputs.
+3. **Final ensemble** (16 members, all with the history inputs, trained on the developed market 2021-24; the file `p2_t11_ensemble_e3.csv`). Members are averaged with equal weights inside each group; the groups carry 37.5% (trees), 37.5% (nets) and 25% (direct Tweedie GBMs) of the base:
+
+   | Group (weight) | Members (weight in the base) |
+   |---|---|
+   | Frequency x severity tree models (37.5%) | LightGBM 4 leaves; LightGBM 4 leaves, 3 seeds; LightGBM 8 leaves; LightGBM 4 leaves with 70% column sampling; XGBoost depth 3 (7.5% each) |
+   | Frequency x severity neural nets (37.5%) | TabM; TabM 3 seeds; TabM-PLE; TabM-PLE 3 seeds; TabM-quantile; TabM-quantile 3 seeds; TabM wider (5.4% each) |
+   | Direct pure-premium Tweedie GBMs (25%) | 4 leaves; 8 leaves; 4 leaves 3 seeds; 8 leaves 3 seeds (6.25% each) |
+
+   That is 28 fitted model sets per line (a 3-seed member counts three times). The ensemble is variance reduction, not a tuned gain: a 13-member version scored the same within noise (RESULTS 87-88).
 4. **Level on the emerging book** (`src/iaa/transfer.py`): per peril a frequency factor from claim counts and a severity factor from claim means winsorised at the 99% quantile of each market, both shrunk towards the line value by credibility (k = 20 and 30 claims; buildings frequency k = 400 because its peril ratios swing between the two years: fire 2.3x then 0.84x); fitted on both emerging years; **no final scaling to the training total**, which copies the large-loss noise of the two years into the level.
 5. **Gender** (allowed for pricing in the emerging market by the competition; regulatory status elsewhere must be checked): one credibility-weighted factor per line, motor male / female 1.118 / 0.880. It is stable in both emerging years (motor frequency +29% and +34%); the file without it is one switch away.
 
@@ -75,6 +83,7 @@ The ensemble averages members with equal weights inside each group (single-seed 
 
 *In one line: AI did the legwork across the workflow; tests, a blind second agent and recorded checks caught its errors.*
 
+* **Tools, stated plainly:** the whole workflow ran in **Claude Code** (Anthropic's agentic coding assistant; the app showed Sonnet 5.5) in cloud sessions, which I controlled **remotely from the Claude app on my phone**, giving most instructions by **voice dictation** (speech to text in the app). Part of Week 2 was modelled this way, on a bus, with no laptop; the demo video shows my own screen recordings of it.
 * **Where AI worked:** reading the competition pages, profiling both markets, writing the harmonisation, transfer and calibration code test-first (125 automated tests), running experiments, drafting documents. 11 helper sessions in separate containers ran the hours-long refits in parallel (nets, GBM variants) and an independent agent compared the two markets from the raw tables without seeing our results.
 * **Verification, with examples of what it caught:** (i) three unsupported statements in the first draft of the data review (an exposure explanation, invented new-business counts, a leak pattern) were replaced by measured values before commit; (ii) the blind review's suggestion that the developed model over-spreads risk was tested and rejected (consistent in one direction only); (iii) a helper correctly refused a stop instruction that was not from the lead, which we then handled by archiving the session; (iv) every number in the documents traces to a command or a log line (`RESULTS.md` sections 45-65).
 * **Two more catches in the last days:** (iv) our first simulation of the level method showed every estimator biased low on buildings; the plain line closure showed the same bias, which led to a defect in the simulator itself (claims drawn from all years, compared with one year), and the wrong conclusion was withdrawn before it reached any decision; (v) a net we built and submitted had already been rejected in Part 1 on the large developed folds, and the public score agreed with the old result; we now screen ranking ideas on the developed folds first and search the record before building (`docs/workflow/AI_USAGE.md`).

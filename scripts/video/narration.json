@@ -6,9 +6,9 @@
    "sents": [
     "I'm Kohei, and this is one pricing engine applied to two markets.",
     "Week one: a developed market with two point four million policy rows. Rank three of fifty-four.",
-    "Week two: an emerging market with only two years of data, and a test book that is seventy-six percent new business. We finished second.",
+    "Week two: an emerging market with only two years of data, and a test book that is seventy-six percent new business. Our final file scored point one six four six on the public leaderboard.",
     "The approach: keep what transfers from the developed market, re-measure what does not, and test every step in both directions.",
-    "And AI works alongside me through all of it: exploring the data, writing and testing the code, running experiments, and checking its own work."
+    "And AI works alongside me throughout: I used Claude Code, steered from my phone by voice, to explore the data, write and test code, run experiments, and verify its own work."
    ],
    "oneliner": "One engine, two markets: keep what transfers, re-measure the rest, test both ways."
   },
@@ -37,20 +37,32 @@
    "oneliner": "The developed market decides who is risky; the emerging book decides how much."
   },
   {
+   "id": "ensemble",
+   "chapter": "04 · The final ensemble",
+   "oneliner": "Final submission: 16 models in three groups, averaged, then calibrated to the emerging book.",
+   "sents": [
+    "Here is the structure of the final submission.",
+    "Five tree models: LightGBM with four and eight leaves, single and three-seed fits, a column-sampled variant, and an XGBoost model.",
+    "Seven neural nets: TabM, TabM with piecewise-linear encoding, and TabM with quantile inputs, each as a single and a three-seed fit, plus one wider TabM.",
+    "Four direct Tweedie models complete it, at four and eight leaves, single and three-seed.",
+    "Each group is averaged with equal weights: trees and nets thirty-seven and a half percent each, Tweedie twenty-five. Then the emerging level and the gender factor are applied."
+   ]
+  },
+  {
    "id": "trust",
-   "chapter": "04 · How we trust it",
+   "chapter": "05 · How we trust it",
    "sents": [
     "With two years of data, a single split can mistake noise for signal.",
-    "So every change is tested in both directions: calibrate on 2023 and score 2024, then the reverse. We keep it only if neither direction gets worse.",
+    "So every change is tested in both directions, calibrating on 2023 and scoring 2024 and the reverse, and kept only if neither gets worse.",
     "That took the score from point one one one oh, for an emerging-only model, to point one four oh five.",
-    "More than thirty ideas were rejected this way, including pooled training, a GLM blend and clipping of high predictions.",
+    "More than thirty ideas were rejected this way, including pooled training and a GLM blend.",
     "A simulation with a known truth confirmed the level method, and a ceiling analysis showed that a perfect level is worth at most half of one hundredth."
    ],
    "oneliner": "Every change is kept only if it improves the score in both time directions."
   },
   {
    "id": "ai",
-   "chapter": "05 · AI in the workflow",
+   "chapter": "06 · AI in the workflow",
    "sents": [
     "Here is how that looked in practice.",
     "Claude Code explored both markets, wrote the code with one hundred and twenty-five tests, and ran the experiments, while more than ten helper sessions refit models in parallel.",
@@ -62,18 +74,18 @@
   },
   {
    "id": "bus",
-   "chapter": "06 · A new way to work",
+   "chapter": "07 · A new way to work",
    "sents": [
     "One example of how this changes the way I work.",
-    "Part of week two was modelled from my phone, on a bus, with no laptop.",
-    "I spoke my instructions, Claude Code transcribed them, ran the experiments in the cloud, and sent back results I could read between stops.",
+    "Part of week two was done from my phone, on a bus, with no laptop. Claude Code ran in the cloud, and I controlled it remotely from the Claude app.",
+    "I gave my instructions by voice. The app transcribes my speech, Claude Code picks it up, runs the work, and reports back while I am on the move.",
     "That is AI-assisted actuarial work, away from the desk."
    ],
-   "oneliner": "Example: part of week 2 was done from my phone, by voice, on a bus."
+   "oneliner": "Example: Claude Code, remote-controlled from my phone by voice, on a bus."
   },
   {
    "id": "guard",
-   "chapter": "07 · Guardrails and uncertainty",
+   "chapter": "08 · Guardrails and uncertainty",
    "sents": [
     "Guardrails: a leak alarm, reproducibility checks, a model card, and eighty-four recorded decisions.",
     "The biggest uncertainty is the buildings level. Plus or minus twenty percent is about one hundredth of a point.",

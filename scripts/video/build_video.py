@@ -55,6 +55,20 @@ def write_text_files(tl: dict, out: Path) -> None:
     (out / "voiceover_script.md").write_text("\n".join(md) + "\n")
 
 
+FONTS = {   # name -> (body family, display family, headline letter-spacing)
+    "inter": ("Inter", "Inter", "-0.02em"),
+    "inter-display": ("Inter", "Inter Display", "-0.03em"),
+    "helvetica-like": ("Liberation Sans", "Liberation Sans", "-0.025em"),
+    "carlito": ("Carlito", "Carlito", "-0.01em"),
+    "freesans": ("FreeSans", "FreeSans", "-0.02em"),
+}
+
+
+def apply_font(pg, name: str) -> None:
+    body, disp, trk = FONTS[name]
+    pg.evaluate("([b,d,t]) => {const r=document.documentElement.style;r.setProperty('--font',b);r.setProperty('--fontd',d);r.setProperty('--trk',t);}", [body, disp, trk])
+
+
 def phone_images() -> list:
     """Real phone screenshots dropped into scripts/video/assets/phone/ (jpg or png, shown in the phone frame in file-name order); empty list = the re-created UI."""
     d = HERE / "assets" / "phone"
@@ -78,7 +92,7 @@ def footage() -> dict:
 
 
 def render_chunk(args):
-    frames, tl, outdir = args
+    frames, tl, outdir, font = args
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
         b = p.chromium.launch(executable_path="/opt/pw-browsers/chromium")
@@ -86,6 +100,7 @@ def render_chunk(args):
         pg.goto((HERE / "scene.html").as_uri())
         pg.evaluate("a => setPhoneImages(a)", phone_images())
         pg.evaluate("f => setFootage(f)", footage())
+        apply_font(pg, font)
         pg.evaluate("tl => setTimeline(tl)", tl)
         for i in frames:
             pg.evaluate("t => renderAtAsync(t)", i / FPS)
@@ -99,6 +114,7 @@ def main() -> None:
     ap.add_argument("--preview", default="")
     ap.add_argument("--render", action="store_true")
     ap.add_argument("--workers", type=int, default=4)
+    ap.add_argument("--font", default="inter", choices=sorted(FONTS))
     a = ap.parse_args()
     tl = timeline()
     print(f"total {tl['total']:.1f}s ({int(tl['total'] // 60)}:{tl['total'] % 60:04.1f}); scenes:", [(s['id'], round(s['start'], 1)) for s in tl['scenes']])
@@ -115,10 +131,11 @@ def main() -> None:
             pg.goto((HERE / "scene.html").as_uri())
             pg.evaluate("a => setPhoneImages(a)", phone_images())
             pg.evaluate("f => setFootage(f)", footage())
+            apply_font(pg, a.font)
             pg.evaluate("tl => setTimeline(tl)", tl)
             for t in [float(x) for x in a.preview.split(",")]:
                 pg.evaluate("t => renderAtAsync(t)", t)
-                pg.screenshot(path=str(pv / f"p{t:06.1f}.png"))
+                pg.screenshot(path=str(pv / f"p{t:06.1f}{'_' + a.font if a.font != 'inter' else ''}.png"))
             b.close()
         return
     if a.render:
@@ -128,7 +145,7 @@ def main() -> None:
         todo = [i for i in range(n) if not (fr / f"f{i:06d}.jpg").exists()]
         chunks = [todo[k::a.workers] for k in range(a.workers)]
         with mp.Pool(a.workers) as pool:
-            pool.map(render_chunk, [(c, tl, fr) for c in chunks if c])
+            pool.map(render_chunk, [(c, tl, fr, a.font) for c in chunks if c])
         subprocess.run([sys.executable, str(HERE / "make_music.py"), "--seconds", str(tl["total"]), "--out", str(out / "music.wav")], check=True)
         base = ["ffmpeg", "-y", "-v", "error", "-framerate", str(FPS), "-i", str(fr / "f%06d.jpg")]
         enc = ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", "-preset", "medium", "-movflags", "+faststart"]

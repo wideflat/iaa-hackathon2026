@@ -4,7 +4,7 @@
 <style>
 :root{--navy:#142B4D;--blue:#2F6FDE;--blue2:#5B93F0;--amber:#F2A33A;--teal:#1F8A8A;--red:#D64545;--green:#2E9E6B;--ink:#2B3340;--mute:#6B7686;--card:#FFFFFF;--line:#D8DEE8}
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{width:1920px;height:1080px;overflow:hidden;background:#e9edf3;font-family:'Inter','Liberation Sans',sans-serif;color:var(--ink)}
+html,body{width:1920px;height:1080px;overflow:hidden;background:#e9edf3;font-family:var(--font,'Inter'),'Liberation Sans',sans-serif;color:var(--ink)}
 #stage{position:absolute;inset:0;background:linear-gradient(180deg,#f6f8fb 0%,#e3e8f0 100%);overflow:hidden}
 #grid{position:absolute;left:0;right:0;bottom:0;height:520px;opacity:.9}
 #topbar{position:absolute;left:0;right:0;top:0;height:74px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 34px;font-size:22px;font-weight:600;color:var(--navy);z-index:30}
@@ -23,7 +23,7 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#e9edf3;font-fam
 .scene{position:absolute;inset:0;opacity:0;z-index:10}
 .abs{position:absolute}
 .card{position:absolute;background:var(--card);border-radius:22px;box-shadow:0 14px 40px rgba(20,43,77,.12);border:1px solid #e4e9f1}
-.big{font-weight:800;color:var(--navy);letter-spacing:-.02em}
+.big{font-family:var(--fontd,var(--font,'Inter')),'Liberation Sans',sans-serif;font-weight:800;color:var(--navy);letter-spacing:var(--trk,-.02em)}
 .lab{font-size:22px;color:var(--mute);font-weight:600}
 .pill{position:absolute;border-radius:999px;font-weight:700}
 /* phone */

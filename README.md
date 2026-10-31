@@ -1,33 +1,77 @@
-# IAA AI-Assisted Actuarial Hackathon 2026
+# IAA AI-Assisted Actuarial Hackathon 2026: pricing across two markets
 
-Pricing model and tooling for [Part 1](https://www.kaggle.com/competitions/iaa-ai-assisted-hackathon-2026-part-1):
-predict the expected ultimate claim cost (net of excess and recoveries, excluding declined claims) of every
-2025 motor, buildings and contents policy row. Metric: pooled Tweedie D2 (power 1.5). Closes 2026-10-23 16:00 UTC.
-Final prizes are judged after Part 2 on performance, AI use, validation/guardrails and documentation.
+One pricing engine for two markets, built with an AI teammate (Claude Code). Predict the expected ultimate claim cost (net of excess and recoveries, excluding declined claims) of every 2025 motor, buildings and contents policy row; metric: pooled Tweedie D² (power 1.5).
 
-## Setup
-    pip install -e ".[dev]"
-    python scripts/download_data.py        # needs KAGGLE_API_TOKEN (or the sandbox proxy); data/ is gitignored
-    pytest                                 # unit tests, no data needed
+* **Week 1** ([Kaggle Part 1](https://www.kaggle.com/competitions/iaa-ai-assisted-hackathon-2026-part-1)): developed market, 2.4 million policy rows, 2021-24.
+* **Week 2** ([Kaggle Part 2](https://www.kaggle.com/competitions/iaa-ai-assisted-hackathon-2026-part-2)): an emerging market with only two years of data (2023-24) and a 2025 test book that is 76% new business.
 
-Never commit competition data or credentials (competition rules forbid redistribution).
+Both competitions are closed. The repository is the version-controlled record of how the solution was built.
 
-## Workflow
-    python scripts/run_cv.py --model mean_rate          # no-model baseline through the fixed folds
-    python scripts/run_cv.py --model lgbm               # LightGBM Tweedie per line
-    python scripts/make_submission.py --model lgbm --out submissions/lgbm.csv   # fits 2021-24, writes validated CSV
+## Result
 
-    python scripts/submit.py submissions/lgbm.csv -m "lgbm v1"            # validate + dry run
-    python scripts/submit.py submissions/lgbm.csv -m "lgbm v1" --confirm   # submit (uses a daily slot)
+| | Result | Final file |
+|---|---|---|
+| Week 1 (developed) | private leaderboard rank 3 of 54, D² 0.13864 | `blend_v10_perline.csv` |
+| Week 2 (emerging) | public D² 0.16458; two-direction local validation 0.1405 forward / 0.1268 reverse (an emerging-only model scores 0.1110) | `p2_t11_ensemble_e3.csv` |
 
-Results are appended to `experiments/log.jsonl`. Branches: `main` is stable, work happens on `dev`.
+## Approach in one minute
+
+1. **Keep what transfers.** A frequency x severity model per peril (LightGBM, XGBoost, TabM neural nets, plus direct Tweedie GBMs) is trained on the developed market, using only the variables both markets record. It decides *who* is risky.
+2. **Add one-year claim history** (policy, address, customer) with a definition that means the same thing in both markets.
+3. **Re-measure what does not transfer.** The emerging book sets the *level*: per peril, claim counts and winsorised severities, credibility-weighted (large buildings claims no longer drive the level), plus one gender factor per line.
+4. **Ensemble.** 16 members in three groups (5 tree models 37.5%, 7 nets 37.5%, 4 Tweedie GBMs 25%), equal weights inside each group.
+5. **Test every step both ways.** With two emerging years, each change is judged by calibrating on 2023 and scoring 2024, and the reverse; it is kept only if neither direction gets worse. More than 30 ideas failed that test and are recorded.
+
+## How AI was used
+
+The whole workflow ran in **Claude Code** in cloud sessions, which I controlled **remotely from the Claude app on my phone, partly by voice dictation**; part of Week 2 was modelled this way on a bus, with no laptop (the demo video shows the screen recordings). Claude Code explored both markets, wrote the code and tests, ran the experiments and drafted the documents; more than ten helper sessions refit models in parallel; a blind second agent compared the two markets from the raw tables only. Verification caught real errors (logged in `docs/workflow/AI_USAGE.md`). Every number traces to a command and a row in `docs/experiments/RESULTS.md`.
+
+## Trust, validation and guardrails
+
+* Fixed time-based folds (Week 1) and a two-direction emerging validation (Week 2); paired customer-cluster bootstrap on the same rows; adoption rules written before measuring.
+* A leak alarm (pooled D² above 0.35 stops a run), `customer_service_contacts` excluded in both markets, fail-fast data-quality bands, a reproducibility assertion for the developed model.
+* 125 automated tests, CI on every push (`.github/workflows/ci.yml`), no leaderboard probing (decision D21), 84 numbered decisions with their evidence.
+* Stated limits: two emerging years, 76% new business, the buildings level is the main uncertainty (about ±0.01 D² for ±20%), gender is used as a rating factor and flagged for regulatory review. See `docs/part2/MODEL_CARD.md`.
+
+## Where to look
+
+| For | Open |
+|---|---|
+| Write-up (first 5 pages are the graded part) | `docs/final/writeup.pdf` (source `docs/part2/REPORT.md`) |
+| Demo video and slides | `docs/final/` (`demo_slides.pdf`, `captions.srt`, `voiceover_script.md`); the video is generated by `scripts/video/` |
+| Every result, with conditions | `docs/experiments/RESULTS.md` (sections 1-89), raw tables in `docs/experiments/raw/` |
+| Every decision and rejected idea | `docs/workflow/DECISIONS.md` |
+| AI use and caught errors | `docs/workflow/AI_USAGE.md`, `docs/workflow/DEVELOPMENT_LOG.md` |
+| Week 2 data differences and plan | `docs/part2/DATA_REVIEW.md`, `docs/part2/PART2_STRATEGY.md`, `docs/part2/EXPLORATION.md` |
+| Model card, variables, office premium | `docs/part2/MODEL_CARD.md`, `docs/part2/VARIABLES.md`, `docs/part2/office_premium_reference.csv` |
+| Week 1 final results | `docs/experiments/PART1_FINAL.md`, `docs/experiments/PART1_SHAKEUP.md` |
+| Everything indexed | `docs/README.md` |
 
 ## Layout
-- `src/iaa/target.py` target definition, exposure fix, claim matching
-- `src/iaa/validation.py`, `metrics.py`, `cv.py` fixed time-based folds, official metric, harness
-- `src/iaa/features.py` leak-safe features and column policy; `drift.py` train-vs-test screens
-- `src/iaa/models/` models; `submission.py` validated submission writer
-- `docs/` organised by topic: start at `docs/README.md` (competition, data, methodology, experiments, research, workflow); `tests/` guardrail tests
 
-## Status
-Best model: per-peril frequency x capped severity GBM (CV fold A 0.1329, fold B 0.1290; public leaderboard 0.12153). Results: `docs/experiments/RESULTS.md`; plan: `docs/workflow/ROADMAP.md`.
+* `src/iaa/` target definition and cleaning, features and leak-safe column policy, fixed validation and metric, models (`models/`), the market harmonisation and level calibration for Week 2 (`market.py`, `transfer.py`, `p2_features.py`, `office_premium.py`), submission writer.
+* `scripts/` run and submit scripts: `run_cv.py`, `make_submission.py`, `submit.py` (Week 1); `p2_*.py` and `reproduce_part2.sh` (Week 2); `video/` (demo video and slide generator); `build_final_pack.py` (final submission pack).
+* `tests/` unit, contract and guardrail tests. `docs/` documentation by topic. `experiments/log.jsonl` the append-only run ledger.
+
+## Setup and reproduction
+
+    pip install -e ".[dev]"
+    python scripts/download_data.py        # Week 1 data; needs KAGGLE_API_TOKEN, data/ is gitignored
+    python scripts/download_part2.py       # Week 2 data (emerging and developed folders)
+    pytest                                 # 125 tests, no data needed
+
+Competition data, credentials and prediction files are never committed (the rules forbid redistributing the data).
+
+* **Week 1:** the recipe is in `docs/experiments/PART1_FINAL.md`; the final blend was built by `scripts/queue_final_v10.sh` and `scripts/make_submission.py`.
+* **Week 2:** `bash scripts/reproduce_part2.sh` rebuilds an early candidate end to end (several hours). The final ensemble adds member fits (`scripts/queue_p2_nn.sh`, `queue_p2_feat.sh`, `queue_p2_ensemble.sh`, `queue_p2_ensemble3.sh`, `queue_p2_nn_q.sh`, `queue_p2_nn_q_c.sh`) and is then built with:
+
+      python scripts/p2_make_submission.py --level robust \
+        --gbm-name hist1,hist1s3,hist1l8,hist1ff,xgb_hist1 \
+        --nn-share motor=0.5,buildings=0.5,contents=0.5 \
+        --nn-models nn_tabm_hist1,nn_tabm_hist1s3,nn_tabm_ple_hist1,nn_tabm_ple_hist1s3,nn_tabm_q_hist1,nn_tabm_q_hist1s3,nn_tabm_w_hist1 \
+        --tw-names twl4,twl8,twl4s3,twl8s3 --tw-share 0.25 \
+        --k-freq motor=20,buildings=400,contents=20 --out submissions/p2_t11_ensemble_e3.csv
+
+  Local validation of any variant: `python scripts/p2_calib2.py` (each run appends its printout to `docs/experiments/raw/p2/calib2_runs.log`).
+
+Branches: `main` holds the final state; day-to-day work happened on `dev` and was promoted by pull request.
